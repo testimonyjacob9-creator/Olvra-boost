@@ -349,6 +349,24 @@
       await signOut(auth);
     };
 
+    // Firebase's own SDK does not retry "auth/network-request-failed" —
+    // one dropped packet on a weak connection and the whole call just dies.
+    // On slow/unstable mobile data this happens often enough that a single
+    // silent retry (with a short backoff) meaningfully helps.
+    async function withNetworkRetry(fn, attempts = 3) {
+      let lastErr;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastErr = err;
+          if (err.code !== "auth/network-request-failed" || i === attempts - 1) throw err;
+          await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+        }
+      }
+      throw lastErr;
+    }
+
     // ---- Sign in / Sign up submit ----
     document.getElementById("auth-submit").onclick = async () => {
       const errEl = document.getElementById("auth-error");
@@ -367,7 +385,7 @@
           if (!name || !phone) { showFieldError(errEl, "Fill in your name and phone number too."); return; }
           if (password.length < 6) { showFieldError(errEl, "Password needs at least 6 characters."); return; }
 
-          const cred = await createUserWithEmailAndPassword(auth, email, password);
+          const cred = await withNetworkRetry(() => createUserWithEmailAndPassword(auth, email, password));
           await updateProfile(cred.user, { displayName: name });
 
           // This is the step the old version was missing: without this doc,
@@ -383,10 +401,14 @@
           await sendVerifyCode(cred.user, name);
           // onAuthStateChanged below routes to the verify screen automatically.
         } else {
-          await signInWithEmailAndPassword(auth, email, password);
+          await withNetworkRetry(() => signInWithEmailAndPassword(auth, email, password));
         }
       } catch (err) {
-        showFieldError(errEl, (err.message || "").replace("Firebase: ", ""));
+        if (err.code === "auth/network-request-failed") {
+          showFieldError(errEl, "Couldn't reach the server after several tries — check your internet connection (WiFi or stronger signal) and try again.");
+        } else {
+          showFieldError(errEl, (err.message || "").replace("Firebase: ", ""));
+        }
       } finally {
         btn.disabled = false;
       }
