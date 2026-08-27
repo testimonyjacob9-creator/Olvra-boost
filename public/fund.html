@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fund Wallet — Olvra Boost</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #F6F8FB; margin: 0; padding: 20px; color: #10151A;
+  }
+  .card {
+    background: #fff; border: 1px solid #E7ECF2; border-radius: 16px;
+    padding: 20px; max-width: 420px; margin: 0 auto;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { color: #6B7684; font-size: 13px; margin: 0 0 20px; }
+  .input {
+    width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid #E7ECF2;
+    font-size: 14px; margin-bottom: 12px; font-family: inherit;
+  }
+  .btn {
+    width: 100%; padding: 14px; border-radius: 12px; border: none;
+    background: #2F6FED; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .btn:disabled { opacity: 0.6; }
+  .account-box {
+    display: none; margin-top: 20px; padding: 16px; border-radius: 12px;
+    background: #EEF4FF; text-align: center;
+  }
+  .account-box .num { font-size: 22px; font-weight: 700; letter-spacing: 1px; margin: 6px 0; }
+  .account-box .bank { color: #6B7684; font-size: 13px; }
+  .msg { font-size: 13px; margin-top: 12px; min-height: 16px; }
+  .msg.error { color: #D64545; }
+  .msg.ok { color: #1E9E5A; }
+  a.back { display:block; text-align:center; margin-top:16px; color:#6B7684; font-size:13px; text-decoration:none; }
+</style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Fund your wallet</h1>
+    <p class="sub">Generate your permanent account number — transfer any amount to it, anytime, and your wallet credits automatically (a flat ₦50 charge applies per funding).</p>
+
+    <div id="form-section">
+      <input class="input" id="nin" type="text" inputmode="numeric" maxlength="11" placeholder="NIN (11 digits)">
+      <input class="input" id="nin-name" type="text" placeholder="Full name (as on your NIN)">
+      <button class="btn" id="submit-btn">Generate Account Number</button>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="account-box" id="account-box">
+      <div class="bank" id="bank-name"></div>
+      <div class="num" id="account-number"></div>
+      <div class="bank" id="account-name"></div>
+      <div class="msg ok" style="margin-top:10px">Transfer to this account anytime — your wallet credits automatically within a minute (a flat ₦50 charge applies per funding).</div>
+    </div>
+
+    <a class="back" href="/">← Back to dashboard</a>
+  </div>
+
+  <script type="module">
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    // Wait for index.html's module script to finish setting window.__olvra.
+    function waitForOlvra() {
+      return new Promise((resolve) => {
+        const check = () => (window.__olvra ? resolve(window.__olvra) : setTimeout(check, 50));
+        check();
+      });
+    }
+
+    const msg = document.getElementById("msg");
+    const formSection = document.getElementById("form-section");
+    const accountBox = document.getElementById("account-box");
+    const submitBtn = document.getElementById("submit-btn");
+
+    function showMsg(text, isError) {
+      msg.textContent = text;
+      msg.className = "msg " + (isError ? "error" : "ok");
+    }
+
+    function showAccount({ accountNumber, accountName, bankName }) {
+      document.getElementById("account-number").textContent = accountNumber;
+      document.getElementById("account-name").textContent = accountName;
+      document.getElementById("bank-name").textContent = bankName;
+      formSection.style.display = "none";
+      accountBox.style.display = "block";
+    }
+
+    waitForOlvra().then(({ auth, db, callFunction }) => {
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          window.location.href = "/";
+          return;
+        }
+
+        // If the user already has a permanent account on file, show it
+        // straight away instead of asking for NIN again.
+        try {
+          const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+          const snap = await getDoc(doc(db, "users", user.uid));
+          const existing = snap.exists() && snap.data().permanent_account;
+          if (existing && existing.account_number) {
+            showAccount({
+              accountNumber: existing.account_number,
+              accountName: existing.account_name,
+              bankName: existing.bank_name,
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+
+        submitBtn.onclick = async () => {
+          const nin = document.getElementById("nin").value.trim();
+          const ninName = document.getElementById("nin-name").value.trim();
+
+          if (!/^[1-9][0-9]{10}$/.test(nin)) {
+            return showMsg("NIN must be exactly 11 digits.", true);
+          }
+          if (!ninName.includes(" ")) {
+            return showMsg("Enter your full name (first and last).", true);
+          }
+
+          submitBtn.disabled = true;
+          showMsg("Creating your account number…", false);
+
+          try {
+            const data = await callFunction("create-permanent-account", { nin, ninName });
+            showAccount(data);
+          } catch (err) {
+            showMsg(err.message || "Something went wrong.", true);
+          } finally {
+            submitBtn.disabled = false;
+          }
+        };
+      });
+    });
+  </script>
+</body>
+</html>

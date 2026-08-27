@@ -179,8 +179,6 @@
     import {
       getFirestore, doc, getDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
-
     const cfg = window.APP_CONFIG || {};
     const firebaseConfig = {
       apiKey: cfg.FIREBASE_WEB_API_KEY,
@@ -194,9 +192,30 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const functions = getFunctions(app);
 
-    window.__olvra = { app, auth, db, functions, httpsCallable };
+    // Backend logic now lives in Netlify Functions, not Firebase Cloud
+    // Functions — so instead of httpsCallable, we fetch() our own endpoints
+    // and attach the signed-in user's ID token as a Bearer header.
+    async function callFunction(name, body) {
+      const user = auth.currentUser;
+      if (!user) throw new Error("You must be signed in.");
+      const idToken = await user.getIdToken();
+
+      const res = await fetch(`/.netlify/functions/${name}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify(body || {}),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Request to ${name} failed.`);
+      return data;
+    }
+
+    window.__olvra = { app, auth, db, callFunction };
 
     const authScreen = document.getElementById("auth-screen");
     const appScreen = document.getElementById("app-screen");
