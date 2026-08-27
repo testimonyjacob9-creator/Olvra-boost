@@ -1,0 +1,7 @@
+node_modules/
+functions/node_modules/
+public/config.js
+.netlify/
+.env
+.firebase/
+*.log
