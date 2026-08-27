@@ -13,9 +13,6 @@ const required = [
   "FIREBASE_STORAGE_BUCKET",
   "FIREBASE_MESSAGING_SENDER_ID",
   "FIREBASE_APP_ID",
-  "FLW_PUBLIC_KEY",
-  "VAPID_PUBLIC_KEY",
-  "FUNCTIONS_BASE_URL", // e.g. https://us-central1-yourproject.cloudfunctions.net
 ];
 
 const missing = required.filter((key) => !process.env[key]);
