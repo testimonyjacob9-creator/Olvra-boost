@@ -12,19 +12,29 @@ service cloud.firestore {
     }
 
     // Users: a user can read/update their own profile, but CANNOT touch
-    // wallet_balance directly — that field is only ever changed by the
-    // placeOrder Cloud Function (Admin SDK bypasses rules).
+    // wallet_balance or permanent_account directly — wallet_balance is only
+    // ever changed by the place-order or flutterwave-webhook functions, and
+    // permanent_account is only ever set by create-permanent-account
+    // (all Admin SDK, which bypasses these rules).
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null
                     && request.auth.uid == userId
-                    && !("wallet_balance" in request.resource.data.diff(resource.data).affectedKeys());
+                    && !("wallet_balance" in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("permanent_account" in request.resource.data.diff(resource.data).affectedKeys());
     }
 
     // Orders: a user can read their own orders. Orders are only ever
-    // created by the placeOrder Cloud Function, never directly by the client.
+    // created by the place-order function, never directly by the client.
     match /orders/{orderId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow write: if false;
+    }
+
+    // Wallet top-ups: a user can read their own funding history. Records
+    // are only ever created by flutterwave-webhook.js (Admin SDK).
+    match /wallet_topups/{topupId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.uid;
       allow write: if false;
     }
