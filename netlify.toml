@@ -12,3 +12,5 @@
 # Runs syncServices every 6 hours — replaces the old Firebase onSchedule trigger.
 [functions."sync-services"]
   schedule = "0 */6 * * *"
+  [[plugins]]
+package = "@netlify/plugin-functions-install-core"
