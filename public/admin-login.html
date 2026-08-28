@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Admin Login — Olvra Boost</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F7FE; --surface:#FFFFFF; --surface-2:#EEF3FF; --blue:#2C5CF6; --blue-deep:#1339B0;
+    --sky:#16B8E0; --text:#10162B; --muted:#6B7590; --muted-2:#9AA3C0; --line:rgba(16,22,54,0.08);
+    --shadow:0 6px 22px rgba(23,43,133,0.08); --red:#E5484D;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; }
+  body{ max-width:420px; margin:0 auto; min-height:100vh; display:flex; align-items:center; padding:24px; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:20px; padding:32px 26px; box-shadow:var(--shadow); width:100%; }
+  .lock{ font-size:34px; margin-bottom:10px; }
+  h1{ font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin-bottom:4px; }
+  .sub{ color:var(--muted); font-size:12.5px; margin-bottom:24px; line-height:1.5; }
+  label{ font-size:11.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:6px; }
+  input{ width:100%; padding:13px 14px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); font-size:14.5px; font-family:inherit; color:var(--text); margin-bottom:16px; }
+  input:focus{ outline:2px solid var(--blue); outline-offset:1px; }
+  button{ width:100%; padding:14px; border:none; border-radius:12px; font-size:14.5px; font-weight:700; color:#fff; background:linear-gradient(145deg,var(--blue),var(--blue-deep)); cursor:pointer; box-shadow:0 6px 16px rgba(44,92,246,0.28); }
+  button:disabled{ opacity:0.6; }
+  .error{ color:var(--red); font-size:12.5px; margin-top:14px; min-height:16px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="lock">🔒</div>
+    <h1>Admin Login</h1>
+    <div class="sub">This is a separate sign-in from the customer app. Enter the email/password for an account already on the admin allowlist.</div>
+    <form id="login-form">
+      <label for="email">Email</label>
+      <input type="email" id="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" required>
+      <button type="submit" id="submit-btn">Sign in</button>
+      <div class="error" id="error-text"></div>
+    </form>
+  </div>
+
+  <script type="module">
+    import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { auth, db, withNetworkRetry } from "./js/firebase-client.js";
+
+    const form = document.getElementById("login-form");
+    const btn = document.getElementById("submit-btn");
+    const errorText = document.getElementById("error-text");
+
+    // If a redirect ?next= was set (admin.html sends people here when
+    // they're signed out), send them back there after a successful,
+    // admin-verified login. Default to /admin.html.
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next") || "/admin.html";
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      errorText.textContent = "";
+      btn.disabled = true;
+      btn.textContent = "Signing in…";
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        const cred = await withNetworkRetry(() => signInWithEmailAndPassword(auth, email, password));
+        const adminSnap = await getDoc(doc(db, "admins", cred.user.uid));
+        if (!adminSnap.exists()) {
+          await signOut(auth);
+          errorText.textContent = "This account isn't on the admin allowlist.";
+          btn.disabled = false;
+          btn.textContent = "Sign in";
+          return;
+        }
+        window.location.href = next;
+      } catch (err) {
+        errorText.textContent = err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found"
+          ? "Incorrect email or password."
+          : (err.message || "Sign-in failed.");
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+      }
+    };
+  </script>
+</body>
+</html>

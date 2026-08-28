@@ -86,7 +86,25 @@
 
   <script type="module">
     import { collection, query, orderBy, limit, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { db, auth, callFunction, requireSignedInUser } from "./js/firebase-client.js";
+    import { db, auth, callFunction } from "./js/firebase-client.js";
+
+    // Admin gets its own sign-in surface at admin-login.html — unlike the
+    // rest of the app, this does NOT go through requireSignedInUser()
+    // (which redirects to "/", the customer signup/login flow). A signed-
+    // out visitor here goes straight to the dedicated admin login instead.
+    function requireSignedInAdmin() {
+      return new Promise((resolve) => {
+        let unsub;
+        unsub = auth.onAuthStateChanged((user) => {
+          if (unsub) unsub();
+          if (!user) {
+            window.location.href = "/admin-login.html?next=" + encodeURIComponent(window.location.pathname);
+            return;
+          }
+          resolve(user);
+        });
+      });
+    }
 
     const toastEl = document.getElementById("toast");
     function showToast(msg) { toastEl.textContent = msg; toastEl.classList.add("show"); setTimeout(() => toastEl.classList.remove("show"), 3000); }
@@ -185,7 +203,7 @@
       btn.disabled = false; btn.textContent = "🔄 Sync now";
     };
 
-    requireSignedInUser().then(async (user) => {
+    requireSignedInAdmin().then(async (user) => {
       const adminSnap = await getDoc(doc(db, "admins", user.uid));
       if (!adminSnap.exists()) {
         document.getElementById("gate-screen").classList.remove("hidden");
