@@ -22,10 +22,15 @@ async function fetchServicesPage(token, { platform, page = 1, pageSize = 100 } =
   if (platform) params.platform = platform;
 
   const res = await api.get("/api/v2/marketinghub/services/", { params });
-  if (!res.data?.success) {
+  // Unlike platforms/countries/order endpoints, /services/ returns the
+  // paginated payload unwrapped — { count, next, previous, results }
+  // directly on res.data, with no { success, data: {...} } envelope
+  // (confirmed against a live response 2026-08-28, which had no `success`
+  // key at all — the old check on res.data.success rejected every page).
+  if (!res.data || !Array.isArray(res.data.results)) {
     throw new Error(`BigiSub services fetch failed: ${JSON.stringify(res.data)}`);
   }
-  return res.data.data; // { count, next, previous, results }
+  return res.data; // { count, next, previous, results }
 }
 
 /**

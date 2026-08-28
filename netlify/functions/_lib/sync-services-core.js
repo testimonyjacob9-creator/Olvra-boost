@@ -30,11 +30,15 @@ async function runSync() {
         const costPrice = parseFloat(svc.price);
         const sellPrice = round2(costPrice * (1 + MARKUP));
 
-        const ref = db.collection("services").doc(String(svc.service_id));
+        // BigiSub's real API returns the service identifier as `id`, not
+        // `service_id` (confirmed against a live response 2026-08-28) —
+        // we still store/consume it as `service_id` everywhere downstream
+        // (place-order.js, services.html, index.html), so map it here.
+        const ref = db.collection("services").doc(String(svc.id));
         batch.set(
           ref,
           {
-            service_id: svc.service_id,
+            service_id: svc.id,
             name: svc.name,
             platform: svc.platform,
             country: svc.country,
