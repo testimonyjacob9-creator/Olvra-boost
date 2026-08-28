@@ -38,7 +38,7 @@
     -webkit-text-size-adjust:100%;
   }
 
-  /* Header */
+  /* ===== Header (app shell) ===== */
   .header{ display:flex; align-items:center; justify-content:space-between; padding:22px 20px 6px; }
   .header-left{ display:flex; align-items:center; gap:12px; min-width:0; }
   .avatar{
@@ -54,10 +54,10 @@
   .bell-btn{
     flex-shrink:0; width:40px; height:40px; border-radius:12px; background:var(--surface);
     border:1px solid var(--line); box-shadow:var(--shadow);
-    display:flex; align-items:center; justify-content:center; position:relative;
+    display:flex; align-items:center; justify-content:center;
   }
 
-  /* Wallet */
+  /* ===== Wallet ===== */
   .wallet-wrap{ padding:18px 16px 4px; }
   .wallet-card{
     position:relative; overflow:hidden;
@@ -70,14 +70,23 @@
   .wallet-balance{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:34px; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; word-break:break-all; }
   .wallet-actions{ display:flex; gap:10px; margin-top:18px; }
   .btn{
-    flex:1; padding:12px; border-radius:14px; border:none; font-weight:600; font-size:14px;
+    flex:1; padding:13px; border-radius:14px; border:none; font-weight:600; font-size:14.5px;
     font-family:'Inter',sans-serif; cursor:pointer; -webkit-appearance:none; appearance:none;
   }
   .btn-primary{ background:linear-gradient(145deg,var(--blue),var(--blue-deep)); color:#fff; box-shadow:0 8px 20px rgba(44,92,246,0.3); }
-  .btn-primary:disabled{ opacity:0.6; }
+  .btn-primary:disabled{ opacity:0.55; }
   .btn-ghost{ background:var(--surface); border:1px solid var(--line); color:var(--text); }
+  .btn-secondary{ background:var(--surface-2); color:var(--blue-deep); border:1px solid rgba(44,92,246,0.18); }
 
-  /* Platform grid */
+  .account-chip{
+    margin-top:14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:#fff; border:1px dashed rgba(44,92,246,0.35); border-radius:14px; padding:12px 14px;
+  }
+  .account-chip .num{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; letter-spacing:0.02em; }
+  .account-chip .bank{ font-size:11px; color:var(--muted); margin-top:2px; }
+  .copy-btn{ background:var(--surface-2); border:none; border-radius:10px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--blue-deep); flex-shrink:0; }
+
+  /* ===== Platform grid / orders (unchanged app shell) ===== */
   .section-title{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15px; padding:22px 20px 10px; }
   .platform-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:0 16px; }
   .platform-tile{
@@ -88,7 +97,6 @@
   .platform-tile .dot{ width:34px; height:34px; border-radius:50%; }
   .platform-tile span{ font-size:11px; color:var(--muted); font-weight:600; text-align:center; }
 
-  /* Orders */
   .order-list{ padding:0 16px; display:flex; flex-direction:column; gap:10px; }
   .order-row{
     background:var(--surface); border:1px solid var(--line); border-radius:14px;
@@ -99,27 +107,87 @@
   .status-processing{ background:#FFF4E5; color:var(--amber); }
   .status-completed{ background:#E7F9F1; color:var(--green); }
   .status-failed{ background:#FDECEC; color:var(--red); }
-
   .empty-state{ text-align:center; padding:30px 20px; color:var(--muted-2); font-size:13px; }
   .hidden{ display:none !important; }
 
-  /* Auth / Verify screens */
-  .auth-wrap{ padding:40px 24px; min-height:100vh; }
-  .auth-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; margin-bottom:6px; }
-  .auth-sub{ color:var(--muted); font-size:13.5px; margin-bottom:24px; line-height:1.5; }
+  /* ===== Auth shell ===== */
+  .auth-wrap{ padding:36px 22px 40px; min-height:100vh; }
+  .brand-mark{
+    width:46px; height:46px; border-radius:14px; margin-bottom:20px;
+    background:linear-gradient(145deg,var(--blue),var(--sky));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; color:#fff; font-size:18px;
+    box-shadow:0 8px 20px rgba(44,92,246,0.28);
+  }
+  .auth-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:23px; margin-bottom:6px; letter-spacing:-0.01em; }
+  .auth-sub{ color:var(--muted); font-size:13.5px; margin-bottom:26px; line-height:1.55; }
+
+  /* Step indicator */
+  .step-track{ display:flex; align-items:center; gap:6px; margin-bottom:26px; }
+  .step-dot{ flex:1; height:4px; border-radius:4px; background:var(--surface-3); transition:background 0.25s; }
+  .step-dot.active{ background:var(--blue); }
+  .step-dot.done{ background:var(--sky); }
+
+  .field-label{ font-size:12.5px; font-weight:600; color:var(--muted); margin-bottom:6px; display:block; }
+  .field-group{ margin-bottom:16px; }
   .input{
-    width:100%; padding:14px 16px; border-radius:14px; border:1px solid var(--line);
-    background:var(--surface); font-size:16px; margin-bottom:12px; font-family:'Inter',sans-serif;
+    width:100%; padding:14px 16px; border-radius:14px; border:1.5px solid var(--line);
+    background:var(--surface); font-size:16px; font-family:'Inter',sans-serif;
+    transition:border-color 0.15s;
   }
-  select.input{ -webkit-appearance:none; appearance:none; }
-  .field-error{ color:var(--red); font-size:12.5px; margin:-4px 0 12px; display:none; }
-  .code-input{
-    width:100%; padding:16px; border-radius:14px; border:1px solid var(--line);
-    background:var(--surface); font-size:24px; letter-spacing:10px; text-align:center;
-    font-family:'JetBrains Mono',monospace; margin-bottom:14px;
+  .input:focus{ outline:none; border-color:var(--blue); }
+  select.input{ -webkit-appearance:none; appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7590' stroke-width='1.6' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 16px center; padding-right:38px;
   }
-  .resend-link{ text-align:center; margin-top:14px; font-size:13px; color:var(--muted); }
+  .field-hint{ font-size:11.5px; color:var(--muted-2); margin-top:6px; }
+  .field-error{ color:var(--red); font-size:12.5px; margin:6px 0 0; display:none; }
+
+  .id-type-toggle{ display:flex; gap:8px; margin-bottom:16px; }
+  .id-type-btn{
+    flex:1; padding:12px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface);
+    font-weight:600; font-size:13.5px; color:var(--muted); cursor:pointer;
+  }
+  .id-type-btn.selected{ border-color:var(--blue); background:var(--surface-2); color:var(--blue-deep); }
+
+  .step-nav{ display:flex; gap:10px; margin-top:6px; }
+  .step-nav .btn-ghost{ flex:0 0 96px; }
+
+  .resend-link{ text-align:center; margin-top:16px; font-size:13px; color:var(--muted); }
   .resend-link a{ color:var(--blue); font-weight:600; text-decoration:none; }
+  .switch-link{ text-align:center; margin-top:20px; font-size:13.5px; color:var(--muted); }
+  .switch-link a{ color:var(--blue); font-weight:600; text-decoration:none; }
+
+  .code-input{
+    width:100%; padding:16px; border-radius:14px; border:1.5px solid var(--line);
+    background:var(--surface); font-size:26px; letter-spacing:12px; text-align:center;
+    font-family:'JetBrains Mono',monospace; margin-bottom:8px;
+  }
+  .code-input:focus{ outline:none; border-color:var(--blue); }
+
+  .kyc-note{
+    display:flex; gap:10px; background:var(--surface-2); border:1px solid rgba(44,92,246,0.15);
+    border-radius:14px; padding:13px 14px; font-size:12.5px; color:var(--blue-deep); line-height:1.5; margin-bottom:18px;
+  }
+
+  /* Generating / success state */
+  .center-state{ text-align:center; padding:60px 24px; }
+  .spinner{
+    width:44px; height:44px; border-radius:50%; margin:0 auto 24px;
+    border:4px solid var(--surface-3); border-top-color:var(--blue);
+    animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .success-icon{
+    width:64px; height:64px; border-radius:50%; margin:0 auto 20px; background:#E7F9F1;
+    display:flex; align-items:center; justify-content:center; font-size:30px; color:var(--green);
+  }
+  .success-account{
+    background:var(--surface); border:1.5px dashed var(--blue); border-radius:16px; padding:20px;
+    margin:20px 0; text-align:left;
+  }
+  .success-account .num{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:22px; letter-spacing:0.03em; }
+  .success-account .bank{ color:var(--muted); font-size:13px; margin-top:4px; }
 
   #toast{
     position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
@@ -130,7 +198,7 @@
   #toast.show{ opacity:1; }
 
   @media (max-width:380px){
-    .auth-wrap{ padding:32px 18px; }
+    .auth-wrap{ padding:28px 18px 36px; }
     .wallet-balance{ font-size:28px; }
     .platform-grid{ grid-template-columns:repeat(3,1fr); }
   }
@@ -138,26 +206,95 @@
 </head>
 <body>
 
-  <!-- AUTH SCREEN -->
-  <div id="auth-screen" class="auth-wrap">
-    <div class="auth-title" id="auth-heading">Welcome to Olvra Boost</div>
-    <div class="auth-sub" id="auth-subtext">Sign in to manage your orders and wallet</div>
+  <!-- ===================== SIGN IN SCREEN ===================== -->
+  <div id="signin-screen" class="auth-wrap">
+    <div class="brand-mark">OB</div>
+    <div class="auth-title">Welcome back</div>
+    <div class="auth-sub">Sign in to manage your orders and wallet.</div>
 
-    <div id="signup-extra-fields" class="hidden">
-      <input class="input" id="auth-name" type="text" placeholder="Full name" autocomplete="name">
-      <input class="input" id="auth-phone" type="tel" placeholder="Phone number" autocomplete="tel">
+    <div class="field-group">
+      <label class="field-label">Email</label>
+      <input class="input" id="signin-email" type="email" placeholder="you@email.com" autocomplete="email">
     </div>
-    <input class="input" id="auth-email" type="email" placeholder="Email" autocomplete="email">
-    <input class="input" id="auth-password" type="password" placeholder="Password" autocomplete="new-password">
-    <div class="field-error" id="auth-error"></div>
-    <button class="btn btn-primary" style="width:100%" id="auth-submit">Sign In</button>
-    <p style="text-align:center;margin-top:14px;font-size:13px;color:var(--muted)">
-      No account? <a href="#" id="auth-toggle" style="color:var(--blue);font-weight:600;">Sign up</a>
-    </p>
+    <div class="field-group">
+      <label class="field-label">Password</label>
+      <input class="input" id="signin-password" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="field-error" id="signin-error"></div>
+    <button class="btn btn-primary" style="width:100%" id="signin-submit">Sign In</button>
+    <div class="switch-link">No account? <a href="#" id="go-to-signup">Create one</a></div>
   </div>
 
-  <!-- VERIFY EMAIL SCREEN -->
+  <!-- ===================== SIGNUP: STEP 1 — YOUR DETAILS ===================== -->
+  <div id="signup-step1" class="auth-wrap hidden">
+    <div class="step-track"><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+    <div class="auth-title">Create your account</div>
+    <div class="auth-sub">Let's start with your basic details.</div>
+
+    <div class="field-group">
+      <label class="field-label">Full name</label>
+      <input class="input" id="su-name" type="text" placeholder="e.g. Testimony Jacob" autocomplete="name">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Email</label>
+      <input class="input" id="su-email" type="email" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Phone number</label>
+      <input class="input" id="su-phone" type="tel" placeholder="e.g. 08012345678" autocomplete="tel">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Country</label>
+      <select class="input" id="su-country">
+        <option value="NG" selected>Nigeria</option>
+        <option value="GH">Ghana</option>
+        <option value="KE">Kenya</option>
+        <option value="OTHER">Other</option>
+      </select>
+      <div class="field-hint" id="country-hint">Account numbers are currently issued for Nigeria only.</div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Password</label>
+      <input class="input" id="su-password" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+    </div>
+    <div class="field-error" id="step1-error"></div>
+    <button class="btn btn-primary" style="width:100%" id="step1-next">Continue</button>
+    <div class="switch-link">Already have an account? <a href="#" id="go-to-signin">Sign in</a></div>
+  </div>
+
+  <!-- ===================== SIGNUP: STEP 2 — IDENTITY VERIFICATION ===================== -->
+  <div id="signup-step2" class="auth-wrap hidden">
+    <div class="step-track"><div class="step-dot done"></div><div class="step-dot active"></div><div class="step-dot"></div></div>
+    <div class="auth-title">Verify your identity</div>
+    <div class="auth-sub">Required to generate your personal account number for receiving payments.</div>
+
+    <div class="kyc-note">🔒 Your ID number is sent securely to generate your account and is never stored on our servers.</div>
+
+    <label class="field-label">ID type</label>
+    <div class="id-type-toggle">
+      <button type="button" class="id-type-btn selected" data-type="nin" id="id-type-nin">NIN</button>
+      <button type="button" class="id-type-btn" data-type="bvn" id="id-type-bvn">BVN</button>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" id="id-number-label">NIN (11 digits)</label>
+      <input class="input" id="su-id-number" type="text" inputmode="numeric" maxlength="11" placeholder="e.g. 12345678901">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Full name (exactly as on your ID)</label>
+      <input class="input" id="su-id-name" type="text" placeholder="e.g. Testimony Jacob">
+    </div>
+    <div class="field-error" id="step2-error"></div>
+
+    <div class="step-nav">
+      <button class="btn btn-ghost" id="step2-back">Back</button>
+      <button class="btn btn-primary" id="step2-next">Create Account</button>
+    </div>
+  </div>
+
+  <!-- ===================== SIGNUP: STEP 3 — EMAIL VERIFICATION ===================== -->
   <div id="verify-screen" class="auth-wrap hidden">
+    <div class="step-track"><div class="step-dot done"></div><div class="step-dot done"></div><div class="step-dot active"></div></div>
     <div class="auth-title">Verify your email</div>
     <div class="auth-sub">We sent a 6-digit code to <strong id="verify-email-display"></strong>. Enter it below to activate your account.</div>
     <input class="code-input" id="verify-code" type="text" inputmode="numeric" maxlength="6" placeholder="••••••">
@@ -166,7 +303,31 @@
     <div class="resend-link">Didn't get it? <a href="#" id="verify-resend">Resend code</a> · <a href="#" id="verify-signout">Sign out</a></div>
   </div>
 
-  <!-- APP SHELL -->
+  <!-- ===================== GENERATING ACCOUNT (post-verify) ===================== -->
+  <div id="generating-screen" class="auth-wrap hidden">
+    <div class="center-state">
+      <div class="spinner"></div>
+      <div class="auth-title" style="text-align:center">Setting up your account…</div>
+      <div class="auth-sub" style="text-align:center">Generating your personal account number. This takes a few seconds.</div>
+    </div>
+  </div>
+
+  <!-- ===================== ACCOUNT READY ===================== -->
+  <div id="account-ready-screen" class="auth-wrap hidden">
+    <div class="center-state">
+      <div class="success-icon">✓</div>
+      <div class="auth-title" style="text-align:center">You're all set!</div>
+      <div class="auth-sub" style="text-align:center">Fund your wallet anytime by transferring to this account.</div>
+      <div class="success-account">
+        <div class="field-label">Account Number</div>
+        <div class="num" id="ready-account-number">—</div>
+        <div class="bank" id="ready-bank-name">—</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="account-ready-continue">Go to Dashboard</button>
+    </div>
+  </div>
+
+  <!-- ===================== APP SHELL ===================== -->
   <div id="app-screen" class="hidden">
     <div class="header">
       <div class="header-left">
@@ -188,6 +349,13 @@
         <div class="wallet-actions">
           <button class="btn btn-primary" id="fund-wallet-btn">Fund Wallet</button>
           <button class="btn btn-ghost" id="history-btn">History</button>
+        </div>
+        <div class="account-chip hidden" id="account-chip">
+          <div>
+            <div class="num" id="chip-account-number">—</div>
+            <div class="bank" id="chip-bank-name">—</div>
+          </div>
+          <button class="copy-btn" id="chip-copy">Copy</button>
         </div>
       </div>
     </div>
@@ -216,7 +384,7 @@
 
     // Hardcoded directly (same approach as WoodPayVTU) — no build-time
     // injection, no config.js, nothing that depends on Netlify env vars
-    // or the build step running correctly. This can never fail to load.
+    // or the build step running correctly.
     const firebaseConfig = {
       apiKey: "AIzaSyBNmwzcR15pTd2XpTzvp9S-O0V6ABzcoqE",
       authDomain: "olvra-boost.firebaseapp.com",
@@ -230,34 +398,54 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Backend logic lives in Netlify Functions — fetch() our own endpoints
-    // and attach the signed-in user's ID token as a Bearer header.
     async function callFunction(name, body) {
       const user = auth.currentUser;
       if (!user) throw new Error("You must be signed in.");
       const idToken = await user.getIdToken();
-
       const res = await fetch(`/.netlify/functions/${name}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
         body: JSON.stringify(body || {}),
       });
-
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Request to ${name} failed.`);
       return data;
     }
 
+    // fund.html (and any other page) waits on this global to access the
+    // already-initialized Firebase app instead of re-initializing.
     window.__olvra = { app, auth, db, callFunction };
 
-    const authScreen = document.getElementById("auth-screen");
-    const verifyScreen = document.getElementById("verify-screen");
-    const appScreen = document.getElementById("app-screen");
-    const toast = document.getElementById("toast");
+    // Firebase's SDK doesn't retry "auth/network-request-failed" on its own —
+    // a short automatic retry helps meaningfully on weak mobile connections.
+    async function withNetworkRetry(fn, attempts = 3) {
+      let lastErr;
+      for (let i = 0; i < attempts; i++) {
+        try { return await fn(); }
+        catch (err) {
+          lastErr = err;
+          if (err.code !== "auth/network-request-failed" || i === attempts - 1) throw err;
+          await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+        }
+      }
+      throw lastErr;
+    }
 
+    const screens = {
+      signin: document.getElementById("signin-screen"),
+      step1: document.getElementById("signup-step1"),
+      step2: document.getElementById("signup-step2"),
+      verify: document.getElementById("verify-screen"),
+      generating: document.getElementById("generating-screen"),
+      ready: document.getElementById("account-ready-screen"),
+      app: document.getElementById("app-screen"),
+    };
+    function showScreen(name) {
+      Object.values(screens).forEach((el) => el.classList.add("hidden"));
+      screens[name].classList.remove("hidden");
+    }
+
+    const toast = document.getElementById("toast");
     function showToast(msg) {
       toast.textContent = msg;
       toast.classList.add("show");
@@ -268,23 +456,120 @@
       el.style.display = msg ? "block" : "none";
     }
 
-    // ---- Sign in / Sign up toggle ----
-    let isSignup = false;
-    const signupExtraFields = document.getElementById("signup-extra-fields");
-    document.getElementById("auth-toggle").onclick = (e) => {
-      e.preventDefault();
-      isSignup = !isSignup;
-      document.getElementById("auth-heading").textContent = isSignup ? "Create your account" : "Welcome to Olvra Boost";
-      document.getElementById("auth-subtext").textContent = isSignup
-        ? "We'll send a 6-digit code to your email to activate it."
-        : "Sign in to manage your orders and wallet";
-      document.getElementById("auth-submit").textContent = isSignup ? "Create Account" : "Sign In";
-      e.target.textContent = isSignup ? "Sign in instead" : "Sign up";
-      signupExtraFields.classList.toggle("hidden", !isSignup);
-      showFieldError(document.getElementById("auth-error"), "");
+    // ---- Screen switching links ----
+    document.getElementById("go-to-signup").onclick = (e) => { e.preventDefault(); showScreen("step1"); };
+    document.getElementById("go-to-signin").onclick = (e) => { e.preventDefault(); showScreen("signin"); };
+
+    // ---- Sign in ----
+    document.getElementById("signin-submit").onclick = async () => {
+      const errEl = document.getElementById("signin-error");
+      showFieldError(errEl, "");
+      const email = document.getElementById("signin-email").value.trim();
+      const password = document.getElementById("signin-password").value;
+      if (!email || !password) return showFieldError(errEl, "Enter email and password.");
+
+      const btn = document.getElementById("signin-submit");
+      btn.disabled = true;
+      try {
+        await withNetworkRetry(() => signInWithEmailAndPassword(auth, email, password));
+      } catch (err) {
+        if (err.code === "auth/network-request-failed") {
+          showFieldError(errEl, "Couldn't reach the server after several tries — check your connection and try again.");
+        } else {
+          showFieldError(errEl, (err.message || "").replace("Firebase: ", ""));
+        }
+      } finally {
+        btn.disabled = false;
+      }
     };
 
-    // ---- Email verification helpers ----
+    // ---- Signup state carried across steps ----
+    const signup = {};
+
+    // ---- Step 1 -> Step 2 ----
+    document.getElementById("su-country").onchange = (e) => {
+      const hint = document.getElementById("country-hint");
+      hint.textContent = e.target.value === "NG"
+        ? "Account numbers are currently issued for Nigeria only."
+        : "Account number generation isn't available in your country yet — you can still sign up and fund via card later.";
+    };
+
+    document.getElementById("step1-next").onclick = () => {
+      const errEl = document.getElementById("step1-error");
+      showFieldError(errEl, "");
+      const name = document.getElementById("su-name").value.trim();
+      const email = document.getElementById("su-email").value.trim();
+      const phone = document.getElementById("su-phone").value.trim();
+      const country = document.getElementById("su-country").value;
+      const password = document.getElementById("su-password").value;
+
+      if (!name || name.split(" ").length < 2) return showFieldError(errEl, "Enter your full name (first and last).");
+      if (!email || !email.includes("@")) return showFieldError(errEl, "Enter a valid email.");
+      if (!phone || phone.length < 10) return showFieldError(errEl, "Enter a valid phone number.");
+      if (!password || password.length < 6) return showFieldError(errEl, "Password needs at least 6 characters.");
+
+      Object.assign(signup, { name, email, phone, country, password });
+      document.getElementById("su-id-name").value = name;
+      showScreen("step2");
+    };
+
+    // ---- Step 2: ID type toggle ----
+    let idType = "nin";
+    document.getElementById("id-type-nin").onclick = () => setIdType("nin");
+    document.getElementById("id-type-bvn").onclick = () => setIdType("bvn");
+    function setIdType(type) {
+      idType = type;
+      document.getElementById("id-type-nin").classList.toggle("selected", type === "nin");
+      document.getElementById("id-type-bvn").classList.toggle("selected", type === "bvn");
+      document.getElementById("id-number-label").textContent = type === "nin" ? "NIN (11 digits)" : "BVN (11 digits)";
+      document.getElementById("su-id-number").placeholder = type === "nin" ? "e.g. 12345678901" : "e.g. 22345678901";
+    }
+    document.getElementById("step2-back").onclick = () => showScreen("step1");
+
+    // ---- Step 2 -> create account ----
+    document.getElementById("step2-next").onclick = async () => {
+      const errEl = document.getElementById("step2-error");
+      showFieldError(errEl, "");
+      const idNumber = document.getElementById("su-id-number").value.trim();
+      const idName = document.getElementById("su-id-name").value.trim();
+
+      if (!/^[1-9][0-9]{10}$/.test(idNumber)) return showFieldError(errEl, `Enter a valid 11-digit ${idType.toUpperCase()}.`);
+      if (!idName || idName.split(" ").length < 2) return showFieldError(errEl, "Enter your full name as it appears on your ID.");
+
+      Object.assign(signup, { idType, idNumber, idName });
+
+      const btn = document.getElementById("step2-next");
+      btn.disabled = true;
+      btn.textContent = "Creating…";
+      try {
+        const cred = await withNetworkRetry(() => createUserWithEmailAndPassword(auth, signup.email, signup.password));
+        await updateProfile(cred.user, { displayName: signup.name });
+
+        // The step the old version was missing entirely: without this doc,
+        // every wallet/account feature downstream has nothing to read from.
+        await setDoc(doc(db, "users", cred.user.uid), {
+          name: signup.name,
+          email: signup.email,
+          phone: signup.phone,
+          country: signup.country,
+          wallet_balance: 0,
+          created_at: serverTimestamp(),
+        });
+
+        await sendVerifyCode(cred.user, signup.name);
+        // onAuthStateChanged below routes to the verify screen automatically.
+      } catch (err) {
+        if (err.code === "auth/network-request-failed") {
+          showFieldError(errEl, "Couldn't reach the server after several tries — check your connection and try again.");
+        } else {
+          showFieldError(errEl, (err.message || "").replace("Firebase: ", ""));
+        }
+        btn.disabled = false;
+        btn.textContent = "Create Account";
+      }
+    };
+
+    // ---- Email verification ----
     let currentUser = null;
     let lastCodeSentAt = 0;
 
@@ -323,13 +608,32 @@
           body: JSON.stringify({ action: "confirm", uid: currentUser.uid, code }),
         });
         const data = await res.json();
-        if (!data.ok) {
-          showFieldError(errEl, data.error || "Verification failed.");
-          return;
+        if (!data.ok) { showFieldError(errEl, data.error || "Verification failed."); return; }
+
+        await currentUser.getIdToken(true);
+
+        // If we captured NIN/BVN during signup, generate the account
+        // number automatically now instead of sending them to a
+        // separate page for it.
+        if (signup.idNumber && signup.idName) {
+          showScreen("generating");
+          try {
+            const result = await callFunction("create-permanent-account", {
+              nin: signup.idNumber,
+              ninName: signup.idName,
+            });
+            document.getElementById("ready-account-number").textContent = result.accountNumber;
+            document.getElementById("ready-bank-name").textContent = result.bankName;
+            showScreen("ready");
+          } catch (genErr) {
+            console.error("account generation failed", genErr);
+            showToast("Account activated — you can generate your account number from Fund Wallet.");
+            enterApp(currentUser);
+          }
+        } else {
+          showToast("Account activated — welcome to Olvra Boost!");
+          enterApp(currentUser);
         }
-        await currentUser.getIdToken(true); // refresh token so rules see emailVerified
-        showToast("Account activated — welcome to Olvra Boost!");
-        enterApp(currentUser);
       } catch (e) {
         showFieldError(errEl, "Network error — please try again.");
       } finally {
@@ -349,75 +653,11 @@
       await signOut(auth);
     };
 
-    // Firebase's own SDK does not retry "auth/network-request-failed" —
-    // one dropped packet on a weak connection and the whole call just dies.
-    // On slow/unstable mobile data this happens often enough that a single
-    // silent retry (with a short backoff) meaningfully helps.
-    async function withNetworkRetry(fn, attempts = 3) {
-      let lastErr;
-      for (let i = 0; i < attempts; i++) {
-        try {
-          return await fn();
-        } catch (err) {
-          lastErr = err;
-          if (err.code !== "auth/network-request-failed" || i === attempts - 1) throw err;
-          await new Promise((r) => setTimeout(r, 800 * (i + 1)));
-        }
-      }
-      throw lastErr;
-    }
+    document.getElementById("account-ready-continue").onclick = () => enterApp(currentUser);
 
-    // ---- Sign in / Sign up submit ----
-    document.getElementById("auth-submit").onclick = async () => {
-      const errEl = document.getElementById("auth-error");
-      showFieldError(errEl, "");
-      const email = document.getElementById("auth-email").value.trim();
-      const password = document.getElementById("auth-password").value;
-
-      if (!email || !password) return showFieldError(errEl, "Enter email and password.");
-
-      const btn = document.getElementById("auth-submit");
-      btn.disabled = true;
-      try {
-        if (isSignup) {
-          const name = document.getElementById("auth-name").value.trim();
-          const phone = document.getElementById("auth-phone").value.trim();
-          if (!name || !phone) { showFieldError(errEl, "Fill in your name and phone number too."); return; }
-          if (password.length < 6) { showFieldError(errEl, "Password needs at least 6 characters."); return; }
-
-          const cred = await withNetworkRetry(() => createUserWithEmailAndPassword(auth, email, password));
-          await updateProfile(cred.user, { displayName: name });
-
-          // This is the step the old version was missing: without this doc,
-          // every wallet/account feature downstream has nothing to read from.
-          await setDoc(doc(db, "users", cred.user.uid), {
-            name,
-            email,
-            phone,
-            wallet_balance: 0,
-            created_at: serverTimestamp(),
-          });
-
-          await sendVerifyCode(cred.user, name);
-          // onAuthStateChanged below routes to the verify screen automatically.
-        } else {
-          await withNetworkRetry(() => signInWithEmailAndPassword(auth, email, password));
-        }
-      } catch (err) {
-        if (err.code === "auth/network-request-failed") {
-          showFieldError(errEl, "Couldn't reach the server after several tries — check your internet connection (WiFi or stronger signal) and try again.");
-        } else {
-          showFieldError(errEl, (err.message || "").replace("Firebase: ", ""));
-        }
-      } finally {
-        btn.disabled = false;
-      }
-    };
-
+    // ---- App shell ----
     function enterApp(user) {
-      verifyScreen.classList.add("hidden");
-      authScreen.classList.add("hidden");
-      appScreen.classList.remove("hidden");
+      showScreen("app");
       const label = user.displayName || (user.email || "").split("@")[0];
       document.getElementById("user-name").textContent = label;
       document.getElementById("avatar-initials").textContent = (label[0] || "U").toUpperCase();
@@ -427,38 +667,40 @@
 
     onAuthStateChanged(auth, async (user) => {
       currentUser = user;
-      if (!user) {
-        appScreen.classList.add("hidden");
-        verifyScreen.classList.add("hidden");
-        authScreen.classList.remove("hidden");
-        return;
-      }
+      if (!user) { showScreen("signin"); return; }
 
-      // Force-refresh to get the latest emailVerified claim (set by email-verify.js).
       await user.reload();
       if (!user.emailVerified) {
-        authScreen.classList.add("hidden");
-        appScreen.classList.add("hidden");
-        verifyScreen.classList.remove("hidden");
+        showScreen("verify");
         document.getElementById("verify-email-display").textContent = user.email;
-        // Auto-send a code the first time we land here after signup, unless we
-        // already sent one moments ago in the signup handler above.
-        if (Date.now() - lastCodeSentAt > 5000) {
-          await sendVerifyCode(user, user.displayName);
-        }
+        if (Date.now() - lastCodeSentAt > 5000) await sendVerifyCode(user, user.displayName);
         return;
       }
-
       enterApp(user);
     });
 
     function loadWallet(uid) {
       const ref = doc(db, "users", uid);
       onSnapshot(ref, (snap) => {
-        const bal = snap.exists() ? (snap.data().wallet_balance || 0) : 0;
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const bal = data.wallet_balance || 0;
         document.getElementById("wallet-balance").textContent = bal.toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+        const chip = document.getElementById("account-chip");
+        if (data.permanent_account && data.permanent_account.account_number) {
+          chip.classList.remove("hidden");
+          document.getElementById("chip-account-number").textContent = data.permanent_account.account_number;
+          document.getElementById("chip-bank-name").textContent = data.permanent_account.bank_name || "";
+        } else {
+          chip.classList.add("hidden");
+        }
       });
     }
+    document.getElementById("chip-copy").onclick = () => {
+      const num = document.getElementById("chip-account-number").textContent;
+      navigator.clipboard?.writeText(num).then(() => showToast("Account number copied"));
+    };
 
     async function loadOrders(uid) {
       const q = query(collection(db, "orders"), where("uid", "==", uid), orderBy("created_at", "desc"), limit(10));
@@ -480,7 +722,6 @@
       });
     }
 
-    // Platform tiles — wire these to your service-selection page/route
     const platforms = [
       { name: "Instagram", color: "#E1306C" },
       { name: "Facebook", color: "#1877F2" },
@@ -497,12 +738,8 @@
       grid.appendChild(tile);
     });
 
-    document.getElementById("fund-wallet-btn").onclick = () => {
-      window.location.href = "/fund.html";
-    };
-    document.getElementById("history-btn").onclick = () => {
-      window.location.href = "/orders.html";
-    };
+    document.getElementById("fund-wallet-btn").onclick = () => { window.location.href = "/fund.html"; };
+    document.getElementById("history-btn").onclick = () => { window.location.href = "/orders.html"; };
   </script>
 </body>
 </html>
