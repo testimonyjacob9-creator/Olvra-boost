@@ -36,6 +36,7 @@
 const crypto = require("crypto");
 const { db, FieldValue } = require("./_lib/firebase-admin");
 const { ok, fail } = require("./_lib/respond");
+const { sendEmail, walletFundedEmail } = require("./_lib/brevo");
 
 // Flutterwave charges a fee on incoming bank transfers into a virtual
 // account. This is passed on to the user as a flat charge per funding,
@@ -152,6 +153,20 @@ exports.handler = async (event) => {
 
       return { alreadyProcessed: false, netCredit };
     });
+
+    if (!result.alreadyProcessed && !result.tooSmall) {
+      try {
+        const userSnap = await userRef.get();
+        const email = userSnap.data().email;
+        if (email) {
+          const newBalance = (userSnap.data().wallet_balance || 0);
+          const { subject, html } = walletFundedEmail({ amount: result.netCredit, newBalance });
+          await sendEmail({ to: email, subject, html });
+        }
+      } catch (emailErr) {
+        console.error("Wallet funded email failed:", emailErr.message);
+      }
+    }
 
     return ok({ received: true, credited: !result.alreadyProcessed, amount });
   } catch (err) {

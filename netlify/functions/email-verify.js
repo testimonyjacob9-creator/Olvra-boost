@@ -11,27 +11,13 @@
 // Returns: { ok: true } or { error }  (uses this project's ok()/fail() shape)
 
 const { db, auth } = require("./_lib/firebase-admin");
-const { sendEmail } = require("./_lib/brevo");
+const { sendEmail, verificationCodeEmail } = require("./_lib/brevo");
 const { ok, fail } = require("./_lib/respond");
 
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 function genCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function verifyEmailTemplate(name, code) {
-  return {
-    subject: "Your Olvra Boost verification code",
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#10151A">Verify your email</h2>
-        <p>Hi ${name || "there"},</p>
-        <p>Your Olvra Boost verification code is:</p>
-        <div style="font-size:32px;font-weight:700;letter-spacing:8px;color:#2F6FED;margin:24px 0">${code}</div>
-        <p style="color:#6B7684">This code expires in 10 minutes. Do not share it with anyone.</p>
-      </div>`,
-  };
 }
 
 exports.handler = async (event) => {
@@ -62,7 +48,7 @@ exports.handler = async (event) => {
 
       await db.collection("emailVerifyCodes").doc(uid).set({ code: newCode, expiresAt, email });
 
-      const { subject, html } = verifyEmailTemplate(name, newCode);
+      const { subject, html } = verificationCodeEmail({ name, code: newCode });
       try {
         await sendEmail({ to: email, toName: name, subject, html });
       } catch (emailErr) {
