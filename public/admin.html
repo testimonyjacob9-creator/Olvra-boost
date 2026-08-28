@@ -50,7 +50,9 @@
   <div id="gate-screen" class="gate hidden">
     <div class="big">🔒</div>
     <h2>Admin access required</h2>
-    <p>Your account isn't on the admin allowlist. Ask whoever manages the Firestore console to add a document at <code>admins/&lt;your-uid&gt;</code>.</p>
+    <p>Your account isn't on the admin allowlist yet. In the Firebase console, go to Firestore Database → <code>admins</code> collection → Add document, and paste this exact UID as the Document ID (leave fields empty):</p>
+    <p style="margin-top:14px; font-family:'JetBrains Mono',monospace; font-size:12.5px; background:var(--surface-2); padding:12px; border-radius:10px; word-break:break-all; user-select:all;" id="gate-uid"></p>
+    <button id="copy-uid-btn" style="margin-top:12px; padding:10px 16px; border:none; border-radius:10px; background:var(--blue); color:#fff; font-weight:700; font-size:12.5px; cursor:pointer;">Copy UID</button>
   </div>
 
   <div id="admin-screen" class="hidden">
@@ -206,6 +208,11 @@
     requireSignedInAdmin().then(async (user) => {
       const adminSnap = await getDoc(doc(db, "admins", user.uid));
       if (!adminSnap.exists()) {
+        document.getElementById("gate-uid").textContent = user.uid;
+        document.getElementById("copy-uid-btn").onclick = () => {
+          navigator.clipboard.writeText(user.uid);
+          showToast("UID copied");
+        };
         document.getElementById("gate-screen").classList.remove("hidden");
         return;
       }
