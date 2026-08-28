@@ -132,6 +132,20 @@ exports.handler = async (event) => {
       created_at: FieldValue.serverTimestamp(),
     });
 
+    // Best-effort in-app notification — a failure here shouldn't fail the order.
+    try {
+      await db.collection("users").doc(uid).collection("notifications").add({
+        type: "order_placed",
+        title: "Order placed",
+        body: `${quantity} × ${service.name} — ₦${totalCost.toLocaleString()}`,
+        order_id: orderRef.id,
+        read: false,
+        created_at: FieldValue.serverTimestamp(),
+      });
+    } catch (notifErr) {
+      console.error("Order notification write failed:", notifErr.message);
+    }
+
     // Best-effort order confirmation email — a failure here shouldn't fail the order.
     try {
       if (decoded.email) {

@@ -158,13 +158,23 @@ exports.handler = async (event) => {
       try {
         const userSnap = await userRef.get();
         const email = userSnap.data().email;
+        const newBalance = (userSnap.data().wallet_balance || 0);
+
+        await userRef.collection("notifications").add({
+          type: "wallet_funded",
+          title: "Wallet funded",
+          body: `₦${result.netCredit.toLocaleString()} credited to your wallet.`,
+          amount: result.netCredit,
+          read: false,
+          created_at: FieldValue.serverTimestamp(),
+        });
+
         if (email) {
-          const newBalance = (userSnap.data().wallet_balance || 0);
           const { subject, html } = walletFundedEmail({ amount: result.netCredit, newBalance });
           await sendEmail({ to: email, subject, html });
         }
       } catch (emailErr) {
-        console.error("Wallet funded email failed:", emailErr.message);
+        console.error("Wallet funded email/notification failed:", emailErr.message);
       }
     }
 
