@@ -1,0 +1,77 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Admins: a tiny allowlist collection. A doc existing at
+    // admins/{uid} means that uid is an admin — the doc's content doesn't
+    // matter, only its existence. NOBODY writes this from the client —
+    // add/remove admins manually from the Firebase console (Firestore >
+    // admins > Add document, with the document ID set to the user's uid).
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Services: everyone (signed-in users) can read the catalog & prices.
+    // NOBODY writes from the client — only the syncServices Cloud Function
+    // (using the Admin SDK, which bypasses these rules) can write here.
+    match /services/{serviceId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Users: a user can read/update their own profile, but CANNOT touch
+    // wallet_balance or permanent_account directly — wallet_balance is only
+    // ever changed by the place-order or flutterwave-webhook functions, and
+    // permanent_account is only ever set by create-permanent-account
+    // (all Admin SDK, which bypasses these rules). Admins can read every
+    // user profile (needed for the admin dashboard's user list/stats).
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && !("wallet_balance" in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("permanent_account" in request.resource.data.diff(resource.data).affectedKeys());
+
+      // Notifications: a user can read/update (mark-read) only their own
+      // notifications. Docs are only ever created server-side (Admin SDK,
+      // in place-order.js / flutterwave-webhook.js), never by the client.
+      match /notifications/{notificationId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow update: if request.auth != null && request.auth.uid == userId
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read"]);
+        allow create, delete: if false;
+      }
+    }
+
+    // Orders: a user can read their own orders; admins can read all orders
+    // (for the admin dashboard). Orders are only ever created by the
+    // place-order function, never directly by the client.
+    match /orders/{orderId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin());
+      allow write: if false;
+    }
+
+    // Wallet top-ups: a user can read their own funding history; admins can
+    // read all top-ups. Records are only ever created by
+    // flutterwave-webhook.js (Admin SDK).
+    match /wallet_topups/{topupId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin());
+      allow write: if false;
+    }
+
+    // Support messages: written server-side only (contact-support.js, via
+    // the Olives chat widget's escalate-to-a-human action). Only admins can
+    // read the inbox from the app.
+    match /support_messages/{messageId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+  }
+}
