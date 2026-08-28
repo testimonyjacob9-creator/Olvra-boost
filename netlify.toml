@@ -9,8 +9,6 @@
 [functions]
   node_bundler = "esbuild"
 
-# Runs syncServices every 6 hours — replaces the old Firebase onSchedule trigger.
+# Runs sync-services.js every 6 hours to refresh the BigiSub catalog.
 [functions."sync-services"]
   schedule = "0 */6 * * *"
-  [[plugins]]
-package = "@netlify/plugin-functions-install-core"
