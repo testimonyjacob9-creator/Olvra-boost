@@ -56,12 +56,12 @@
     <p class="sub">Choose how you'd like to add money.</p>
 
     <div class="tab-row">
-      <button class="tab-btn active" id="tab-onetime">One-time payment</button>
-      <button class="tab-btn" id="tab-permanent">Permanent account</button>
+      <button class="tab-btn" id="tab-onetime">One-time payment</button>
+      <button class="tab-btn active" id="tab-permanent">Permanent account</button>
     </div>
 
     <!-- ===== ONE-TIME PAYMENT (no NIN/BVN required) ===== -->
-    <div id="onetime-section">
+    <div id="onetime-section" style="display:none">
       <p class="fee-note">Pay by card or bank transfer. A flat ₦50 charge applies per payment.</p>
       <div class="amount-quick">
         <button data-amt="500">₦500</button>
@@ -75,7 +75,7 @@
     </div>
 
     <!-- ===== PERMANENT ACCOUNT (requires NIN/BVN) ===== -->
-    <div id="permanent-section" style="display:none">
+    <div id="permanent-section">
       <p class="fee-note">Get a personal account number you can transfer to anytime — no need to open the app first. Requires identity verification (one-time). A flat ₦50 charge applies per funding.</p>
 
       <div id="permanent-form-section">
