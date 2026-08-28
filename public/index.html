@@ -665,6 +665,7 @@
     </div>
 
     <div class="menu-list fade-up fade-up-1">
+      <div class="menu-row" id="menu-services"><div class="mi">🧩</div>Browse All Services<div class="chev">›</div></div>
       <div class="menu-row" id="menu-fund"><div class="mi">💳</div>Fund Wallet<div class="chev">›</div></div>
       <div class="menu-row" id="menu-orders"><div class="mi">🧾</div>Order History<div class="chev">›</div></div>
       <div class="menu-row" id="menu-notif"><div class="mi">🔔</div>Notifications<div class="chev">›</div></div>
@@ -1211,8 +1212,7 @@
     // ---- Quick-boost tiles: scroll to platform picker with a nudge ----
     document.querySelectorAll(".quick-tile").forEach((tile) => {
       tile.onclick = () => {
-        showToast(`Pick a platform below for ${tile.dataset.quick}`);
-        document.getElementById("platform-grid").scrollIntoView({ behavior: "smooth", block: "start" });
+        window.location.href = `/all-services.html?q=${encodeURIComponent(tile.dataset.quick)}`;
       };
     });
 
@@ -1222,13 +1222,14 @@
         const dest = btn.dataset.nav;
         if (dest === "home") showScreen("app");
         else if (dest === "profile") showScreen("profile");
-        else if (dest === "services") { showScreen("app"); setTimeout(() => document.getElementById("platform-grid").scrollIntoView({ behavior: "smooth" }), 60); }
+        else if (dest === "services") window.location.href = "/all-services.html";
         else if (dest === "orders") window.location.href = "/orders.html";
         else if (dest === "notif") window.location.href = "/notifications.html";
       };
     });
     document.getElementById("notif-bell-btn").onclick = () => { window.location.href = "/notifications.html"; };
     document.getElementById("profile-back").onclick = () => showScreen("app");
+    document.getElementById("menu-services").onclick = () => { window.location.href = "/all-services.html"; };
     document.getElementById("menu-fund").onclick = () => { window.location.href = "/fund.html"; };
     document.getElementById("menu-orders").onclick = () => { window.location.href = "/orders.html"; };
     document.getElementById("menu-notif").onclick = () => { window.location.href = "/notifications.html"; };

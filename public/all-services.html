@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Services — Olvra Boost</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #F4F7FE; margin: 0; padding: 0 0 40px; color: #10162B;
+    max-width: 460px; margin-left: auto; margin-right: auto;
+  }
+  .header { display:flex; align-items:center; gap:12px; padding:18px 16px 12px; position:sticky; top:0; background:#F4F7FE; z-index:5; }
+  .back-btn { width:38px; height:38px; border-radius:12px; background:#fff; border:1px solid rgba(16,22,54,0.08); display:flex; align-items:center; justify-content:center; text-decoration:none; color:#10162B; font-size:18px; }
+  .header h1 { font-size:17px; margin:0; font-weight:700; flex:1; }
+  .search-wrap { padding:0 16px 10px; }
+  .search-input { width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(16,22,54,0.1); font-size:14px; background:#fff; }
+  .platform-chips { display:flex; gap:8px; padding:0 16px 12px; overflow-x:auto; }
+  .chip { flex-shrink:0; padding:8px 14px; border-radius:20px; background:#fff; border:1px solid rgba(16,22,54,0.08); font-size:12.5px; font-weight:600; color:#6B7590; cursor:pointer; white-space:nowrap; }
+  .chip.active { background:#2C5CF6; color:#fff; border-color:#2C5CF6; }
+  .count-label { padding:0 16px 10px; font-size:12px; color:#6B7590; }
+  .group-title { padding:14px 16px 8px; font-size:13px; font-weight:700; color:#1339B0; text-transform:capitalize; }
+  .service-list { padding:0 16px; display:flex; flex-direction:column; gap:10px; }
+  .service-card { background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:14px; box-shadow:0 4px 14px rgba(23,43,133,0.06); cursor:pointer; text-decoration:none; color:inherit; display:block; }
+  .service-card .name { font-size:13.5px; font-weight:600; line-height:1.4; margin-bottom:6px; }
+  .service-card .meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#6B7590; }
+  .price { color:#2C5CF6; font-weight:700; }
+  .empty-state { text-align:center; padding:50px 20px; color:#9AA3C0; font-size:13px; }
+  .skel { background:#EEF3FF; border-radius:16px; height:70px; margin:0 16px 10px; animation:pulse 1.2s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:0.6;} 50%{opacity:1;} }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <a href="/" class="back-btn">←</a>
+    <h1>All Services</h1>
+  </div>
+
+  <div class="search-wrap">
+    <input class="search-input" id="search" placeholder="Search services…">
+  </div>
+  <div class="platform-chips" id="chips"></div>
+  <div class="count-label" id="count-label"></div>
+
+  <div id="results">
+    <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+  </div>
+
+  <script type="module">
+    import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { db, requireSignedInUser } from "./js/firebase-client.js";
+
+    let allServices = [];
+    let activePlatform = "all";
+
+    function escapeHtml(str) {
+      const d = document.createElement("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    async function loadServices() {
+      try {
+        const q = query(collection(db, "services"), where("is_active", "==", true));
+        const snap = await getDocs(q);
+        allServices = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      } catch (err) {
+        console.error(err);
+        document.getElementById("results").innerHTML = `<div class="empty-state">Couldn't load services — check your connection and try again.</div>`;
+        return;
+      }
+      renderChips();
+      render();
+    }
+
+    function renderChips() {
+      const platforms = [...new Set(allServices.map((s) => s.platform).filter(Boolean))].sort();
+      const chipsEl = document.getElementById("chips");
+      chipsEl.innerHTML = `<div class="chip active" data-p="all">All</div>` +
+        platforms.map((p) => `<div class="chip" data-p="${escapeHtml(p)}">${escapeHtml(p)}</div>`).join("");
+      chipsEl.querySelectorAll(".chip").forEach((chip) => {
+        chip.onclick = () => {
+          activePlatform = chip.dataset.p;
+          chipsEl.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+          chip.classList.add("active");
+          render();
+        };
+      });
+    }
+
+    function render() {
+      const term = document.getElementById("search").value.trim().toLowerCase();
+      let list = allServices;
+      if (activePlatform !== "all") list = list.filter((s) => s.platform === activePlatform);
+      if (term) list = list.filter((s) => (s.name || "").toLowerCase().includes(term));
+
+      document.getElementById("count-label").textContent = `${list.length} service${list.length === 1 ? "" : "s"}`;
+
+      const container = document.getElementById("results");
+      if (!list.length) {
+        container.innerHTML = allServices.length
+          ? `<div class="empty-state">No services match your search.</div>`
+          : `<div class="empty-state">No services synced yet — check back soon, or contact support if this persists.</div>`;
+        return;
+      }
+
+      // Group by platform for readability, unless a single platform is already selected.
+      if (activePlatform !== "all") {
+        container.innerHTML = `<div class="service-list">${list.map(renderCard).join("")}</div>`;
+        return;
+      }
+      const byPlatform = {};
+      list.forEach((s) => { (byPlatform[s.platform || "other"] ||= []).push(s); });
+      container.innerHTML = Object.entries(byPlatform).map(([platform, services]) => `
+        <div class="group-title">${escapeHtml(platform)}</div>
+        <div class="service-list">${services.map(renderCard).join("")}</div>
+      `).join("");
+    }
+
+    function renderCard(s) {
+      return `
+        <a class="service-card" href="/services.html?platform=${encodeURIComponent(s.platform || "")}&category=${encodeURIComponent(s.category || "")}">
+          <div class="name">${escapeHtml(s.name || "Service")}</div>
+          <div class="meta">
+            <span>${s.min_quantity || 0} - ${(s.max_quantity || 0).toLocaleString()} units</span>
+            <span class="price">₦${Number(s.sell_price || 0).toLocaleString()}/unit</span>
+          </div>
+        </a>`;
+    }
+
+    document.getElementById("search").addEventListener("input", render);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQ = urlParams.get("q");
+    if (initialQ) document.getElementById("search").value = initialQ;
+
+    requireSignedInUser().then(() => loadServices());
+  </script>
+</body>
+</html>
