@@ -7,30 +7,32 @@ const { renderEmail, MUTED } = require("./email-template");
 
 const BREVO_BASE_URL = "https://api.brevo.com/v3";
 
-async function sendEmail({ to, toName, subject, html }) {
+async function sendEmail({ to, toName, subject, html, replyTo, attachment }) {
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL;
   if (!apiKey || !senderEmail) {
     throw new Error("Missing BREVO_API_KEY or BREVO_SENDER_EMAIL env var.");
   }
 
-  await axios.post(
-    `${BREVO_BASE_URL}/smtp/email`,
-    {
-      sender: { email: senderEmail, name: "Olvra Boost" },
-      to: [{ email: to, name: toName || to }],
-      subject,
-      htmlContent: html,
+  const payload = {
+    sender: { email: senderEmail, name: "Olvra Boost" },
+    to: [{ email: to, name: toName || to }],
+    subject,
+    htmlContent: html,
+  };
+  if (replyTo) payload.replyTo = { email: replyTo };
+  if (attachment && attachment.content) {
+    payload.attachment = [{ content: attachment.content, name: attachment.name || "screenshot.png" }];
+  }
+
+  await axios.post(`${BREVO_BASE_URL}/smtp/email`, payload, {
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
     },
-    {
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      timeout: 15000,
-    }
-  );
+    timeout: 15000,
+  });
 }
 
 function orderConfirmationEmail({ serviceName, quantity, totalCharged, orderId, status }) {
@@ -116,10 +118,28 @@ function walletFundedEmail({ amount, newBalance }) {
   };
 }
 
+function supportEscalationEmail({ userEmail, message, hasAttachment }) {
+  const body = `
+    <p style="margin:0 0 12px;">New support request from <strong>${userEmail}</strong> via the Olives chat widget${hasAttachment ? " (screenshot attached)" : ""}:</p>
+    <div style="background:#EEF3FF;border-radius:12px;padding:14px 16px;white-space:pre-wrap;font-size:13.5px;line-height:1.6;">${escapeHtml(message)}</div>
+    <p style="margin:16px 0 0;color:${MUTED};font-size:12.5px;">Reply directly to this email to respond to the customer.</p>
+  `;
+  return {
+    subject: hasAttachment ? "Olives chat — screenshot attached" : "Olives chat escalation",
+    html: renderEmail({ title: "Support request", bodyHtml: body }),
+  };
+}
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 module.exports = {
   sendEmail,
   orderConfirmationEmail,
   passwordResetEmail,
   verificationCodeEmail,
   walletFundedEmail,
+  supportEscalationEmail,
 };
