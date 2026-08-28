@@ -222,7 +222,18 @@
     </div>
     <div class="field-error" id="signin-error"></div>
     <button class="btn btn-primary" style="width:100%" id="signin-submit">Sign In</button>
+    <div class="switch-link" style="margin-bottom:6px"><a href="#" id="go-to-forgot">Forgot password?</a></div>
     <div class="switch-link">No account? <a href="#" id="go-to-signup">Create one</a></div>
+  </div>
+
+  <!-- ===================== FORGOT PASSWORD ===================== -->
+  <div id="forgot-screen" class="auth-wrap hidden">
+    <div class="auth-title">Reset your password</div>
+    <div class="auth-sub">Enter your email and we'll send you a reset link.</div>
+    <input class="input" id="forgot-email" type="email" placeholder="you@email.com" autocomplete="email">
+    <div class="field-error" id="forgot-error"></div>
+    <button class="btn btn-primary" style="width:100%" id="forgot-submit">Send reset link</button>
+    <div class="switch-link"><a href="#" id="forgot-back">Back to sign in</a></div>
   </div>
 
   <!-- ===================== SIGNUP: STEP 1 — YOUR DETAILS ===================== -->
@@ -265,8 +276,8 @@
   <!-- ===================== SIGNUP: STEP 2 — IDENTITY VERIFICATION ===================== -->
   <div id="signup-step2" class="auth-wrap hidden">
     <div class="step-track"><div class="step-dot done"></div><div class="step-dot active"></div><div class="step-dot"></div></div>
-    <div class="auth-title">Verify your identity</div>
-    <div class="auth-sub">Required to generate your personal account number for receiving payments.</div>
+    <div class="auth-title">Optional: set up a permanent account</div>
+    <div class="auth-sub">A permanent account number lets you fund your wallet anytime by bank transfer, with no card fees. This step is optional — you can always fund with a one-time card/transfer payment instead, or add this later from "Fund Wallet".</div>
 
     <div class="kyc-note">🔒 Your ID number is sent securely to generate your account and is never stored on our servers.</div>
 
@@ -290,6 +301,7 @@
       <button class="btn btn-ghost" id="step2-back">Back</button>
       <button class="btn btn-primary" id="step2-next">Create Account</button>
     </div>
+    <div class="switch-link"><a href="#" id="step2-skip">Skip — I'll fund with a one-time payment instead</a></div>
   </div>
 
   <!-- ===================== SIGNUP: STEP 3 — EMAIL VERIFICATION ===================== -->
@@ -373,66 +385,18 @@
 
   <!-- Firebase SDKs -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+      onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
       updateProfile, signOut
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, serverTimestamp
+      doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    // Hardcoded directly (same approach as WoodPayVTU) — no build-time
-    // injection, no config.js, nothing that depends on Netlify env vars
-    // or the build step running correctly.
-    const firebaseConfig = {
-      apiKey: "AIzaSyBNmwzcR15pTd2XpTzvp9S-O0V6ABzcoqE",
-      authDomain: "olvra-boost.firebaseapp.com",
-      projectId: "olvra-boost",
-      storageBucket: "olvra-boost.firebasestorage.app",
-      messagingSenderId: "527708700840",
-      appId: "1:527708700840:web:fe696622ad93e42536429d",
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    async function callFunction(name, body) {
-      const user = auth.currentUser;
-      if (!user) throw new Error("You must be signed in.");
-      const idToken = await user.getIdToken();
-      const res = await fetch(`/.netlify/functions/${name}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify(body || {}),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `Request to ${name} failed.`);
-      return data;
-    }
-
-    // fund.html (and any other page) waits on this global to access the
-    // already-initialized Firebase app instead of re-initializing.
-    window.__olvra = { app, auth, db, callFunction };
-
-    // Firebase's SDK doesn't retry "auth/network-request-failed" on its own —
-    // a short automatic retry helps meaningfully on weak mobile connections.
-    async function withNetworkRetry(fn, attempts = 3) {
-      let lastErr;
-      for (let i = 0; i < attempts; i++) {
-        try { return await fn(); }
-        catch (err) {
-          lastErr = err;
-          if (err.code !== "auth/network-request-failed" || i === attempts - 1) throw err;
-          await new Promise((r) => setTimeout(r, 800 * (i + 1)));
-        }
-      }
-      throw lastErr;
-    }
+    import { auth, db, callFunction, withNetworkRetry } from "./js/firebase-client.js";
 
     const screens = {
       signin: document.getElementById("signin-screen"),
+      forgot: document.getElementById("forgot-screen"),
       step1: document.getElementById("signup-step1"),
       step2: document.getElementById("signup-step2"),
       verify: document.getElementById("verify-screen"),
@@ -459,6 +423,35 @@
     // ---- Screen switching links ----
     document.getElementById("go-to-signup").onclick = (e) => { e.preventDefault(); showScreen("step1"); };
     document.getElementById("go-to-signin").onclick = (e) => { e.preventDefault(); showScreen("signin"); };
+    document.getElementById("go-to-forgot").onclick = (e) => { e.preventDefault(); showScreen("forgot"); };
+    document.getElementById("forgot-back").onclick = (e) => { e.preventDefault(); showScreen("signin"); };
+
+    document.getElementById("forgot-submit").onclick = async () => {
+      const errEl = document.getElementById("forgot-error");
+      showFieldError(errEl, "");
+      const email = document.getElementById("forgot-email").value.trim();
+      if (!email || !email.includes("@")) return showFieldError(errEl, "Enter a valid email.");
+
+      const btn = document.getElementById("forgot-submit");
+      btn.disabled = true;
+      btn.textContent = "Sending…";
+      try {
+        await fetch("/.netlify/functions/request-password-reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        // Always show the same generic success message — the backend
+        // deliberately never reveals whether an account exists for this email.
+        showToast("If an account exists for that email, a reset link is on its way.");
+        showScreen("signin");
+      } catch (e) {
+        showFieldError(errEl, "Network error — please try again.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Send reset link";
+      }
+    };
 
     // ---- Sign in ----
     document.getElementById("signin-submit").onclick = async () => {
@@ -526,19 +519,30 @@
     }
     document.getElementById("step2-back").onclick = () => showScreen("step1");
 
-    // ---- Step 2 -> create account ----
+    // ---- Step 2 -> create account (ID info attached) ----
     document.getElementById("step2-next").onclick = async () => {
       const errEl = document.getElementById("step2-error");
       showFieldError(errEl, "");
       const idNumber = document.getElementById("su-id-number").value.trim();
       const idName = document.getElementById("su-id-name").value.trim();
 
-      if (!/^[1-9][0-9]{10}$/.test(idNumber)) return showFieldError(errEl, `Enter a valid 11-digit ${idType.toUpperCase()}.`);
+      if (!/^[1-9][0-9]{10}$/.test(idNumber)) return showFieldError(errEl, `Enter a valid 11-digit ${idType.toUpperCase()}, or tap "Skip" below to sign up without one.`);
       if (!idName || idName.split(" ").length < 2) return showFieldError(errEl, "Enter your full name as it appears on your ID.");
 
       Object.assign(signup, { idType, idNumber, idName });
+      await createAccountAndProceed(document.getElementById("step2-next"), "Create Account");
+    };
 
-      const btn = document.getElementById("step2-next");
+    // ---- Step 2 -> skip ID verification entirely, create account without it ----
+    document.getElementById("step2-skip").onclick = async (e) => {
+      e.preventDefault();
+      Object.assign(signup, { idType: null, idNumber: null, idName: null });
+      await createAccountAndProceed(document.getElementById("step2-next"), "Create Account");
+    };
+
+    async function createAccountAndProceed(btn, restoreLabel) {
+      const errEl = document.getElementById("step2-error");
+      showFieldError(errEl, "");
       btn.disabled = true;
       btn.textContent = "Creating…";
       try {
@@ -564,10 +568,11 @@
         } else {
           showFieldError(errEl, (err.message || "").replace("Firebase: ", ""));
         }
+      } finally {
         btn.disabled = false;
-        btn.textContent = "Create Account";
+        btn.textContent = restoreLabel;
       }
-    };
+    }
 
     // ---- Email verification ----
     let currentUser = null;

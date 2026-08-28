@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Services — Olvra Boost</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #F4F7FE; margin: 0; padding: 0 0 40px; color: #10162B;
+    max-width: 460px; margin-left: auto; margin-right: auto;
+  }
+  .header {
+    display:flex; align-items:center; gap:12px; padding:18px 16px 12px;
+    position:sticky; top:0; background:#F4F7FE; z-index:5;
+  }
+  .back-btn {
+    width:38px; height:38px; border-radius:12px; background:#fff; border:1px solid rgba(16,22,54,0.08);
+    display:flex; align-items:center; justify-content:center; text-decoration:none; color:#10162B; font-size:18px;
+  }
+  .header h1 { font-size:17px; margin:0; font-weight:700; text-transform:capitalize; }
+  .search-wrap { padding: 0 16px 12px; }
+  .search-input {
+    width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(16,22,54,0.1);
+    font-size:14px; background:#fff;
+  }
+  .count-label { padding: 0 16px 10px; font-size:12px; color:#6B7590; }
+  .service-list { padding: 0 16px; display:flex; flex-direction:column; gap:10px; }
+  .service-card {
+    background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:14px;
+    box-shadow:0 4px 14px rgba(23,43,133,0.06); cursor:pointer;
+  }
+  .service-card .name { font-size:13.5px; font-weight:600; line-height:1.4; margin-bottom:6px; }
+  .service-card .meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#6B7590; }
+  .price { color:#2C5CF6; font-weight:700; }
+  .badge-row { display:flex; gap:6px; margin-top:8px; }
+  .badge { font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:7px; background:#EEF3FF; color:#1339B0; }
+  .empty-state { text-align:center; padding:40px 20px; color:#9AA3C0; font-size:13px; }
+
+  /* Order modal */
+  .overlay {
+    display:none; position:fixed; inset:0; background:rgba(16,22,54,0.5); z-index:20;
+    align-items:flex-end; justify-content:center;
+  }
+  .overlay.show { display:flex; }
+  .modal {
+    background:#fff; border-radius:22px 22px 0 0; width:100%; max-width:460px;
+    padding:22px; max-height:88vh; overflow-y:auto;
+  }
+  .modal h2 { font-size:15px; margin:0 0 4px; line-height:1.4; }
+  .modal .price-row { font-size:12px; color:#6B7590; margin-bottom:16px; }
+  .input {
+    width:100%; padding:13px 14px; border-radius:12px; border:1px solid rgba(16,22,54,0.1);
+    font-size:14px; margin-bottom:10px; font-family:inherit;
+  }
+  .cost-box { background:#EEF3FF; border-radius:12px; padding:12px 14px; margin:10px 0; font-size:13px; }
+  .cost-box .row { display:flex; justify-content:space-between; margin-bottom:4px; }
+  .cost-box .total { font-weight:700; color:#1339B0; }
+  .btn { width:100%; padding:14px; border-radius:12px; border:none; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; }
+  .btn-primary { background:linear-gradient(135deg,#2C5CF6,#1339B0); color:#fff; }
+  .btn-ghost { background:#EEF3FF; color:#1339B0; margin-top:8px; }
+  .btn:disabled { opacity:0.6; }
+  .msg { font-size:13px; margin-top:10px; min-height:16px; }
+  .msg.error { color:#E5484D; }
+  .msg.ok { color:#12B76A; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <a href="/" class="back-btn">←</a>
+    <h1 id="platform-title">Services</h1>
+  </div>
+
+  <div class="search-wrap">
+    <input class="search-input" id="search" placeholder="Search services...">
+  </div>
+  <div class="count-label" id="count-label"></div>
+  <div class="service-list" id="service-list">
+    <div class="empty-state">Loading services…</div>
+  </div>
+
+  <!-- Order modal -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2 id="modal-service-name"></h2>
+      <div class="price-row" id="modal-price-row"></div>
+
+      <input class="input" id="order-link" placeholder="Link or username">
+      <input class="input" id="order-qty" type="number" placeholder="Quantity">
+
+      <div class="cost-box">
+        <div class="row"><span>Unit price</span><span id="cost-unit">₦0</span></div>
+        <div class="row total"><span>Total</span><span id="cost-total">₦0</span></div>
+      </div>
+
+      <button class="btn btn-primary" id="place-order-btn">Place Order</button>
+      <button class="btn btn-ghost" id="cancel-order-btn">Cancel</button>
+      <div class="msg" id="order-msg"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { db, callFunction, requireSignedInUser } from "./js/firebase-client.js";
+
+    const params = new URLSearchParams(window.location.search);
+    const platform = (params.get("platform") || "").toLowerCase();
+    document.getElementById("platform-title").textContent = platform || "Services";
+
+    let allServices = [];
+
+    function renderList(list) {
+      const container = document.getElementById("service-list");
+      document.getElementById("count-label").textContent = `${list.length} service${list.length === 1 ? "" : "s"}`;
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="empty-state">No services found${platform ? " for " + platform : ""}. Try a different search, or check back after the next catalog sync.</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map((s) => `
+        <div class="service-card" data-id="${s.service_id}">
+          <div class="name">${escapeHtml(s.name)}</div>
+          <div class="meta">
+            <span>${s.min_quantity.toLocaleString()} – ${s.max_quantity.toLocaleString()} units</span>
+            <span class="price">₦${s.sell_price}/unit</span>
+          </div>
+          <div class="badge-row">
+            ${s.has_refill ? '<span class="badge">Refill</span>' : ""}
+            ${s.has_cancel ? '<span class="badge">Cancel</span>' : ""}
+            ${s.has_dripfeed ? '<span class="badge">Drip-feed</span>' : ""}
+          </div>
+        </div>
+      `).join("");
+
+      container.querySelectorAll(".service-card").forEach((card) => {
+        card.onclick = () => openOrderModal(card.dataset.id);
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    document.getElementById("search").oninput = (e) => {
+      const term = e.target.value.trim().toLowerCase();
+      const filtered = term
+        ? allServices.filter((s) => s.name.toLowerCase().includes(term))
+        : allServices;
+      renderList(filtered);
+    };
+
+    async function loadServices() {
+      try {
+        let q;
+        if (platform) {
+          q = query(
+            collection(db, "services"),
+            where("platform", "==", platform),
+            where("is_active", "==", true)
+          );
+        } else {
+          q = query(collection(db, "services"), where("is_active", "==", true));
+        }
+        const snap = await getDocs(q);
+        allServices = snap.docs.map((d) => d.data());
+        renderList(allServices);
+      } catch (err) {
+        console.error(err);
+        document.getElementById("service-list").innerHTML =
+          `<div class="empty-state">Couldn't load services — pull to refresh or check back shortly.</div>`;
+      }
+    }
+
+    // ---- Order modal ----
+    let selectedService = null;
+    const overlay = document.getElementById("overlay");
+
+    function openOrderModal(serviceId) {
+      selectedService = allServices.find((s) => String(s.service_id) === String(serviceId));
+      if (!selectedService) return;
+
+      document.getElementById("modal-service-name").textContent = selectedService.name;
+      document.getElementById("modal-price-row").textContent =
+        `₦${selectedService.sell_price}/unit · ${selectedService.min_quantity.toLocaleString()}–${selectedService.max_quantity.toLocaleString()} units`;
+      document.getElementById("order-link").value = "";
+      document.getElementById("order-qty").value = selectedService.min_quantity;
+      document.getElementById("order-msg").textContent = "";
+      updateCost();
+      overlay.classList.add("show");
+    }
+
+    function updateCost() {
+      if (!selectedService) return;
+      const qty = Number(document.getElementById("order-qty").value) || 0;
+      const total = Math.round(selectedService.sell_price * qty * 100) / 100;
+      document.getElementById("cost-unit").textContent = `₦${selectedService.sell_price}`;
+      document.getElementById("cost-total").textContent = `₦${total.toLocaleString()}`;
+    }
+    document.getElementById("order-qty").oninput = updateCost;
+
+    document.getElementById("cancel-order-btn").onclick = () => overlay.classList.remove("show");
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.remove("show"); };
+
+    document.getElementById("place-order-btn").onclick = async () => {
+      const msgEl = document.getElementById("order-msg");
+      msgEl.textContent = "";
+      const link = document.getElementById("order-link").value.trim();
+      const qty = Number(document.getElementById("order-qty").value);
+
+      if (!link) { msgEl.textContent = "Enter a link or username."; msgEl.className = "msg error"; return; }
+      if (!qty || qty < selectedService.min_quantity || qty > selectedService.max_quantity) {
+        msgEl.textContent = `Quantity must be between ${selectedService.min_quantity} and ${selectedService.max_quantity}.`;
+        msgEl.className = "msg error";
+        return;
+      }
+
+      const btn = document.getElementById("place-order-btn");
+      btn.disabled = true;
+      btn.textContent = "Placing order…";
+
+      try {
+        const body = { serviceId: selectedService.service_id, quantity: qty };
+        // Auto services (username-based, e.g. Auto Likes) vs link-based —
+        // treat non-URL input as a username.
+        if (/^https?:\/\//i.test(link)) body.link = link;
+        else body.username = link;
+
+        const result = await callFunction("place-order", body);
+        msgEl.textContent = `Order placed! Tracking ID: ${result.trackingId}`;
+        msgEl.className = "msg ok";
+        setTimeout(() => { window.location.href = "/orders.html"; }, 1500);
+      } catch (err) {
+        msgEl.textContent = err.message || "Order failed.";
+        msgEl.className = "msg error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Place Order";
+      }
+    };
+
+    requireSignedInUser().then(() => loadServices());
+  </script>
+</body>
+</html>

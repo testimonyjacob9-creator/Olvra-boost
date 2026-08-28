@@ -4,139 +4,242 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fund Wallet — Olvra Boost</title>
+<script src="https://checkout.flutterwave.com/v3.js"></script>
+<script src="config.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
     font-family: 'Inter', -apple-system, sans-serif;
-    background: #F6F8FB; margin: 0; padding: 20px; color: #10151A;
+    background: #F4F7FE; margin: 0; padding: 20px; color: #10162B;
+    max-width: 460px; margin-left: auto; margin-right: auto;
   }
   .card {
-    background: #fff; border: 1px solid #E7ECF2; border-radius: 16px;
-    padding: 20px; max-width: 420px; margin: 0 auto;
+    background: #fff; border: 1px solid rgba(16,22,54,0.08); border-radius: 20px;
+    padding: 22px; margin-bottom: 16px; box-shadow: 0 6px 22px rgba(23,43,133,0.08);
   }
   h1 { font-size: 18px; margin: 0 0 4px; }
-  p.sub { color: #6B7684; font-size: 13px; margin: 0 0 20px; }
+  p.sub { color: #6B7590; font-size: 13px; margin: 0 0 18px; line-height:1.5; }
   .input {
-    width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid #E7ECF2;
+    width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(16,22,54,0.1);
     font-size: 14px; margin-bottom: 12px; font-family: inherit;
   }
   .btn {
     width: 100%; padding: 14px; border-radius: 12px; border: none;
-    background: #2F6FED; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer;
+    font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
   }
+  .btn-primary { background: linear-gradient(135deg,#2C5CF6,#1339B0); color: #fff; }
+  .btn-ghost { background: #EEF3FF; color: #1339B0; }
   .btn:disabled { opacity: 0.6; }
+  .tab-row { display:flex; gap:8px; margin-bottom:18px; background:#EEF3FF; padding:4px; border-radius:14px; }
+  .tab-btn { flex:1; padding:10px; border:none; background:transparent; border-radius:11px; font-weight:600; font-size:13px; color:#6B7590; cursor:pointer; }
+  .tab-btn.active { background:#fff; color:#1339B0; box-shadow:0 2px 8px rgba(23,43,133,0.12); }
+  .fee-note { font-size:12px; color:#6B7590; margin: -4px 0 14px; }
   .account-box {
-    display: none; margin-top: 20px; padding: 16px; border-radius: 12px;
-    background: #EEF4FF; text-align: center;
+    display: none; margin-top: 8px; padding: 18px; border-radius: 14px;
+    background: #EEF3FF; text-align: center;
   }
-  .account-box .num { font-size: 22px; font-weight: 700; letter-spacing: 1px; margin: 6px 0; }
-  .account-box .bank { color: #6B7684; font-size: 13px; }
+  .account-box .num { font-size: 22px; font-weight: 800; letter-spacing: 1px; margin: 6px 0; }
+  .account-box .bank { color: #6B7590; font-size: 13px; }
   .msg { font-size: 13px; margin-top: 12px; min-height: 16px; }
-  .msg.error { color: #D64545; }
-  .msg.ok { color: #1E9E5A; }
-  a.back { display:block; text-align:center; margin-top:16px; color:#6B7684; font-size:13px; text-decoration:none; }
+  .msg.error { color: #E5484D; }
+  .msg.ok { color: #12B76A; }
+  a.back { display:block; text-align:center; margin-top:6px; color:#6B7590; font-size:13px; text-decoration:none; }
+  .amount-quick { display:flex; gap:8px; margin-bottom:12px; }
+  .amount-quick button { flex:1; padding:10px; border-radius:10px; border:1px solid rgba(16,22,54,0.1); background:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+  .amount-quick button.selected { border-color:#2C5CF6; background:#EEF3FF; color:#1339B0; }
 </style>
 </head>
 <body>
 
   <div class="card">
     <h1>Fund your wallet</h1>
-    <p class="sub">Generate your permanent account number — transfer any amount to it, anytime, and your wallet credits automatically (a flat ₦50 charge applies per funding).</p>
+    <p class="sub">Choose how you'd like to add money.</p>
 
-    <div id="form-section">
-      <input class="input" id="nin" type="text" inputmode="numeric" maxlength="11" placeholder="NIN (11 digits)">
-      <input class="input" id="nin-name" type="text" placeholder="Full name (as on your NIN)">
-      <button class="btn" id="submit-btn">Generate Account Number</button>
-      <div class="msg" id="msg"></div>
+    <div class="tab-row">
+      <button class="tab-btn active" id="tab-onetime">One-time payment</button>
+      <button class="tab-btn" id="tab-permanent">Permanent account</button>
     </div>
 
-    <div class="account-box" id="account-box">
-      <div class="bank" id="bank-name"></div>
-      <div class="num" id="account-number"></div>
-      <div class="bank" id="account-name"></div>
-      <div class="msg ok" style="margin-top:10px">Transfer to this account anytime — your wallet credits automatically within a minute (a flat ₦50 charge applies per funding).</div>
+    <!-- ===== ONE-TIME PAYMENT (no NIN/BVN required) ===== -->
+    <div id="onetime-section">
+      <p class="fee-note">Pay by card or bank transfer. A flat ₦50 charge applies per payment.</p>
+      <div class="amount-quick">
+        <button data-amt="500">₦500</button>
+        <button data-amt="1000">₦1,000</button>
+        <button data-amt="2000">₦2,000</button>
+        <button data-amt="5000">₦5,000</button>
+      </div>
+      <input class="input" id="onetime-amount" type="number" inputmode="numeric" placeholder="Or enter a custom amount (₦)" min="100">
+      <button class="btn btn-primary" id="onetime-pay-btn">Pay now</button>
+      <div class="msg" id="onetime-msg"></div>
+    </div>
+
+    <!-- ===== PERMANENT ACCOUNT (requires NIN/BVN) ===== -->
+    <div id="permanent-section" style="display:none">
+      <p class="fee-note">Get a personal account number you can transfer to anytime — no need to open the app first. Requires identity verification (one-time). A flat ₦50 charge applies per funding.</p>
+
+      <div id="permanent-form-section">
+        <input class="input" id="nin" type="text" inputmode="numeric" maxlength="11" placeholder="NIN (11 digits)">
+        <input class="input" id="nin-name" type="text" placeholder="Full name (as on your NIN)">
+        <button class="btn btn-ghost" id="submit-btn">Generate Account Number</button>
+        <div class="msg" id="permanent-msg"></div>
+      </div>
+
+      <div class="account-box" id="account-box">
+        <div class="bank" id="bank-name"></div>
+        <div class="num" id="account-number"></div>
+        <div class="bank" id="account-name"></div>
+        <div class="msg ok" style="margin-top:10px">Transfer to this account anytime — your wallet credits automatically within a minute.</div>
+      </div>
     </div>
 
     <a class="back" href="/">← Back to dashboard</a>
   </div>
 
   <script type="module">
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { auth, db, callFunction, requireSignedInUser } from "./js/firebase-client.js";
+    import { doc as fsDoc, getDoc as fsGetDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Wait for index.html's module script to finish setting window.__olvra.
-    function waitForOlvra() {
-      return new Promise((resolve) => {
-        const check = () => (window.__olvra ? resolve(window.__olvra) : setTimeout(check, 50));
-        check();
-      });
-    }
+    const cfg = window.APP_CONFIG || {};
 
-    const msg = document.getElementById("msg");
-    const formSection = document.getElementById("form-section");
-    const accountBox = document.getElementById("account-box");
-    const submitBtn = document.getElementById("submit-btn");
+    // ---- Tabs ----
+    const tabOnetime = document.getElementById("tab-onetime");
+    const tabPermanent = document.getElementById("tab-permanent");
+    const onetimeSection = document.getElementById("onetime-section");
+    const permanentSection = document.getElementById("permanent-section");
 
-    function showMsg(text, isError) {
-      msg.textContent = text;
-      msg.className = "msg " + (isError ? "error" : "ok");
-    }
+    tabOnetime.onclick = () => {
+      tabOnetime.classList.add("active");
+      tabPermanent.classList.remove("active");
+      onetimeSection.style.display = "block";
+      permanentSection.style.display = "none";
+    };
+    tabPermanent.onclick = () => {
+      tabPermanent.classList.add("active");
+      tabOnetime.classList.remove("active");
+      permanentSection.style.display = "block";
+      onetimeSection.style.display = "none";
+    };
 
-    function showAccount({ accountNumber, accountName, bankName }) {
-      document.getElementById("account-number").textContent = accountNumber;
-      document.getElementById("account-name").textContent = accountName;
-      document.getElementById("bank-name").textContent = bankName;
-      formSection.style.display = "none";
-      accountBox.style.display = "block";
-    }
+    // ---- Quick amount buttons ----
+    const amountInput = document.getElementById("onetime-amount");
+    document.querySelectorAll(".amount-quick button").forEach((btn) => {
+      btn.onclick = () => {
+        document.querySelectorAll(".amount-quick button").forEach((b) => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        amountInput.value = btn.dataset.amt;
+      };
+    });
 
-    waitForOlvra().then(({ auth, db, callFunction }) => {
-      onAuthStateChanged(auth, async (user) => {
-        if (!user) {
-          window.location.href = "/";
+    let currentUser = null;
+
+    requireSignedInUser().then(async (user) => {
+      currentUser = user;
+
+      // ---- One-time payment via Flutterwave inline checkout ----
+      document.getElementById("onetime-pay-btn").onclick = () => {
+        const msg = document.getElementById("onetime-msg");
+        msg.textContent = "";
+        const amount = Number(amountInput.value);
+        if (!amount || amount < 100) {
+          msg.textContent = "Enter an amount of at least ₦100.";
+          msg.className = "msg error";
+          return;
+        }
+        if (!cfg.FLW_PUBLIC_KEY) {
+          msg.textContent = "Payments aren't configured yet — check back shortly.";
+          msg.className = "msg error";
           return;
         }
 
-        // If the user already has a permanent account on file, show it
-        // straight away instead of asking for NIN again.
-        try {
-          const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-          const snap = await getDoc(doc(db, "users", user.uid));
-          const existing = snap.exists() && snap.data().permanent_account;
-          if (existing && existing.account_number) {
-            showAccount({
-              accountNumber: existing.account_number,
-              accountName: existing.account_name,
-              bankName: existing.bank_name,
-            });
-          }
-        } catch (e) {
-          console.error(e);
+        const txRef = `OLVRAONETIME-${user.uid.slice(0, 8)}-${Date.now()}`;
+
+        FlutterwaveCheckout({
+          public_key: cfg.FLW_PUBLIC_KEY,
+          tx_ref: txRef,
+          amount: amount,
+          currency: "NGN",
+          payment_options: "card, banktransfer, ussd",
+          customer: {
+            email: user.email,
+            name: user.displayName || user.email,
+          },
+          customizations: {
+            title: "Olvra Boost",
+            description: "Wallet top-up",
+          },
+          callback: async (response) => {
+            msg.textContent = "Verifying payment…";
+            msg.className = "msg";
+            try {
+              const result = await callFunction("verify-onetime-payment", {
+                transactionId: response.transaction_id,
+                expectedTxRef: txRef,
+              });
+              msg.textContent = `Success! ₦${result.newBalance.toLocaleString()} is your new balance.`;
+              msg.className = "msg ok";
+              setTimeout(() => { window.location.href = "/"; }, 1800);
+            } catch (err) {
+              msg.textContent = err.message || "Verification failed — contact support if you were charged.";
+              msg.className = "msg error";
+            }
+          },
+          onclose: () => {},
+        });
+      };
+
+      // ---- Permanent account ----
+      const msg = document.getElementById("permanent-msg");
+      const formSection = document.getElementById("permanent-form-section");
+      const accountBox = document.getElementById("account-box");
+      const submitBtn = document.getElementById("submit-btn");
+
+      function showMsg(text, isError) {
+        msg.textContent = text;
+        msg.className = "msg " + (isError ? "error" : "ok");
+      }
+
+      function showAccount({ accountNumber, accountName, bankName }) {
+        document.getElementById("account-number").textContent = accountNumber;
+        document.getElementById("account-name").textContent = accountName;
+        document.getElementById("bank-name").textContent = bankName;
+        formSection.style.display = "none";
+        accountBox.style.display = "block";
+      }
+
+      try {
+        const snap = await fsGetDoc(fsDoc(db, "users", user.uid));
+        const existing = snap.exists() && snap.data().permanent_account;
+        if (existing && existing.account_number) {
+          showAccount({
+            accountNumber: existing.account_number,
+            accountName: existing.account_name,
+            bankName: existing.bank_name,
+          });
         }
+      } catch (e) {
+        console.error(e);
+      }
 
-        submitBtn.onclick = async () => {
-          const nin = document.getElementById("nin").value.trim();
-          const ninName = document.getElementById("nin-name").value.trim();
+      submitBtn.onclick = async () => {
+        const nin = document.getElementById("nin").value.trim();
+        const ninName = document.getElementById("nin-name").value.trim();
 
-          if (!/^[1-9][0-9]{10}$/.test(nin)) {
-            return showMsg("NIN must be exactly 11 digits.", true);
-          }
-          if (!ninName.includes(" ")) {
-            return showMsg("Enter your full name (first and last).", true);
-          }
+        if (!/^[1-9][0-9]{10}$/.test(nin)) return showMsg("NIN must be exactly 11 digits.", true);
+        if (!ninName.includes(" ")) return showMsg("Enter your full name (first and last).", true);
 
-          submitBtn.disabled = true;
-          showMsg("Creating your account number…", false);
+        submitBtn.disabled = true;
+        showMsg("Creating your account number…", false);
 
-          try {
-            const data = await callFunction("create-permanent-account", { nin, ninName });
-            showAccount(data);
-          } catch (err) {
-            showMsg(err.message || "Something went wrong.", true);
-          } finally {
-            submitBtn.disabled = false;
-          }
-        };
-      });
+        try {
+          const data = await callFunction("create-permanent-account", { nin, ninName });
+          showAccount(data);
+        } catch (err) {
+          showMsg(err.message || "Something went wrong.", true);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      };
     });
   </script>
 </body>

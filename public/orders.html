@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orders — Olvra Boost</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #F4F7FE; margin: 0; padding: 0 0 40px; color: #10162B;
+    max-width: 460px; margin-left: auto; margin-right: auto;
+  }
+  .header {
+    display:flex; align-items:center; gap:12px; padding:18px 16px 14px;
+    position:sticky; top:0; background:#F4F7FE; z-index:5;
+  }
+  .back-btn {
+    width:38px; height:38px; border-radius:12px; background:#fff; border:1px solid rgba(16,22,54,0.08);
+    display:flex; align-items:center; justify-content:center; text-decoration:none; color:#10162B; font-size:18px;
+  }
+  .header h1 { font-size:17px; margin:0; font-weight:700; }
+  .order-list { padding: 0 16px; display:flex; flex-direction:column; gap:10px; }
+  .order-card {
+    background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:14px;
+    box-shadow:0 4px 14px rgba(23,43,133,0.06);
+  }
+  .order-card .top-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px; }
+  .order-card .name { font-size:13.5px; font-weight:600; line-height:1.4; }
+  .order-card .meta { font-size:12px; color:#6B7590; margin-top:4px; }
+  .status { font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:8px; white-space:nowrap; text-transform:capitalize; }
+  .status-processing, .status-pending, .status-in_progress { background:#FFF4E5; color:#FF9F43; }
+  .status-completed, .status-successful { background:#E7F9F1; color:#12B76A; }
+  .status-failed, .status-cancelled, .status-refunded { background:#FDECEC; color:#E5484D; }
+  .status-partial { background:#F0EAFE; color:#7A4FE0; }
+  .empty-state { text-align:center; padding:50px 20px; color:#9AA3C0; font-size:13px; }
+  .track-id { font-size:11px; color:#9AA3C0; margin-top:6px; font-family:monospace; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <a href="/" class="back-btn">←</a>
+    <h1>Your Orders</h1>
+  </div>
+
+  <div class="order-list" id="order-list">
+    <div class="empty-state">Loading orders…</div>
+  </div>
+
+  <script type="module">
+    import { collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { db, requireSignedInUser } from "./js/firebase-client.js";
+
+    function statusClass(status) {
+      return `status-${(status || "processing").toLowerCase()}`;
+    }
+
+    function timeAgo(ts) {
+      if (!ts || !ts.toDate) return "";
+      const diffMs = Date.now() - ts.toDate().getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      return `${Math.floor(hrs / 24)}d ago`;
+    }
+
+    async function loadOrders(uid) {
+      const container = document.getElementById("order-list");
+      try {
+        const q = query(
+          collection(db, "orders"),
+          where("uid", "==", uid),
+          orderBy("created_at", "desc"),
+          limit(50)
+        );
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          container.innerHTML = `<div class="empty-state">No orders yet — head to a platform on your dashboard to place your first one.</div>`;
+          return;
+        }
+
+        container.innerHTML = snap.docs.map((d) => {
+          const o = d.data();
+          return `
+            <div class="order-card">
+              <div class="top-row">
+                <div class="name">${escapeHtml(o.service_name || "Order")}</div>
+                <span class="status ${statusClass(o.status)}">${o.status || "processing"}</span>
+              </div>
+              <div class="meta">${o.quantity} units · ₦${Number(o.total_amount).toLocaleString()} · ${timeAgo(o.created_at)}</div>
+              ${o.bigisub_tran_id ? `<div class="track-id">ID: ${o.bigisub_tran_id}</div>` : ""}
+            </div>`;
+        }).join("");
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = `<div class="empty-state">Couldn't load orders — check your connection and try again.</div>`;
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    requireSignedInUser().then((user) => loadOrders(user.uid));
+  </script>
+</body>
+</html>
