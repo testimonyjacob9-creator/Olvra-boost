@@ -38,6 +38,8 @@
       <input type="email" id="email" autocomplete="username" required>
       <label for="password">Password</label>
       <input type="password" id="password" autocomplete="current-password" required>
+      <label for="passcode">Admin Passcode</label>
+      <input type="password" id="passcode" autocomplete="off" required>
       <button type="submit" id="submit-btn">Sign in</button>
       <div class="error" id="error-text"></div>
     </form>
@@ -52,6 +54,15 @@
     const btn = document.getElementById("submit-btn");
     const errorText = document.getElementById("error-text");
 
+    // This passcode is a convenience trip-wire only — it lives in this
+    // public file, so anyone who views source can read it. It is NOT a
+    // security boundary. The real security is (a) Firebase Auth
+    // email/password, and (b) the Firestore `admins/{uid}` allowlist doc,
+    // which Firestore's own server-side security rules enforce and which
+    // no code here can bypass. This just avoids fat-fingering into the
+    // wrong screen on a shared/borrowed phone.
+    const ADMIN_PASSCODE = "Oliver1$";
+
     // If a redirect ?next= was set (admin.html sends people here when
     // they're signed out), send them back there after a successful,
     // admin-verified login. Default to /admin.html.
@@ -61,6 +72,13 @@
     form.onsubmit = async (e) => {
       e.preventDefault();
       errorText.textContent = "";
+
+      const passcode = document.getElementById("passcode").value;
+      if (passcode !== ADMIN_PASSCODE) {
+        errorText.textContent = "Incorrect passcode.";
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = "Signing in…";
 

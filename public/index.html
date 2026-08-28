@@ -445,8 +445,19 @@
 </head>
 <body>
 
+  <!-- ===================== BOOT LOADING ===================== -->
+  <!-- Shown by default (no "hidden" class) so it covers the page while
+       Firebase's onAuthStateChanged resolves. Without this, signin-screen
+       (below) is the first thing painted for EVERY visit, including
+       already-signed-in users, because it also has no "hidden" class by
+       default and onAuthStateChanged takes a moment to resolve from local
+       storage. onAuthStateChanged hides this screen as its first action. -->
+  <div id="boot-loading-screen" style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--bg);">
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+  </div>
+
   <!-- ===================== SIGN IN SCREEN ===================== -->
-  <div id="signin-screen" class="auth-wrap">
+  <div id="signin-screen" class="auth-wrap hidden">
     <div class="brand-mark">OB</div>
     <div class="auth-title">Welcome back</div>
     <div class="auth-sub">Sign in to manage your orders and wallet.</div>
@@ -1110,6 +1121,7 @@
     }
 
     onAuthStateChanged(auth, async (user) => {
+      document.getElementById("boot-loading-screen").classList.add("hidden");
       currentUser = user;
       if (!user) { showScreen("signin"); return; }
 
