@@ -202,6 +202,96 @@
     .wallet-balance{ font-size:28px; }
     .platform-grid{ grid-template-columns:repeat(3,1fr); }
   }
+
+  /* ===== Category screen / Auto Services / Help ===== */
+  .page-header{ display:flex; align-items:center; gap:12px; padding:22px 20px 6px; }
+  .icon-btn{
+    flex-shrink:0; width:40px; height:40px; border-radius:12px; background:var(--surface);
+    border:1px solid var(--line); box-shadow:var(--shadow); display:flex; align-items:center;
+    justify-content:center; cursor:pointer; text-decoration:none; color:var(--text); font-size:16px;
+  }
+  .page-title{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; flex:1; text-transform:capitalize; }
+  .search-wrap{ padding:14px 20px 4px; }
+  .category-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:14px 16px; }
+  .cat-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px 14px;
+    box-shadow:var(--shadow); cursor:pointer;
+  }
+  .cat-icon{ font-size:22px; margin-bottom:10px; }
+  .cat-name{ font-size:13.5px; font-weight:700; margin-bottom:4px; }
+  .cat-count{ font-size:11.5px; color:var(--muted-2); margin-bottom:6px; }
+  .cat-price{ font-size:12px; font-weight:600; color:var(--blue); }
+  .auto-banner{
+    margin:4px 16px 4px; background:linear-gradient(145deg,var(--blue),var(--blue-deep)); border-radius:16px;
+    padding:15px 16px; color:#fff; display:flex; align-items:center; gap:12px; cursor:pointer;
+    box-shadow:0 10px 24px rgba(44,92,246,0.28);
+  }
+  .auto-banner .t{ font-size:13.5px; font-weight:700; }
+  .auto-banner .s{ font-size:11.5px; opacity:0.85; margin-top:2px; }
+
+  .service-list{ padding:0 16px; display:flex; flex-direction:column; gap:10px; }
+  .service-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:14px;
+    box-shadow:var(--shadow); cursor:pointer;
+  }
+  .service-card .name{ font-size:13.5px; font-weight:600; line-height:1.4; margin-bottom:6px; }
+  .service-card .meta{ display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted); }
+  .service-card .price{ color:var(--blue); font-weight:700; }
+  .badge{ display:inline-block; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:7px; background:var(--surface-2); color:var(--blue-deep); margin-top:8px; }
+
+  /* Order/auto-service modal, shared look */
+  .sheet-overlay{
+    display:none; position:fixed; inset:0; background:rgba(16,22,54,0.5); z-index:60;
+    align-items:flex-end; justify-content:center;
+  }
+  .sheet-overlay.show{ display:flex; }
+  .sheet{
+    background:var(--surface); border-radius:22px 22px 0 0; width:100%; max-width:460px;
+    padding:22px; max-height:88vh; overflow-y:auto;
+  }
+  .sheet h2{ font-size:15px; margin:0 0 4px; line-height:1.4; }
+  .sheet .price-row{ font-size:12px; color:var(--muted); margin-bottom:16px; }
+  .cost-box{ background:var(--surface-2); border-radius:12px; padding:12px 14px; margin:10px 0; font-size:13px; }
+  .cost-box .row{ display:flex; justify-content:space-between; margin-bottom:4px; }
+  .cost-box .total{ font-weight:700; color:var(--blue-deep); }
+  .subs-note{
+    background:#FFF4E5; border:1px solid #FFE0B2; border-radius:12px; padding:12px 14px;
+    margin-top:12px; font-size:12px; color:#8A5A00; line-height:1.5;
+  }
+  .msg{ font-size:13px; margin-top:10px; min-height:16px; }
+  .msg.error{ color:var(--red); }
+  .msg.ok{ color:var(--green); }
+
+  /* Info carousel (Learn how this works) */
+  .ic-overlay{
+    position:fixed; inset:0; background:rgba(16,22,54,0.55); z-index:70;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .ic-modal{
+    background:var(--surface); border-radius:22px 22px 0 0; width:100%; max-width:460px;
+    padding:22px 22px 20px; max-height:90vh; overflow-y:auto; position:relative;
+  }
+  .ic-close{
+    position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:50%;
+    background:var(--surface-2); border:none; color:var(--muted); font-size:16px; cursor:pointer;
+  }
+  .ic-dots{ display:flex; gap:6px; justify-content:center; margin-bottom:16px; }
+  .ic-dot{ width:22px; height:4px; border-radius:3px; background:var(--surface-3); cursor:pointer; }
+  .ic-dot.active{ background:var(--blue); }
+  .ic-icon{ font-size:32px; text-align:center; margin-bottom:8px; }
+  .ic-title{ font-size:17px; font-weight:700; text-align:center; margin:0 0 2px; }
+  .ic-subtitle{ font-size:12.5px; text-align:center; color:var(--muted); margin:0 0 14px; }
+  .ic-list{ margin:0 0 4px; padding-left:18px; font-size:13.5px; line-height:1.6; color:var(--text); }
+  .ic-list li{ margin-bottom:8px; }
+  .ic-steps{ margin:8px 0; padding-left:18px; font-size:13.5px; line-height:1.6; }
+  .ic-steps li{ margin-bottom:10px; }
+  .ic-p{ font-size:13.5px; line-height:1.6; margin:0 0 10px; }
+  .ic-highlight{ background:var(--surface-2); color:var(--blue-deep); border-radius:12px; padding:10px 12px; font-weight:600; }
+  .ic-tag{ display:inline-block; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:8px; margin-bottom:6px; }
+  .ic-tag-red{ background:#FDECEC; color:var(--red); }
+  .ic-tag-green{ background:#E7F9F1; color:var(--green); }
+  .ic-tag-amber{ background:#FFF4E5; color:#B7791F; }
+  .ic-btn-row{ display:flex; gap:10px; margin-top:18px; }
 </style>
 </head>
 <body>
@@ -349,7 +439,10 @@
           <div class="name" id="user-name">—</div>
         </div>
       </div>
-      <div class="bell-btn">🔔</div>
+      <div style="display:flex; gap:8px;">
+        <button class="bell-btn" id="app-help-btn" title="How this works" style="border:1px solid var(--line);">❔</button>
+        <div class="bell-btn">🔔</div>
+      </div>
     </div>
 
     <div class="wallet-wrap">
@@ -381,6 +474,80 @@
     </div>
   </div>
 
+  <!-- ===================== CATEGORY SCREEN ===================== -->
+  <div id="category-screen" class="hidden">
+    <div class="page-header">
+      <button class="icon-btn" id="category-back">←</button>
+      <div class="page-title" id="category-platform-title">Select Category</div>
+      <button class="icon-btn" id="category-help-btn" title="How this works">?</button>
+    </div>
+    <!-- Shown only if the chosen platform has any subscription-type ("Auto") services -->
+    <div class="auto-banner hidden" id="auto-banner">
+      <span style="font-size:20px">🔄</span>
+      <div>
+        <div class="t">Auto Services available</div>
+        <div class="s">Set once — likes/comments/views on every new post</div>
+      </div>
+    </div>
+    <div class="category-grid" id="category-grid"></div>
+    <div class="empty-state hidden" id="category-empty">No active services for this platform yet.</div>
+  </div>
+
+  <!-- ===================== AUTO SERVICES SCREEN ===================== -->
+  <div id="auto-services-screen" class="hidden">
+    <div class="page-header">
+      <button class="icon-btn" id="auto-back">←</button>
+      <div class="page-title">Auto Services</div>
+      <div style="width:40px"></div>
+    </div>
+    <div style="padding:0 20px 14px; font-size:12.5px; color:var(--muted); line-height:1.5;">
+      Set once, and every new post you publish automatically gets likes, comments, or views —
+      no need to order per post. You give your <b>username</b>, not a link.
+    </div>
+    <div class="service-list" id="auto-service-list">
+      <div class="empty-state">Loading auto services…</div>
+    </div>
+  </div>
+
+  <!-- Auto-service order sheet -->
+  <div class="sheet-overlay" id="auto-overlay">
+    <div class="sheet">
+      <h2 id="auto-modal-name"></h2>
+      <div class="price-row" id="auto-modal-price"></div>
+
+      <div class="field-group">
+        <label class="field-label">Your username (not a post link)</label>
+        <input class="input" id="auto-username" placeholder="e.g. yourusername">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Apply to last N existing posts (optional)</label>
+        <input class="input" id="auto-old-posts" type="number" placeholder="0" min="0">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Number of future posts to cover (optional)</label>
+        <input class="input" id="auto-posts" type="number" placeholder="Leave blank for unlimited" min="0">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Delay per post, in seconds (optional)</label>
+        <input class="input" id="auto-delay" type="number" placeholder="0" min="0">
+      </div>
+
+      <div class="cost-box">
+        <div class="row"><span>Unit price</span><span id="auto-cost-unit">₦0</span></div>
+        <div class="row total"><span>Est. total (per post)</span><span id="auto-cost-total">₦0</span></div>
+      </div>
+
+      <div class="subs-note">
+        This creates a <b>recurring subscription</b>, not a one-time order. It runs until it
+        expires, hits its post limit, or you cancel it from your Orders page.
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; margin-top:14px;" id="auto-place-btn">Start Auto Service</button>
+      <button class="btn btn-ghost" style="width:100%; margin-top:8px;" id="auto-cancel-btn">Cancel</button>
+      <div class="msg" id="auto-msg"></div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
   <!-- Firebase SDKs -->
@@ -393,6 +560,7 @@
       doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { auth, db, callFunction, withNetworkRetry } from "./js/firebase-client.js";
+    import { ensureOnboardingAccepted } from "./js/onboarding.js";
 
     const screens = {
       signin: document.getElementById("signin-screen"),
@@ -403,6 +571,8 @@
       generating: document.getElementById("generating-screen"),
       ready: document.getElementById("account-ready-screen"),
       app: document.getElementById("app-screen"),
+      category: document.getElementById("category-screen"),
+      autoServices: document.getElementById("auto-services-screen"),
     };
     function showScreen(name) {
       Object.values(screens).forEach((el) => el.classList.add("hidden"));
@@ -727,21 +897,374 @@
       });
     }
 
-    const platforms = [
-      { name: "Instagram", color: "#E1306C" },
-      { name: "Facebook", color: "#1877F2" },
-      { name: "TikTok", color: "#000000" },
-      { name: "Twitter", color: "#1DA1F2" },
-      { name: "YouTube", color: "#FF0000" },
+    // =========================================================
+    // Catalog config — full platform list, category metadata, and
+    // order-variant resolution. Kept inline here (not a separate
+    // catalog-config.js) so index.html stays a single file to upload.
+    // services.html/order-fields.js keep their own copy for the same
+    // reason — if you'd rather share one file across pages, extract this
+    // block back out into public/js/catalog-config.js and import it in
+    // both places instead.
+    // =========================================================
+    const PLATFORMS = [
+      { id: "instagram",   label: "Instagram",   color: "#E1306C", curated: true },
+      { id: "facebook",    label: "Facebook",    color: "#1877F2", curated: true },
+      { id: "twitter",     label: "Twitter",     color: "#1DA1F2", curated: true },
+      { id: "tiktok",      label: "TikTok",      color: "#000000", curated: true },
+      { id: "youtube",     label: "YouTube",     color: "#FF0000", curated: true },
+      { id: "linkedin",    label: "LinkedIn",    color: "#0A66C2", curated: false },
+      { id: "telegram",    label: "Telegram",    color: "#26A5E4", curated: false },
+      { id: "whatsapp",    label: "WhatsApp",    color: "#25D366", curated: false },
+      { id: "apple_music", label: "Apple Music", color: "#FA243C", curated: false },
+      { id: "spotify",     label: "Spotify",     color: "#1DB954", curated: false },
+      { id: "audiomack",   label: "Audiomack",   color: "#FFA200", curated: false },
+      { id: "soundcloud",  label: "SoundCloud",  color: "#FF5500", curated: false },
+      { id: "google",      label: "Google",      color: "#4285F4", curated: false },
+      { id: "trustpilot",  label: "Trustpilot",  color: "#00B67A", curated: false },
+      { id: "other",       label: "Other",       color: "#9AA3C0", curated: false },
     ];
-    const grid = document.getElementById("platform-grid");
-    platforms.forEach((p) => {
-      const tile = document.createElement("div");
-      tile.className = "platform-tile";
-      tile.innerHTML = `<div class="dot" style="background:${p.color}"></div><span>${p.name}</span>`;
-      tile.onclick = () => { window.location.href = `/services.html?platform=${p.name.toLowerCase()}`; };
-      grid.appendChild(tile);
-    });
+    // Gap #3 (handoff doc): only the 5 curated platforms are guaranteed to
+    // have synced services today. Flip this to true once sync-services.js
+    // pulls in the rest — until then, the other 10 only render if Firestore
+    // actually has active docs for them (checked lazily below).
+    const SHOW_ALL_PLATFORMS_REGARDLESS = false;
+
+    const CATEGORY_META = {
+      followers: { label: "Followers", icon: "👥" }, likes: { label: "Likes", icon: "❤️" },
+      views: { label: "Views", icon: "👁️" }, comments: { label: "Post Comments", icon: "💬" },
+      custom_comments: { label: "Custom Comments", icon: "💬" }, shares: { label: "Post Share", icon: "🔁" },
+      video_share: { label: "Video Share", icon: "🔁" }, video_view: { label: "Video View", icon: "👁️" },
+      page_follow: { label: "Page Follow", icon: "⭐" }, page_review: { label: "Page Review", icon: "👁️" },
+      group_join: { label: "Group Join", icon: "⭐" }, post_like: { label: "Post Like", icon: "❤️" },
+      mentions_hashtag: { label: "Hashtag Mentions", icon: "#️⃣" },
+      mentions_media_likers: { label: "Mentions (Likers)", icon: "❤️" },
+      mentions_user_followers: { label: "Mentions (Followers)", icon: "👥" },
+      invites_from_groups: { label: "Group Invites", icon: "✉️" },
+      web_traffic: { label: "Web Traffic", icon: "🌐" },
+      subscription: { label: "Auto Service", icon: "🔄" },
+      answer_poll: { label: "Poll Answers", icon: "🗳️" },
+    };
+
+    const SERVICE_TYPE_TO_VARIANT = {
+      followers: "default", likes: "default", views: "default", shares: "default",
+      post_like: "default", video_share: "default", video_view: "default",
+      page_follow: "default", page_review: "default", group_join: "default",
+      custom_comments: "custom_comments", comments: "custom_comments",
+      comment_replies: "comment_replies", comment_likes: "comment_likes",
+      mentions_hashtag: "mentions_hashtag", mentions_media_likers: "mentions_media_likers",
+      mentions_user_followers: "mentions_user_followers", invites_from_groups: "invites_from_groups",
+      web_traffic: "web_traffic", subscription: "subscription", answer_poll: "answer_poll",
+    };
+
+    function resolveVariant(service) {
+      const byType = service.service_type && SERVICE_TYPE_TO_VARIANT[service.service_type];
+      if (byType) {
+        if (byType === "custom_comments" && service.requires_custom_text === false) return "default";
+        return byType;
+      }
+      const catKey = service.category && service.category.toLowerCase().replace(/\s+/g, "_");
+      const byCategory = catKey && SERVICE_TYPE_TO_VARIANT[catKey];
+      if (byCategory) return byCategory;
+      if (service.requires_custom_text) return "custom_comments";
+      return "default";
+    }
+
+    // =========================================================
+    // Platform grid (home screen)
+    // =========================================================
+    async function platformHasServices(platformId) {
+      try {
+        const q = query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true));
+        const snap = await getDocs(q);
+        return !snap.empty;
+      } catch { return false; }
+    }
+
+    function renderPlatformGrid(list) {
+      const grid = document.getElementById("platform-grid");
+      grid.innerHTML = "";
+      list.forEach((p) => {
+        const tile = document.createElement("div");
+        tile.className = "platform-tile";
+        tile.innerHTML = `<div class="dot" style="background:${p.color}"></div><span>${p.label}</span>`;
+        tile.onclick = () => openCategoryScreen(p.id, p.label);
+        grid.appendChild(tile);
+      });
+    }
+
+    async function initPlatformGrid() {
+      const curated = PLATFORMS.filter((p) => p.curated);
+      renderPlatformGrid(curated);
+      if (SHOW_ALL_PLATFORMS_REGARDLESS) { renderPlatformGrid(PLATFORMS); return; }
+      const nonCurated = PLATFORMS.filter((p) => !p.curated);
+      const checks = await Promise.all(nonCurated.map((p) => platformHasServices(p.id)));
+      const extra = nonCurated.filter((_, i) => checks[i]);
+      renderPlatformGrid([...curated, ...extra]);
+    }
+
+    // =========================================================
+    // Category screen
+    // =========================================================
+    let currentCategoryPlatform = null;
+
+    async function openCategoryScreen(platformId, platformLabel) {
+      currentCategoryPlatform = platformId;
+      document.getElementById("category-platform-title").textContent = platformLabel || platformId;
+      document.getElementById("category-grid").innerHTML = "";
+      document.getElementById("category-empty").classList.add("hidden");
+      document.getElementById("auto-banner").classList.add("hidden");
+      showScreen("category");
+
+      try {
+        const q = query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true));
+        const snap = await getDocs(q);
+        const services = snap.docs.map((d) => d.data());
+
+        if (services.length === 0) {
+          document.getElementById("category-empty").classList.remove("hidden");
+          return;
+        }
+
+        const hasSubscription = services.some((s) => resolveVariant(s) === "subscription");
+        if (hasSubscription) {
+          const banner = document.getElementById("auto-banner");
+          banner.classList.remove("hidden");
+          banner.onclick = () => openAutoServicesScreen(platformId);
+        }
+
+        const orderable = services.filter((s) => resolveVariant(s) !== "subscription");
+        const byCategory = {};
+        orderable.forEach((s) => {
+          const key = (s.category || "other").toLowerCase().replace(/\s+/g, "_");
+          if (!byCategory[key]) byCategory[key] = { key, services: [], minPrice: Infinity, maxPrice: 0 };
+          byCategory[key].services.push(s);
+          byCategory[key].minPrice = Math.min(byCategory[key].minPrice, s.sell_price);
+          byCategory[key].maxPrice = Math.max(byCategory[key].maxPrice, s.sell_price);
+        });
+
+        const grid = document.getElementById("category-grid");
+        grid.innerHTML = Object.values(byCategory).map((c) => {
+          const meta = CATEGORY_META[c.key] || { label: c.key, icon: "📦" };
+          return `
+            <div class="cat-card" data-key="${c.key}">
+              <div class="cat-icon">${meta.icon}</div>
+              <div class="cat-name">${meta.label}</div>
+              <div class="cat-count">${c.services.length} service${c.services.length === 1 ? "" : "s"}</div>
+              <div class="cat-price">₦${c.minPrice} – ₦${c.maxPrice}</div>
+            </div>`;
+        }).join("");
+
+        grid.querySelectorAll(".cat-card").forEach((card) => {
+          card.onclick = () => {
+            window.location.href = `/services.html?platform=${platformId}&category=${card.dataset.key}`;
+          };
+        });
+      } catch (err) {
+        console.error(err);
+        document.getElementById("category-empty").textContent = "Couldn't load categories — try again shortly.";
+        document.getElementById("category-empty").classList.remove("hidden");
+      }
+    }
+
+    document.getElementById("category-back").onclick = () => showScreen("app");
+    document.getElementById("category-help-btn").onclick = () => openInfoCarousel();
+    document.getElementById("app-help-btn").onclick = () => openInfoCarousel();
+
+    // =========================================================
+    // Auto Services screen — subscription-type services (gap #2)
+    // =========================================================
+    let autoServicesForPlatform = [];
+    let selectedAutoService = null;
+
+    async function openAutoServicesScreen(platformId) {
+      showScreen("autoServices");
+      const list = document.getElementById("auto-service-list");
+      list.innerHTML = `<div class="empty-state">Loading auto services…</div>`;
+      try {
+        const q = platformId
+          ? query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true))
+          : query(collection(db, "services"), where("is_active", "==", true));
+        const snap = await getDocs(q);
+        autoServicesForPlatform = snap.docs.map((d) => d.data()).filter((s) => resolveVariant(s) === "subscription");
+
+        if (autoServicesForPlatform.length === 0) {
+          list.innerHTML = `<div class="empty-state">No auto services available right now.</div>`;
+          return;
+        }
+
+        list.innerHTML = autoServicesForPlatform.map((s) => `
+          <div class="service-card" data-id="${s.service_id}">
+            <div class="name">${s.name}</div>
+            <div class="meta">
+              <span>${s.min_quantity.toLocaleString()} – ${s.max_quantity.toLocaleString()} units</span>
+              <span class="price">₦${s.sell_price}/unit</span>
+            </div>
+            <span class="badge">Runs on every new post</span>
+          </div>`).join("");
+
+        list.querySelectorAll(".service-card").forEach((card) => {
+          card.onclick = () => openAutoModal(card.dataset.id);
+        });
+      } catch (err) {
+        console.error(err);
+        list.innerHTML = `<div class="empty-state">Couldn't load auto services — try again shortly.</div>`;
+      }
+    }
+
+    document.getElementById("auto-back").onclick = () => showScreen("category");
+
+    const autoOverlay = document.getElementById("auto-overlay");
+
+    function openAutoModal(serviceId) {
+      selectedAutoService = autoServicesForPlatform.find((s) => String(s.service_id) === String(serviceId));
+      if (!selectedAutoService) return;
+      document.getElementById("auto-modal-name").textContent = selectedAutoService.name;
+      document.getElementById("auto-modal-price").textContent =
+        `₦${selectedAutoService.sell_price}/unit · ${selectedAutoService.min_quantity.toLocaleString()}–${selectedAutoService.max_quantity.toLocaleString()} units`;
+      document.getElementById("auto-username").value = "";
+      document.getElementById("auto-old-posts").value = "";
+      document.getElementById("auto-posts").value = "";
+      document.getElementById("auto-delay").value = "";
+      document.getElementById("auto-msg").textContent = "";
+      const qty = selectedAutoService.min_quantity;
+      document.getElementById("auto-cost-unit").textContent = `₦${selectedAutoService.sell_price}`;
+      document.getElementById("auto-cost-total").textContent =
+        `₦${(selectedAutoService.sell_price * qty).toLocaleString()} (min qty ${qty})`;
+      autoOverlay.classList.add("show");
+    }
+
+    document.getElementById("auto-cancel-btn").onclick = () => autoOverlay.classList.remove("show");
+    autoOverlay.onclick = (e) => { if (e.target === autoOverlay) autoOverlay.classList.remove("show"); };
+
+    document.getElementById("auto-place-btn").onclick = async () => {
+      const msgEl = document.getElementById("auto-msg");
+      msgEl.textContent = "";
+      const username = document.getElementById("auto-username").value.trim();
+      if (!username) { msgEl.textContent = "Enter your username."; msgEl.className = "msg error"; return; }
+
+      const btn = document.getElementById("auto-place-btn");
+      btn.disabled = true;
+      btn.textContent = "Starting…";
+      try {
+        await ensureOnboardingAccepted(db, currentUser);
+        const body = {
+          serviceId: selectedAutoService.service_id,
+          quantity: selectedAutoService.min_quantity,
+          username,
+          old_posts: Number(document.getElementById("auto-old-posts").value) || undefined,
+          posts: Number(document.getElementById("auto-posts").value) || undefined,
+          delay: Number(document.getElementById("auto-delay").value) || undefined,
+        };
+        const result = await callFunction("place-order", body);
+        msgEl.textContent = `Auto service started! Tracking ID: ${result.trackingId}`;
+        msgEl.className = "msg ok";
+        setTimeout(() => { window.location.href = "/orders.html"; }, 1500);
+      } catch (err) {
+        msgEl.textContent = err.message || "Couldn't start auto service.";
+        msgEl.className = "msg error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Start Auto Service";
+      }
+    };
+
+    // =========================================================
+    // Info carousel — optional "Learn how this works" content
+    // (reskinned light version of the reference screenshots:
+    // How Delivery Works / Smart Tips / Smart Ordering / Auto Services /
+    // Delivery Expectations). Not gated, reachable anytime via the "?"
+    // buttons. The reference screenshots' separate "Local vs Global"
+    // provider-tier screens aren't included — that split doesn't exist in
+    // this app's data model (Bigisub is the only backend).
+    // =========================================================
+    const IC_TOPICS = [
+      {
+        icon: "⏱️", title: "How Delivery Works", subtitle: "Speed depends on the service you choose",
+        body: `<ul class="ic-list">
+          <li><b>Fast services</b> — usually complete within minutes to a couple of hours.</li>
+          <li><b>Standard services</b> — anywhere from seconds to a few days depending on demand.</li>
+          <li>Every service card shows an estimated speed before you order.</li>
+          <li>Orders are routed to protect the account being promoted, and are usually cheaper than rushed delivery.</li>
+        </ul>`,
+      },
+      {
+        icon: "🛡️", title: "Smart Tips Before You Start", subtitle: null,
+        body: `<div class="ic-tag ic-tag-red">▾ LQ — Low Quality</div>
+          <p class="ic-p">Cheap and unstable. Followers, likes, or views can drop to zero over time. Best for testing — avoid on accounts you care about.</p>
+          <div class="ic-tag ic-tag-green">⚡ HQ — High Quality</div>
+          <p class="ic-p">Stable, with much better retention. Recommended for real campaigns and client work.</p>
+          <div class="ic-tag ic-tag-amber">👁 Stay Alert</div>
+          <p class="ic-p">Avoid overtly cheap services. Don't use an untested service on an account you care about. Check order status regularly — test small, then scale.</p>`,
+      },
+      {
+        icon: "🔎", title: "Smart Ordering", subtitle: "Find the best service before spending big",
+        body: `<p class="ic-p">Want 1,000 followers? Don't order it all in one go. Here's a safer way:</p>
+          <ol class="ic-steps">
+            <li><b>Pick a few services that look good</b> — check retention notes, price, and speed.</li>
+            <li><b>Order a small test batch from each</b> — e.g. 50 from each of 5 options.</li>
+            <li><b>Scale up on whichever delivered fastest and cleanest.</b></li>
+          </ol>
+          <p class="ic-p ic-highlight">This saves time and money — you only scale what actually works.</p>`,
+      },
+      {
+        icon: "🔄", title: "Auto Services", subtitle: "Set it once, it works on every new post",
+        body: `<p class="ic-p">Auto Likes, Comments, and Views watch your profile and automatically deliver to every new post you publish.</p>
+          <ul class="ic-list">
+            <li>You enter your <b>username</b>, not a post link.</li>
+            <li>Every time you post, engagement arrives automatically.</li>
+            <li>You can also apply it to your last few existing posts.</li>
+            <li>Runs until it expires, hits its post limit, or you cancel it.</li>
+          </ul>
+          <p class="ic-p ic-highlight">Perfect if you post regularly and want consistent engagement without ordering every time.</p>`,
+      },
+      {
+        icon: "⚠️", title: "Delivery Expectations", subtitle: null,
+        body: `<ul class="ic-list">
+          <li>Delivery can be fast (minutes) or slow (days) — this varies by service and demand.</li>
+          <li>Some orders complete fully, some partially — whatever doesn't deliver is refunded automatically.</li>
+          <li>A service can show "Completed" and later drop — that's when Refill (where supported) helps.</li>
+        </ul>
+        <p class="ic-p">Check your Orders page first if something looks off — most issues resolve automatically. Contact support after 48 hours.</p>`,
+      },
+    ];
+
+    function openInfoCarousel() {
+      const overlay = document.createElement("div");
+      overlay.className = "ic-overlay";
+      const modal = document.createElement("div");
+      modal.className = "ic-modal";
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      overlay.onclick = (e) => { if (e.target === overlay) close(); };
+      function close() { document.body.removeChild(overlay); }
+
+      function render(index) {
+        const t = IC_TOPICS[index];
+        const isFirst = index === 0, isLast = index === IC_TOPICS.length - 1;
+        modal.innerHTML = `
+          <button class="ic-close" id="ic-x">✕</button>
+          <div class="ic-dots">${IC_TOPICS.map((_, i) => `<div class="ic-dot ${i === index ? "active" : ""}" data-i="${i}"></div>`).join("")}</div>
+          <div class="ic-icon">${t.icon}</div>
+          <h2 class="ic-title">${t.title}</h2>
+          ${t.subtitle ? `<p class="ic-subtitle">${t.subtitle}</p>` : ""}
+          ${t.body}
+          <div class="ic-btn-row">
+            ${!isFirst ? `<button class="btn btn-ghost" style="flex:0 0 auto; padding:14px 18px;" id="ic-back">Back</button>` : ""}
+            <button class="btn btn-primary" style="flex:1;" id="ic-next">${isLast ? "Done" : "Next"}</button>
+          </div>`;
+        modal.querySelector("#ic-x").onclick = close;
+        modal.querySelectorAll(".ic-dot").forEach((d) => { d.onclick = () => render(Number(d.dataset.i)); });
+        const back = modal.querySelector("#ic-back");
+        if (back) back.onclick = () => render(index - 1);
+        modal.querySelector("#ic-next").onclick = () => { if (isLast) close(); else render(index + 1); };
+      }
+      render(0);
+    }
+
+    // =========================================================
+    // Init
+    // =========================================================
+    initPlatformGrid();
 
     document.getElementById("fund-wallet-btn").onclick = () => { window.location.href = "/fund.html"; };
     document.getElementById("history-btn").onclick = () => { window.location.href = "/orders.html"; };

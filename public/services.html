@@ -19,7 +19,11 @@
     width:38px; height:38px; border-radius:12px; background:#fff; border:1px solid rgba(16,22,54,0.08);
     display:flex; align-items:center; justify-content:center; text-decoration:none; color:#10162B; font-size:18px;
   }
-  .header h1 { font-size:17px; margin:0; font-weight:700; text-transform:capitalize; }
+  .header h1 { font-size:17px; margin:0; font-weight:700; text-transform:capitalize; flex:1; }
+  .help-btn {
+    width:34px; height:34px; border-radius:10px; background:#EEF3FF; border:none; color:#1339B0;
+    font-size:15px; font-weight:700; cursor:pointer;
+  }
   .search-wrap { padding: 0 16px 12px; }
   .search-input {
     width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(16,22,54,0.1);
@@ -34,7 +38,7 @@
   .service-card .name { font-size:13.5px; font-weight:600; line-height:1.4; margin-bottom:6px; }
   .service-card .meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#6B7590; }
   .price { color:#2C5CF6; font-weight:700; }
-  .badge-row { display:flex; gap:6px; margin-top:8px; }
+  .badge-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
   .badge { font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:7px; background:#EEF3FF; color:#1339B0; }
   .empty-state { text-align:center; padding:40px 20px; color:#9AA3C0; font-size:13px; }
 
@@ -50,10 +54,13 @@
   }
   .modal h2 { font-size:15px; margin:0 0 4px; line-height:1.4; }
   .modal .price-row { font-size:12px; color:#6B7590; margin-bottom:16px; }
+  .field-label { font-size:12px; font-weight:600; color:#3A4160; margin:10px 0 4px; }
   .input {
     width:100%; padding:13px 14px; border-radius:12px; border:1px solid rgba(16,22,54,0.1);
-    font-size:14px; margin-bottom:10px; font-family:inherit;
+    font-size:14px; margin-bottom:2px; font-family:inherit;
   }
+  #order-fields { margin-bottom:8px; }
+  .qty-row { margin-top:10px; }
   .cost-box { background:#EEF3FF; border-radius:12px; padding:12px 14px; margin:10px 0; font-size:13px; }
   .cost-box .row { display:flex; justify-content:space-between; margin-bottom:4px; }
   .cost-box .total { font-weight:700; color:#1339B0; }
@@ -69,8 +76,9 @@
 <body>
 
   <div class="header">
-    <a href="/" class="back-btn">←</a>
+    <a href="/category-select.html" class="back-btn">←</a>
     <h1 id="platform-title">Services</h1>
+    <button class="help-btn" id="help-btn" title="How this works">?</button>
   </div>
 
   <div class="search-wrap">
@@ -87,8 +95,15 @@
       <h2 id="modal-service-name"></h2>
       <div class="price-row" id="modal-price-row"></div>
 
-      <input class="input" id="order-link" placeholder="Link or username">
-      <input class="input" id="order-qty" type="number" placeholder="Quantity">
+      <!-- Variant-specific fields (link / custom_text / hashtag / etc.)
+           are injected here by order-fields.js based on the service's
+           resolved order-create variant. -->
+      <div id="order-fields"></div>
+
+      <div class="qty-row">
+        <div class="field-label">Quantity</div>
+        <input class="input" id="order-qty" type="number" placeholder="Quantity">
+      </div>
 
       <div class="cost-box">
         <div class="row"><span>Unit price</span><span id="cost-unit">₦0</span></div>
@@ -102,12 +117,20 @@
   </div>
 
   <script type="module">
-    import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { db, callFunction, requireSignedInUser } from "./js/firebase-client.js";
+    import { ensureOnboardingAccepted } from "./js/onboarding.js";
+    import { openInfoCarousel } from "./js/info-carousel.js";
+    import { renderOrderFields, collectOrderFields } from "./js/order-fields.js";
+    import { resolveVariant } from "./js/catalog-config.js";
+
+    let currentUser = null;
 
     const params = new URLSearchParams(window.location.search);
     const platform = (params.get("platform") || "").toLowerCase();
+    const categoryFilter = (params.get("category") || "").toLowerCase();
     document.getElementById("platform-title").textContent = platform || "Services";
+    document.getElementById("help-btn").onclick = () => openInfoCarousel();
 
     let allServices = [];
 
@@ -167,7 +190,17 @@
           q = query(collection(db, "services"), where("is_active", "==", true));
         }
         const snap = await getDocs(q);
-        allServices = snap.docs.map((d) => d.data());
+        let services = snap.docs.map((d) => d.data());
+
+        // Category-select.html links here with &category=<key> — filter to
+        // that category, and always exclude subscription-type services
+        // (those live on auto-services.html, not here).
+        services = services.filter((s) => resolveVariant(s) !== "subscription");
+        if (categoryFilter) {
+          services = services.filter((s) => (s.category || "").toLowerCase().replace(/\s+/g, "_") === categoryFilter);
+        }
+
+        allServices = services;
         renderList(allServices);
       } catch (err) {
         console.error(err);
@@ -179,6 +212,7 @@
     // ---- Order modal ----
     let selectedService = null;
     const overlay = document.getElementById("overlay");
+    const fieldsContainer = document.getElementById("order-fields");
 
     function openOrderModal(serviceId) {
       selectedService = allServices.find((s) => String(s.service_id) === String(serviceId));
@@ -187,7 +221,8 @@
       document.getElementById("modal-service-name").textContent = selectedService.name;
       document.getElementById("modal-price-row").textContent =
         `₦${selectedService.sell_price}/unit · ${selectedService.min_quantity.toLocaleString()}–${selectedService.max_quantity.toLocaleString()} units`;
-      document.getElementById("order-link").value = "";
+
+      renderOrderFields(fieldsContainer, selectedService);
       document.getElementById("order-qty").value = selectedService.min_quantity;
       document.getElementById("order-msg").textContent = "";
       updateCost();
@@ -209,12 +244,17 @@
     document.getElementById("place-order-btn").onclick = async () => {
       const msgEl = document.getElementById("order-msg");
       msgEl.textContent = "";
-      const link = document.getElementById("order-link").value.trim();
-      const qty = Number(document.getElementById("order-qty").value);
 
-      if (!link) { msgEl.textContent = "Enter a link or username."; msgEl.className = "msg error"; return; }
+      const qty = Number(document.getElementById("order-qty").value);
       if (!qty || qty < selectedService.min_quantity || qty > selectedService.max_quantity) {
         msgEl.textContent = `Quantity must be between ${selectedService.min_quantity} and ${selectedService.max_quantity}.`;
+        msgEl.className = "msg error";
+        return;
+      }
+
+      const fields = collectOrderFields(fieldsContainer, selectedService);
+      if (!fields.ok) {
+        msgEl.textContent = fields.error;
         msgEl.className = "msg error";
         return;
       }
@@ -224,11 +264,11 @@
       btn.textContent = "Placing order…";
 
       try {
-        const body = { serviceId: selectedService.service_id, quantity: qty };
-        // Auto services (username-based, e.g. Auto Likes) vs link-based —
-        // treat non-URL input as a username.
-        if (/^https?:\/\//i.test(link)) body.link = link;
-        else body.username = link;
+        // Gate on terms/how-it-works acceptance before the first spend.
+        // No-ops instantly (no modal) for anyone who's already accepted.
+        await ensureOnboardingAccepted(db, currentUser);
+
+        const body = { serviceId: selectedService.service_id, quantity: qty, ...fields.body };
 
         const result = await callFunction("place-order", body);
         msgEl.textContent = `Order placed! Tracking ID: ${result.trackingId}`;
@@ -243,7 +283,7 @@
       }
     };
 
-    requireSignedInUser().then(() => loadServices());
+    requireSignedInUser().then((user) => { currentUser = user; loadServices(); });
   </script>
 </body>
 </html>
