@@ -2,10 +2,16 @@
 // HTTP FUNCTION — called from the app with:
 //   POST /.netlify/functions/place-order
 //   Headers: Authorization: Bearer <Firebase ID token>
-//   Body: { serviceId, quantity, link?, username? }
+//   Body: { serviceId, quantity, link?, username?, ...variant extra fields }
 //
 // Re-validates price server-side (never trusts a client-sent amount),
 // deducts wallet atomically, then calls BigiSub.
+//
+// Handoff doc gap #1: order-fields.js on the client now collects the extra
+// fields BigiSub's non-Default variants need (custom_text, hashtag, media,
+// groups, country/device/type_of_traffic/google_keyword, old_posts/posts/
+// delay). This function forwards whichever of those keys are present —
+// whitelisted below — rather than trusting/forwarding the entire body.
 
 const { db, FieldValue } = require("./_lib/firebase-admin");
 const { requireAuth } = require("./_lib/require-auth");
@@ -30,6 +36,23 @@ exports.handler = async (event) => {
     }
 
     const { serviceId, link, quantity, username } = body;
+
+    // Extra fields required by BigiSub's non-Default order-create variants
+    // (see handoff doc gap #1). Only whitelisted keys are ever forwarded —
+    // never the raw client body — so this can't become an arbitrary
+    // passthrough to BigiSub.
+    const EXTRA_FIELD_KEYS = [
+      "custom_text", "hashtag", "media", "groups",
+      "country", "device", "type_of_traffic", "google_keyword",
+      "old_posts", "posts", "delay",
+    ];
+    const extraFields = {};
+    for (const key of EXTRA_FIELD_KEYS) {
+      if (body[key] !== undefined && body[key] !== null && body[key] !== "") {
+        extraFields[key] = body[key];
+      }
+    }
+
     if (!serviceId || !quantity) {
       throw Object.assign(new Error("serviceId and quantity are required."), { statusCode: 400 });
     }
@@ -76,7 +99,7 @@ exports.handler = async (event) => {
     // Wallet already deducted at this point. Now call BigiSub.
     let bigisubOrder;
     try {
-      const orderBody = { service_id: service.service_id, quantity };
+      const orderBody = { service_id: service.service_id, quantity, ...extraFields };
       if (link) orderBody.link = link;
       if (username) orderBody.username = username;
 
@@ -99,6 +122,7 @@ exports.handler = async (event) => {
       platform: service.platform,
       link: link || null,
       username: username || null,
+      ...(Object.keys(extraFields).length ? { extra_fields: extraFields } : {}),
       quantity,
       unit_price: service.sell_price,
       total_amount: totalCost,
