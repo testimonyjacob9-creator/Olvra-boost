@@ -1,7 +1,9 @@
 // _lib/brevo.js
-// Thin wrapper around Brevo's transactional email API (v3).
+// Thin wrapper around Brevo's transactional email API (v3), plus branded
+// templates for every transactional email Olvra Boost sends.
 
 const axios = require("axios");
+const { renderEmail, MUTED } = require("./email-template");
 
 const BREVO_BASE_URL = "https://api.brevo.com/v3";
 
@@ -31,31 +33,93 @@ async function sendEmail({ to, toName, subject, html }) {
   );
 }
 
-function orderConfirmationEmail({ serviceName, quantity, totalCharged, orderId }) {
+function orderConfirmationEmail({ serviceName, quantity, totalCharged, orderId, status }) {
+  const rows = [
+    ["Order ID", orderId],
+    ["Service", serviceName],
+    ["Quantity", quantity],
+    ["Total charged", `₦${Number(totalCharged).toLocaleString()}`],
+    ["Status", status || "processing"],
+  ]
+    .map(
+      ([label, value]) => `
+      <tr>
+        <td style="padding:8px 0;color:${MUTED};font-size:13px;">${label}</td>
+        <td style="padding:8px 0;text-align:right;font-weight:600;font-size:13px;">${value}</td>
+      </tr>`
+    )
+    .join("");
+
+  const body = `
+    <p style="margin:0 0 16px;">Your order has been placed successfully — here's a quick summary:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #E7ECF5;border-bottom:1px solid #E7ECF5;">
+      ${rows}
+    </table>
+    <p style="margin:16px 0 0;">You can track live status from your Olvra Boost dashboard at any time.</p>
+  `;
+
   return {
     subject: `Order confirmed — ${serviceName}`,
-    html: `
-      <p>Your order has been placed successfully.</p>
-      <ul>
-        <li><strong>Order ID:</strong> ${orderId}</li>
-        <li><strong>Service:</strong> ${serviceName}</li>
-        <li><strong>Quantity:</strong> ${quantity}</li>
-        <li><strong>Total charged:</strong> ₦${totalCharged}</li>
-      </ul>
-      <p>You can track its status from your Olvra Boost dashboard.</p>
-    `,
+    html: renderEmail({
+      title: "Order confirmed",
+      bodyHtml: body,
+      ctaText: "View order status",
+      ctaUrl: process.env.APP_URL ? `${process.env.APP_URL}/orders.html` : undefined,
+    }),
   };
 }
 
 function passwordResetEmail({ resetLink }) {
+  const body = `
+    <p style="margin:0 0 8px;">We received a request to reset your Olvra Boost password.</p>
+    <p style="margin:0;">Tap the button below to choose a new one. This link expires in 1 hour.</p>
+  `;
   return {
     subject: "Reset your Olvra Boost password",
-    html: `
-      <p>We received a request to reset your password.</p>
-      <p><a href="${resetLink}">Click here to reset your password</a>. This link expires in 1 hour.</p>
-      <p>If you didn't request this, you can safely ignore this email.</p>
-    `,
+    html: renderEmail({
+      title: "Reset your password",
+      bodyHtml: body,
+      ctaText: "Reset password",
+      ctaUrl: resetLink,
+    }),
   };
 }
 
-module.exports = { sendEmail, orderConfirmationEmail, passwordResetEmail };
+function verificationCodeEmail({ name, code }) {
+  const body = `
+    <p style="margin:0 0 4px;">Hi ${name || "there"},</p>
+    <p style="margin:0 0 20px;">Enter this code to verify your email address:</p>
+    <div style="text-align:center;">
+      <span style="display:inline-block;font-size:32px;font-weight:800;letter-spacing:10px;color:#2C5CF6;padding:14px 10px;background:#EEF3FF;border-radius:14px;">
+        ${code}
+      </span>
+    </div>
+    <p style="margin:20px 0 0;color:${MUTED};">This code expires in 10 minutes. Don't share it with anyone.</p>
+  `;
+  return {
+    subject: "Your Olvra Boost verification code",
+    html: renderEmail({ title: "Verify your email", bodyHtml: body }),
+  };
+}
+
+function walletFundedEmail({ amount, newBalance }) {
+  const body = `
+    <p style="margin:0 0 16px;">Your wallet has been credited:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #E7ECF5;border-bottom:1px solid #E7ECF5;">
+      <tr><td style="padding:8px 0;color:${MUTED};font-size:13px;">Amount credited</td><td style="padding:8px 0;text-align:right;font-weight:600;font-size:13px;">₦${Number(amount).toLocaleString()}</td></tr>
+      <tr><td style="padding:8px 0;color:${MUTED};font-size:13px;">New balance</td><td style="padding:8px 0;text-align:right;font-weight:600;font-size:13px;">₦${Number(newBalance).toLocaleString()}</td></tr>
+    </table>
+  `;
+  return {
+    subject: "Wallet funded — Olvra Boost",
+    html: renderEmail({ title: "Wallet funded", bodyHtml: body }),
+  };
+}
+
+module.exports = {
+  sendEmail,
+  orderConfirmationEmail,
+  passwordResetEmail,
+  verificationCodeEmail,
+  walletFundedEmail,
+};
