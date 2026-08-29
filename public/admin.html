@@ -4,45 +4,150 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Admin — Olvra Boost</title>
+<meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F4F7FE; --surface:#FFFFFF; --surface-2:#EEF3FF; --blue:#2C5CF6; --blue-deep:#1339B0;
-    --sky:#16B8E0; --text:#10162B; --muted:#6B7590; --muted-2:#9AA3C0; --line:rgba(16,22,54,0.08);
-    --shadow:0 6px 22px rgba(23,43,133,0.08); --red:#E5484D; --green:#12B76A; --amber:#FF9F43;
+    --bg:#0B1020; --surface:#141B30; --surface-2:#1B2440; --surface-3:#232E52;
+    --blue:#4C7BFF; --blue-deep:#2C5CF6; --sky:#22D3EE;
+    --text:#F3F5FC; --muted:#8C95B8; --muted-2:#5C6690; --line:rgba(255,255,255,0.08);
+    --shadow:0 10px 30px rgba(0,0,0,0.35); --red:#F1636B; --green:#22C97D; --amber:#FFB454;
+    --radius:18px;
   }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-  html,body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; }
-  body{ max-width:520px; margin:0 auto; min-height:100vh; padding-bottom:40px; }
-  .header{ display:flex; align-items:center; gap:12px; padding:20px 16px 14px; position:sticky; top:0; background:var(--bg); z-index:5; }
-  .back-btn{ width:38px; height:38px; border-radius:12px; background:#fff; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; text-decoration:none; color:var(--text); font-size:18px; box-shadow:var(--shadow); }
-  .header h1{ font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:700; }
-  .header .tag{ font-size:10.5px; font-weight:700; color:var(--blue-deep); background:var(--surface-2); padding:3px 8px; border-radius:8px; margin-left:6px; }
-  @keyframes fadeUp{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:translateY(0); } }
-  .stats-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 16px; }
-  .stat-card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow); animation:fadeUp 0.4s ease-out both; }
-  .stat-label{ font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em; }
-  .stat-value{ font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; margin-top:6px; }
-  .section-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; padding:22px 16px 10px; display:flex; justify-content:space-between; align-items:center; }
-  .sync-btn{ font-size:11.5px; font-weight:700; color:#fff; background:linear-gradient(145deg,var(--blue),var(--blue-deep)); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; box-shadow:0 6px 16px rgba(44,92,246,0.28); }
-  .sync-btn:disabled{ opacity:0.6; }
-  .list{ padding:0 16px; display:flex; flex-direction:column; gap:8px; }
-  .row{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px 14px; box-shadow:var(--shadow); display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:12.5px; animation:fadeUp 0.35s ease-out both; }
+  html,body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+  body{
+    max-width:560px; margin:0 auto; padding-bottom:50px;
+    background:
+      radial-gradient(700px 340px at 15% -8%, rgba(76,123,255,0.16), transparent 60%),
+      radial-gradient(560px 300px at 100% 0%, rgba(34,211,238,0.10), transparent 55%),
+      var(--bg);
+  }
+
+  @keyframes fadeUp{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes fieldIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; } }
+
+  /* ===== Header ===== */
+  .header{ display:flex; align-items:center; gap:12px; padding:20px 18px 14px; animation:fieldIn 0.4s ease both; }
+  .back-btn{
+    width:38px; height:38px; border-radius:12px; background:var(--surface); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; text-decoration:none; color:var(--text);
+    font-size:17px; box-shadow:var(--shadow); flex-shrink:0; transition:transform 0.12s ease;
+  }
+  .back-btn:active{ transform:scale(0.92); }
+  .header-title{ flex:1; min-width:0; }
+  .header-title h1{ font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .live-dot{ width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(34,201,125,0.5); animation:livePulse 2s infinite; }
+  @keyframes livePulse{ 0%{ box-shadow:0 0 0 0 rgba(34,201,125,0.45); } 70%{ box-shadow:0 0 0 7px rgba(34,201,125,0); } 100%{ box-shadow:0 0 0 0 rgba(34,201,125,0); } }
+  .header-title .sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .logout-btn{
+    width:38px; height:38px; border-radius:12px; background:var(--surface); border:1px solid var(--line);
+    color:var(--muted); font-size:15px; cursor:pointer; flex-shrink:0; transition:transform 0.12s ease;
+  }
+  .logout-btn:active{ transform:scale(0.92); }
+
+  /* ===== Tabs ===== */
+  .tab-bar{
+    display:flex; gap:6px; padding:4px 18px 16px; overflow-x:auto; scrollbar-width:none;
+    animation:fieldIn 0.4s ease 0.05s both;
+  }
+  .tab-bar::-webkit-scrollbar{ display:none; }
+  .tab-btn{
+    flex-shrink:0; padding:9px 14px; border-radius:11px; border:1px solid var(--line);
+    background:var(--surface); color:var(--muted); font-size:12.5px; font-weight:600;
+    font-family:'Inter',sans-serif; cursor:pointer; white-space:nowrap; transition:all 0.15s ease;
+  }
+  .tab-btn.active{ background:linear-gradient(145deg,var(--blue),var(--blue-deep)); color:#fff; border-color:transparent; box-shadow:0 6px 16px rgba(76,123,255,0.35); }
+  .tab-btn:active{ transform:scale(0.96); }
+
+  .tab-panel{ display:none; padding:0 18px; }
+  .tab-panel.active{ display:block; animation:fadeUp 0.35s cubic-bezier(.2,.8,.2,1) both; }
+
+  /* ===== Common bits ===== */
+  .stats-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+  .stat-card{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow); animation:fadeUp 0.4s ease-out both; }
+  .stat-label{ font-size:10.5px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.06em; }
+  .stat-value{ font-family:'JetBrains Mono',monospace; font-size:21px; font-weight:700; margin-top:6px; }
+
+  .section-title{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:4px 0 10px; display:flex; justify-content:space-between; align-items:center; }
+  .pill-btn{
+    font-size:11.5px; font-weight:700; color:#fff; background:linear-gradient(145deg,var(--blue),var(--blue-deep));
+    border:none; padding:8px 13px; border-radius:10px; cursor:pointer; box-shadow:0 6px 16px rgba(76,123,255,0.3);
+    transition:transform 0.12s ease, opacity 0.15s ease;
+  }
+  .pill-btn:active{ transform:scale(0.95); }
+  .pill-btn:disabled{ opacity:0.55; }
+  .pill-btn.ghost{ background:var(--surface-2); box-shadow:none; color:var(--text); border:1px solid var(--line); }
+  .pill-btn.danger{ background:linear-gradient(145deg,#F1636B,#C93B44); }
+
+  .search-input{
+    width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text); font-size:13.5px; margin-bottom:14px;
+    font-family:'Inter',sans-serif; transition:border-color 0.15s ease, box-shadow 0.2s ease;
+  }
+  .search-input::placeholder{ color:var(--muted-2); }
+  .search-input:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 4px rgba(76,123,255,0.14); }
+
+  .list{ display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
+  .row{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:13px 14px;
+    box-shadow:var(--shadow); font-size:12.5px; animation:fadeUp 0.35s ease-out both;
+  }
+  .row-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
   .row .name{ font-weight:700; }
   .row .meta{ color:var(--muted); font-size:11.5px; margin-top:2px; }
-  .badge{ font-size:10px; font-weight:700; padding:4px 8px; border-radius:8px; white-space:nowrap; text-transform:capitalize; }
-  .b-processing{ background:#FFF4E5; color:var(--amber); } .b-completed{ background:#E7F9F1; color:var(--green); }
-  .b-failed{ background:#FDECEC; color:var(--red); } .b-credited{ background:#E7F9F1; color:var(--green); }
+  .badge{ font-size:10px; font-weight:700; padding:4px 8px; border-radius:8px; white-space:nowrap; text-transform:capitalize; flex-shrink:0; }
+  .b-processing{ background:rgba(255,180,84,0.15); color:var(--amber); }
+  .b-completed{ background:rgba(34,201,125,0.15); color:var(--green); }
+  .b-failed{ background:rgba(241,99,107,0.15); color:var(--red); }
+  .b-cancelled{ background:rgba(140,149,184,0.18); color:var(--muted); }
+  .b-credited{ background:rgba(34,201,125,0.15); color:var(--green); }
+  .b-active{ background:rgba(34,201,125,0.15); color:var(--green); }
+  .b-inactive{ background:rgba(241,99,107,0.15); color:var(--red); }
+  .b-suspended{ background:rgba(241,99,107,0.15); color:var(--red); }
+
+  .row-actions{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+  .row-actions select, .row-actions input[type="number"], .row-actions input[type="text"]{
+    padding:8px 10px; border-radius:9px; border:1px solid var(--line); background:var(--surface-2);
+    color:var(--text); font-size:12px; font-family:inherit;
+  }
+  .row-actions label.chk{ display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--muted); }
+  .expand-toggle{ background:none; border:none; color:var(--blue); font-size:12px; font-weight:700; cursor:pointer; padding:4px 0; }
+  .expand-body{ display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); }
+  .expand-body.show{ display:block; animation:fieldIn 0.25s ease both; }
+
   .empty-state{ text-align:center; padding:24px; color:var(--muted-2); font-size:12.5px; }
   .gate{ padding:80px 30px; text-align:center; }
   .gate .big{ font-size:40px; margin-bottom:16px; }
   .gate h2{ font-family:'Space Grotesk',sans-serif; margin-bottom:8px; }
   .gate p{ color:var(--muted); font-size:13px; line-height:1.6; }
-  .toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--text); color:#fff; padding:12px 20px; border-radius:12px; font-size:13px; opacity:0; transition:opacity 0.25s; z-index:99; max-width:90vw; text-align:center; }
-  .toast.show{ opacity:1; }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translate(-50%,10px); background:var(--surface-3); color:#fff;
+    padding:12px 20px; border-radius:12px; font-size:13px; opacity:0; transition:opacity 0.25s, transform 0.25s;
+    z-index:99; max-width:90vw; text-align:center; border:1px solid var(--line);
+  }
+  .toast.show{ opacity:1; transform:translate(-50%,0); }
   .hidden{ display:none !important; }
+
+  /* Settings tab */
+  .setting-row{
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px;
+  }
+  .setting-row .t{ font-weight:600; font-size:13px; }
+  .setting-row .s{ font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.4; }
+  .switch{ position:relative; width:44px; height:26px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .switch .track{ position:absolute; inset:0; background:var(--surface-3); border-radius:20px; cursor:pointer; transition:background 0.2s ease; }
+  .switch .track::before{ content:""; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform 0.2s ease; }
+  .switch input:checked + .track{ background:linear-gradient(145deg,var(--blue),var(--blue-deep)); }
+  .switch input:checked + .track::before{ transform:translateX(18px); }
+  textarea.search-input{ resize:vertical; min-height:70px; font-family:inherit; }
 </style>
 </head>
 <body>
@@ -52,48 +157,99 @@
     <h2>Admin access required</h2>
     <p>Your account isn't on the admin allowlist yet. In the Firebase console, go to Firestore Database → <code>admins</code> collection → Add document, and paste this exact UID as the Document ID (leave fields empty):</p>
     <p style="margin-top:14px; font-family:'JetBrains Mono',monospace; font-size:12.5px; background:var(--surface-2); padding:12px; border-radius:10px; word-break:break-all; user-select:all;" id="gate-uid"></p>
-    <button id="copy-uid-btn" style="margin-top:12px; padding:10px 16px; border:none; border-radius:10px; background:var(--blue); color:#fff; font-weight:700; font-size:12.5px; cursor:pointer;">Copy UID</button>
+    <button id="copy-uid-btn" class="pill-btn" style="margin-top:12px;">Copy UID</button>
   </div>
 
   <div id="admin-screen" class="hidden">
     <div class="header">
       <a href="/" class="back-btn">←</a>
-      <h1>Admin Dashboard<span class="tag">Live</span></h1>
+      <div class="header-title">
+        <h1><span class="live-dot"></span>Admin Dashboard</h1>
+        <div class="sub">Olvra Boost control center</div>
+      </div>
+      <button class="logout-btn" id="logout-btn" title="Sign out">⎋</button>
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card" style="animation-delay:0s"><div class="stat-label">Total Users</div><div class="stat-value" id="stat-users">—</div></div>
-      <div class="stat-card" style="animation-delay:0.05s"><div class="stat-label">Wallet, Combined</div><div class="stat-value" id="stat-wallets">—</div></div>
-      <div class="stat-card" style="animation-delay:0.1s"><div class="stat-label">Orders (30 latest)</div><div class="stat-value" id="stat-orders">—</div></div>
-      <div class="stat-card" style="animation-delay:0.15s"><div class="stat-label">Pending Orders</div><div class="stat-value" id="stat-pending">—</div></div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="orders">Orders</button>
+      <button class="tab-btn" data-tab="users">Users</button>
+      <button class="tab-btn" data-tab="services">Services</button>
+      <button class="tab-btn" data-tab="topups">Top-ups</button>
+      <button class="tab-btn" data-tab="support">Support</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
     </div>
 
-    <div class="section-title">
-      Services Catalog
-      <button class="sync-btn" id="sync-btn">🔄 Sync now</button>
+    <!-- ===== OVERVIEW ===== -->
+    <div class="tab-panel active" id="panel-overview">
+      <div class="stats-grid">
+        <div class="stat-card" style="animation-delay:0s"><div class="stat-label">Total Users</div><div class="stat-value" id="stat-users">—</div></div>
+        <div class="stat-card" style="animation-delay:0.05s"><div class="stat-label">Wallets, Combined</div><div class="stat-value" id="stat-wallets">—</div></div>
+        <div class="stat-card" style="animation-delay:0.1s"><div class="stat-label">Orders (30 latest)</div><div class="stat-value" id="stat-orders">—</div></div>
+        <div class="stat-card" style="animation-delay:0.15s"><div class="stat-label">Pending Orders</div><div class="stat-value" id="stat-pending">—</div></div>
+      </div>
+      <div class="section-title">Services Catalog<button class="pill-btn" id="sync-btn">🔄 Sync now</button></div>
+      <div class="list"><div class="row" style="animation:none;"><span class="meta" id="sync-status-text">Pulls the live catalog from BigiSub into Firestore.</span></div></div>
+      <div class="section-title">Latest Orders</div>
+      <div class="list" id="overview-orders-list"><div class="empty-state">Loading…</div></div>
     </div>
-    <div class="list"><div class="row" id="sync-status" style="animation:none;"><span class="meta" id="sync-status-text">Pulls the live catalog from BigiSub into Firestore.</span></div></div>
 
-    <div class="section-title">Recent Orders</div>
-    <div class="list" id="orders-list"><div class="empty-state">Loading…</div></div>
+    <!-- ===== ORDERS ===== -->
+    <div class="tab-panel" id="panel-orders">
+      <div class="section-title">Manage Orders<span style="font-size:11px; color:var(--muted); font-weight:500;">Latest 30</span></div>
+      <div class="list" id="orders-list"><div class="empty-state">Loading…</div></div>
+    </div>
 
-    <div class="section-title">Recent Wallet Top-ups</div>
-    <div class="list" id="topups-list"><div class="empty-state">Loading…</div></div>
+    <!-- ===== USERS ===== -->
+    <div class="tab-panel" id="panel-users">
+      <div class="section-title">Manage Users</div>
+      <input class="search-input" id="user-search" placeholder="Search by name or email…">
+      <div class="list" id="users-list"><div class="empty-state">Loading…</div></div>
+    </div>
 
-    <div class="section-title">Support Inbox</div>
-    <div class="list" id="support-list"><div class="empty-state">Loading…</div></div>
+    <!-- ===== SERVICES ===== -->
+    <div class="tab-panel" id="panel-services">
+      <div class="section-title">Services Catalog</div>
+      <input class="search-input" id="service-search" placeholder="Search service name or ID, then press Enter…">
+      <div class="list" id="services-list"><div class="empty-state">Search above to look up and enable/disable services — the catalog is too large to list all at once.</div></div>
+    </div>
+
+    <!-- ===== TOP-UPS ===== -->
+    <div class="tab-panel" id="panel-topups">
+      <div class="section-title">Recent Wallet Top-ups</div>
+      <div class="list" id="topups-list"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- ===== SUPPORT ===== -->
+    <div class="tab-panel" id="panel-support">
+      <div class="section-title">Support Inbox</div>
+      <div class="list" id="support-list"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div class="tab-panel" id="panel-settings">
+      <div class="section-title">Site Controls</div>
+      <div class="setting-row">
+        <div><div class="t">Maintenance mode</div><div class="s">Shows a "back soon" screen to every visitor instead of the app.</div></div>
+        <label class="switch"><input type="checkbox" id="setting-maintenance"><span class="track"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="t">Lock new sign-ups</div><div class="s">Existing users can still sign in and order; new accounts are blocked.</div></div>
+        <label class="switch"><input type="checkbox" id="setting-signup-lock"><span class="track"></span></label>
+      </div>
+      <div class="section-title" style="padding-top:14px;">Announcement banner</div>
+      <textarea class="search-input" id="setting-announcement" placeholder="Optional message shown at the top of the app, e.g. a promo or a scheduled downtime notice. Leave blank to hide."></textarea>
+      <button class="pill-btn" id="save-settings-btn" style="width:100%; margin-top:6px;">Save Settings</button>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { collection, query, orderBy, limit, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { collection, query, orderBy, limit, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { db, auth, callFunction } from "./js/firebase-client.js";
+    import { signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    // Admin gets its own sign-in surface at admin-login.html — unlike the
-    // rest of the app, this does NOT go through requireSignedInUser()
-    // (which redirects to "/", the customer signup/login flow). A signed-
-    // out visitor here goes straight to the dedicated admin login instead.
     function requireSignedInAdmin() {
       return new Promise((resolve) => {
         let unsub;
@@ -110,7 +266,7 @@
 
     const toastEl = document.getElementById("toast");
     function showToast(msg) { toastEl.textContent = msg; toastEl.classList.add("show"); setTimeout(() => toastEl.classList.remove("show"), 3000); }
-    function escapeHtml(str) { const d = document.createElement("div"); d.textContent = str; return d.innerHTML; }
+    function escapeHtml(str) { const d = document.createElement("div"); d.textContent = str == null ? "" : String(str); return d.innerHTML; }
     function timeAgo(ts) {
       if (!ts || !ts.toDate) return "";
       const mins = Math.floor((Date.now() - ts.toDate().getTime()) / 60000);
@@ -119,40 +275,242 @@
       return `${Math.floor(hrs / 24)}d ago`;
     }
 
+    // ===== Tabs =====
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.onclick = () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+      };
+    });
+
+    document.getElementById("logout-btn").onclick = async () => {
+      await signOut(auth);
+      window.location.href = "/admin-login.html";
+    };
+
+    // ===== Overview =====
+    let allUsers = [];
     async function loadStats() {
       try {
         const usersSnap = await getDocs(collection(db, "users"));
+        allUsers = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
         let totalWallet = 0;
-        usersSnap.forEach((d) => { totalWallet += (d.data().wallet_balance || 0); });
-        document.getElementById("stat-users").textContent = usersSnap.size;
+        allUsers.forEach((u) => { totalWallet += (u.wallet_balance || 0); });
+        document.getElementById("stat-users").textContent = allUsers.length;
         document.getElementById("stat-wallets").textContent = `₦${totalWallet.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+        renderUsers(allUsers);
       } catch (err) { console.error(err); }
     }
 
+    function orderRowHtml(o, id, i, forOverview) {
+      const cls = o.status === "completed" ? "b-completed" : o.status === "failed" ? "b-failed" : o.status === "cancelled" ? "b-cancelled" : "b-processing";
+      const actions = forOverview ? "" : `
+        <div class="row-actions">
+          <select data-order-status="${id}">
+            <option value="processing" ${o.status === "processing" ? "selected" : ""}>processing</option>
+            <option value="completed" ${o.status === "completed" ? "selected" : ""}>completed</option>
+            <option value="failed" ${o.status === "failed" ? "selected" : ""}>failed</option>
+            <option value="cancelled" ${o.status === "cancelled" ? "selected" : ""}>cancelled</option>
+          </select>
+          <label class="chk"><input type="checkbox" data-order-refund="${id}"> refund to wallet</label>
+          <button class="pill-btn ghost" data-order-apply="${id}">Apply</button>
+        </div>`;
+      return `<div class="row" style="animation-delay:${i * 0.02}s">
+        <div class="row-top">
+          <div><div class="name">${escapeHtml(o.service_name || "Order")}</div><div class="meta">${o.quantity} units · ₦${Number(o.total_amount || 0).toLocaleString()} · ${timeAgo(o.created_at)}</div></div>
+          <span class="badge ${cls}">${escapeHtml(o.status || "processing")}</span>
+        </div>
+        ${actions}
+      </div>`;
+    }
+
+    let ordersCache = [];
     async function loadOrders() {
-      const container = document.getElementById("orders-list");
+      const overviewContainer = document.getElementById("overview-orders-list");
+      const ordersContainer = document.getElementById("orders-list");
       try {
         const q = query(collection(db, "orders"), orderBy("created_at", "desc"), limit(30));
         const snap = await getDocs(q);
         document.getElementById("stat-orders").textContent = snap.size;
+        ordersCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         let pending = 0;
-        if (snap.empty) { container.innerHTML = `<div class="empty-state">No orders yet.</div>`; document.getElementById("stat-pending").textContent = "0"; return; }
-        container.innerHTML = snap.docs.map((d, i) => {
-          const o = d.data();
-          if (o.status !== "completed" && o.status !== "failed") pending++;
-          const cls = o.status === "completed" ? "b-completed" : o.status === "failed" ? "b-failed" : "b-processing";
-          return `<div class="row" style="animation-delay:${i * 0.02}s">
-            <div><div class="name">${escapeHtml(o.service_name || "Order")}</div><div class="meta">${o.quantity} units · ₦${Number(o.total_amount).toLocaleString()} · ${timeAgo(o.created_at)}</div></div>
-            <span class="badge ${cls}">${escapeHtml(o.status || "processing")}</span>
-          </div>`;
-        }).join("");
+        ordersCache.forEach((o) => { if (o.status !== "completed" && o.status !== "failed" && o.status !== "cancelled") pending++; });
         document.getElementById("stat-pending").textContent = pending;
+        if (ordersCache.length === 0) {
+          overviewContainer.innerHTML = `<div class="empty-state">No orders yet.</div>`;
+          ordersContainer.innerHTML = `<div class="empty-state">No orders yet.</div>`;
+          return;
+        }
+        overviewContainer.innerHTML = ordersCache.slice(0, 8).map((o, i) => orderRowHtml(o, o.id, i, true)).join("");
+        ordersContainer.innerHTML = ordersCache.map((o, i) => orderRowHtml(o, o.id, i, false)).join("");
+        ordersContainer.querySelectorAll("[data-order-apply]").forEach((btn) => {
+          btn.onclick = async () => {
+            const orderId = btn.dataset.orderApply;
+            const status = ordersContainer.querySelector(`[data-order-status="${orderId}"]`).value;
+            const refund = ordersContainer.querySelector(`[data-order-refund="${orderId}"]`).checked;
+            btn.disabled = true; btn.textContent = "…";
+            try {
+              const res = await callFunction("admin-actions", { action: "updateOrderStatus", orderId, status, refund });
+              showToast(res.refunded ? "Order updated & refunded" : "Order updated");
+              loadOrders();
+              loadStats();
+            } catch (err) {
+              showToast(err.message || "Update failed");
+              btn.disabled = false; btn.textContent = "Apply";
+            }
+          };
+        });
       } catch (err) {
         console.error(err);
-        container.innerHTML = `<div class="empty-state">Couldn't load orders.</div>`;
+        overviewContainer.innerHTML = `<div class="empty-state">Couldn't load orders.</div>`;
+        ordersContainer.innerHTML = `<div class="empty-state">Couldn't load orders.</div>`;
       }
     }
 
+    // ===== Users =====
+    function userRowHtml(u, i) {
+      const suspended = !!u.suspended;
+      return `<div class="row" style="animation-delay:${Math.min(i * 0.02, 0.3)}s">
+        <div class="row-top">
+          <div><div class="name">${escapeHtml(u.full_name || u.email || "User")}</div><div class="meta">${escapeHtml(u.email || "")} · ₦${Number(u.wallet_balance || 0).toLocaleString()}</div></div>
+          <span class="badge ${suspended ? "b-suspended" : "b-active"}">${suspended ? "suspended" : "active"}</span>
+        </div>
+        <button class="expand-toggle" data-expand="${u.uid}">Manage ▾</button>
+        <div class="expand-body" id="expand-${u.uid}">
+          <div class="row-actions">
+            <input type="number" placeholder="Amount (₦, use − to debit)" data-wallet-amount="${u.uid}" style="flex:1; min-width:150px;">
+            <input type="text" placeholder="Reason (optional)" data-wallet-reason="${u.uid}" style="flex:1; min-width:150px;">
+          </div>
+          <div class="row-actions">
+            <button class="pill-btn ghost" data-wallet-apply="${u.uid}">Adjust Wallet</button>
+            <button class="pill-btn ${suspended ? "" : "danger"}" data-suspend-toggle="${u.uid}" data-suspended="${suspended}">${suspended ? "Unsuspend" : "Suspend"}</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function renderUsers(list) {
+      const container = document.getElementById("users-list");
+      if (list.length === 0) { container.innerHTML = `<div class="empty-state">No users found.</div>`; return; }
+      container.innerHTML = list.map((u, i) => userRowHtml(u, i)).join("");
+
+      container.querySelectorAll("[data-expand]").forEach((btn) => {
+        btn.onclick = () => {
+          const body = document.getElementById("expand-" + btn.dataset.expand);
+          body.classList.toggle("show");
+          btn.textContent = body.classList.contains("show") ? "Manage ▴" : "Manage ▾";
+        };
+      });
+      container.querySelectorAll("[data-wallet-apply]").forEach((btn) => {
+        btn.onclick = async () => {
+          const uid = btn.dataset.walletApply;
+          const amountEl = container.querySelector(`[data-wallet-amount="${uid}"]`);
+          const reasonEl = container.querySelector(`[data-wallet-reason="${uid}"]`);
+          const amount = parseFloat(amountEl.value);
+          if (!amount) { showToast("Enter a non-zero amount"); return; }
+          btn.disabled = true; btn.textContent = "…";
+          try {
+            await callFunction("admin-actions", { action: "adjustWallet", targetUid: uid, amount, reason: reasonEl.value });
+            showToast("Wallet updated");
+            amountEl.value = ""; reasonEl.value = "";
+            loadStats();
+          } catch (err) {
+            showToast(err.message || "Adjustment failed");
+          }
+          btn.disabled = false; btn.textContent = "Adjust Wallet";
+        };
+      });
+      container.querySelectorAll("[data-suspend-toggle]").forEach((btn) => {
+        btn.onclick = async () => {
+          const uid = btn.dataset.suspendToggle;
+          const currentlySuspended = btn.dataset.suspended === "true";
+          btn.disabled = true;
+          try {
+            await callFunction("admin-actions", { action: "setUserDisabled", targetUid: uid, disabled: !currentlySuspended });
+            showToast(currentlySuspended ? "User unsuspended" : "User suspended");
+            loadStats();
+          } catch (err) {
+            showToast(err.message || "Action failed");
+            btn.disabled = false;
+          }
+        };
+      });
+    }
+
+    document.getElementById("user-search").addEventListener("input", (e) => {
+      const term = e.target.value.trim().toLowerCase();
+      if (!term) { renderUsers(allUsers); return; }
+      renderUsers(allUsers.filter((u) =>
+        (u.full_name || "").toLowerCase().includes(term) || (u.email || "").toLowerCase().includes(term)
+      ));
+    });
+
+    // ===== Services =====
+    async function searchServices() {
+      const term = document.getElementById("service-search").value.trim();
+      const container = document.getElementById("services-list");
+      if (!term) return;
+      container.innerHTML = `<div class="empty-state">Searching…</div>`;
+      try {
+        // Try an exact service_id match first (services are keyed by service_id as the doc ID).
+        let results = [];
+        const exactSnap = await getDoc(doc(db, "services", term));
+        if (exactSnap.exists()) {
+          results.push({ id: exactSnap.id, ...exactSnap.data() });
+        } else {
+          const q = query(
+            collection(db, "services"),
+            orderBy("name"),
+            limit(25)
+          );
+          const snap = await getDocs(q);
+          const lower = term.toLowerCase();
+          results = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((s) => (s.name || "").toLowerCase().includes(lower));
+        }
+        if (results.length === 0) {
+          container.innerHTML = `<div class="empty-state">No matching services found. Try the exact service ID, or a shorter keyword.</div>`;
+          return;
+        }
+        container.innerHTML = results.map((s, i) => `
+          <div class="row" style="animation-delay:${i * 0.03}s">
+            <div class="row-top">
+              <div><div class="name">${escapeHtml(s.name || "Service")}</div><div class="meta">ID ${escapeHtml(s.id)} · ${escapeHtml(s.platform || "")} · ₦${s.sell_price || s.price || "—"}/unit</div></div>
+              <span class="badge ${s.is_active ? "b-active" : "b-inactive"}">${s.is_active ? "active" : "inactive"}</span>
+            </div>
+            <div class="row-actions">
+              <button class="pill-btn ${s.is_active ? "danger" : "ghost"}" data-service-toggle="${s.id}" data-active="${!!s.is_active}">${s.is_active ? "Disable" : "Enable"}</button>
+            </div>
+          </div>
+        `).join("");
+        container.querySelectorAll("[data-service-toggle]").forEach((btn) => {
+          btn.onclick = async () => {
+            const serviceId = btn.dataset.serviceToggle;
+            const currentlyActive = btn.dataset.active === "true";
+            btn.disabled = true;
+            try {
+              await callFunction("admin-actions", { action: "toggleService", serviceId, isActive: !currentlyActive });
+              showToast(currentlyActive ? "Service disabled" : "Service enabled");
+              searchServices();
+            } catch (err) {
+              showToast(err.message || "Action failed");
+              btn.disabled = false;
+            }
+          };
+        });
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = `<div class="empty-state">Search failed — try again.</div>`;
+      }
+    }
+    document.getElementById("service-search").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") searchServices();
+    });
+
+    // ===== Top-ups =====
     async function loadTopups() {
       const container = document.getElementById("topups-list");
       try {
@@ -162,8 +520,10 @@
         container.innerHTML = snap.docs.map((d, i) => {
           const t = d.data();
           return `<div class="row" style="animation-delay:${i * 0.02}s">
-            <div><div class="name">₦${Number(t.net_credit || 0).toLocaleString()} credited</div><div class="meta">Gross ₦${Number(t.gross_amount || 0).toLocaleString()} − ₦${t.fee || 0} fee · ${timeAgo(t.credited_at)}</div></div>
-            <span class="badge b-credited">${escapeHtml(t.status || "credited")}</span>
+            <div class="row-top">
+              <div><div class="name">₦${Number(t.net_credit || 0).toLocaleString()} credited</div><div class="meta">${escapeHtml(t.type || "topup")}${t.note ? " · " + escapeHtml(t.note) : ""} · ${timeAgo(t.credited_at)}</div></div>
+              <span class="badge b-credited">${escapeHtml(t.status || "credited")}</span>
+            </div>
           </div>`;
         }).join("");
       } catch (err) {
@@ -172,6 +532,7 @@
       }
     }
 
+    // ===== Support =====
     async function loadSupport() {
       const container = document.getElementById("support-list");
       try {
@@ -180,8 +541,10 @@
         if (snap.empty) { container.innerHTML = `<div class="empty-state">No support messages yet.</div>`; return; }
         container.innerHTML = snap.docs.map((d, i) => {
           const s = d.data();
-          return `<div class="row" style="animation-delay:${i * 0.02}s; align-items:flex-start;">
-            <div><div class="name">${escapeHtml(s.email || "Unknown")}</div><div class="meta">${escapeHtml((s.message || "").slice(0, 80))}${s.has_attachment ? " 📎" : ""} · ${timeAgo(s.created_at)}</div></div>
+          return `<div class="row" style="animation-delay:${i * 0.02}s;">
+            <div class="name">${escapeHtml(s.email || "Unknown")}</div>
+            <div class="meta">${escapeHtml((s.message || "").slice(0, 140))}${s.has_attachment ? " 📎" : ""} · ${timeAgo(s.created_at)}</div>
+            ${s.email ? `<div class="row-actions"><a class="pill-btn ghost" style="text-decoration:none;" href="mailto:${escapeHtml(s.email)}">Reply by email</a></div>` : ""}
           </div>`;
         }).join("");
       } catch (err) {
@@ -190,6 +553,34 @@
       }
     }
 
+    // ===== Settings =====
+    async function loadSettings() {
+      try {
+        const snap = await getDoc(doc(db, "settings", "global"));
+        const data = snap.exists() ? snap.data() : {};
+        document.getElementById("setting-maintenance").checked = !!data.maintenance_mode;
+        document.getElementById("setting-signup-lock").checked = !!data.signup_locked;
+        document.getElementById("setting-announcement").value = data.announcement || "";
+      } catch (err) { console.error(err); }
+    }
+    document.getElementById("save-settings-btn").onclick = async () => {
+      const btn = document.getElementById("save-settings-btn");
+      btn.disabled = true; btn.textContent = "Saving…";
+      try {
+        await callFunction("admin-actions", {
+          action: "updateSettings",
+          maintenance_mode: document.getElementById("setting-maintenance").checked,
+          signup_locked: document.getElementById("setting-signup-lock").checked,
+          announcement: document.getElementById("setting-announcement").value.trim(),
+        });
+        showToast("Settings saved");
+      } catch (err) {
+        showToast(err.message || "Save failed");
+      }
+      btn.disabled = false; btn.textContent = "Save Settings";
+    };
+
+    // ===== Sync =====
     document.getElementById("sync-btn").onclick = async () => {
       const btn = document.getElementById("sync-btn");
       btn.disabled = true; btn.textContent = "Syncing…";
@@ -221,6 +612,7 @@
       loadOrders();
       loadTopups();
       loadSupport();
+      loadSettings();
     });
   </script>
 </body>

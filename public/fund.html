@@ -47,6 +47,17 @@
   .amount-quick { display:flex; gap:8px; margin-bottom:12px; }
   .amount-quick button { flex:1; padding:10px; border-radius:10px; border:1px solid rgba(16,22,54,0.1); background:#fff; font-size:13px; font-weight:600; cursor:pointer; }
   .amount-quick button.selected { border-color:#2C5CF6; background:#EEF3FF; color:#1339B0; }
+
+  @keyframes cardIn{ from{ opacity:0; transform:translateY(16px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes boxIn{ from{ opacity:0; transform:scale(0.94); } to{ opacity:1; transform:scale(1); } }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; } }
+  .card{ animation:cardIn 0.45s cubic-bezier(.2,.8,.2,1) both; }
+  .card:nth-of-type(2){ animation-delay:0.08s; }
+  .account-box.show,.account-box[style*="block"]{ animation:boxIn 0.35s cubic-bezier(.2,.8,.2,1); }
+  .btn,.amount-quick button,.tab-btn{ transition:transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease; }
+  .btn:active:not(:disabled),.amount-quick button:active,.tab-btn:active{ transform:scale(0.96); }
+  .input{ transition:border-color 0.15s ease, box-shadow 0.2s ease; }
+  .input:focus{ outline:none; border-color:#2C5CF6; box-shadow:0 0 0 4px rgba(44,92,246,0.12); }
 </style>
 </head>
 <body>

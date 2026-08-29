@@ -72,6 +72,19 @@
   .msg { font-size:13px; margin-top:10px; min-height:16px; }
   .msg.error { color:#E5484D; }
   .msg.ok { color:#12B76A; }
+
+  @keyframes cardIn{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes modalIn{ from{ opacity:0; transform:translateY(30px); } to{ opacity:1; transform:translateY(0); } }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; } }
+  .service-card{ animation:cardIn 0.4s cubic-bezier(.2,.8,.2,1) both; transition:transform 0.12s ease, box-shadow 0.15s ease; }
+  .service-card:active{ transform:scale(0.98); }
+  .overlay.show .modal{ animation:modalIn 0.3s cubic-bezier(.2,.8,.2,1); }
+  .back-btn,.help-btn{ transition:transform 0.12s ease; }
+  .back-btn:active,.help-btn:active{ transform:scale(0.92); }
+  .btn{ transition:transform 0.12s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
+  .btn:active:not(:disabled){ transform:scale(0.97); }
+  .search-input,.input{ transition:border-color 0.15s ease, box-shadow 0.2s ease; }
+  .search-input:focus,.input:focus{ outline:none; border-color:#2C5CF6; box-shadow:0 0 0 4px rgba(44,92,246,0.12); }
 </style>
 </head>
 <body>
@@ -153,10 +166,11 @@
         return;
       }
 
-      container.innerHTML = list.map((s) => {
+      container.innerHTML = list.map((s, i) => {
         const kind = friendlyKind(s);
+        const delay = Math.min(i * 0.03, 0.3).toFixed(2);
         return `
-        <div class="service-card" data-id="${s.service_id}">
+        <div class="service-card" data-id="${s.service_id}" style="animation-delay:${delay}s">
           <div class="name">${escapeHtml(kind || s.name)}</div>
           ${kind ? `<div class="raw-name">${escapeHtml(s.name)}</div>` : ""}
           <div class="meta">

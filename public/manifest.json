@@ -1,0 +1,17 @@
+{
+  "name": "Olvra Boost",
+  "short_name": "Olvra Boost",
+  "description": "Grow your social media — followers, likes, views and comments across Instagram, TikTok, Facebook, Twitter, YouTube and more.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F7FE",
+  "theme_color": "#2C5CF6",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
