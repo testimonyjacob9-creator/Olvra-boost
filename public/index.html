@@ -1135,14 +1135,22 @@
       }
       lastCodeSentAt = now;
       try {
-        await fetch("/.netlify/functions/email-verify", {
+        const res = await fetch("/.netlify/functions/email-verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "send", uid: user.uid, email: user.email, name: name || "" }),
         });
+        const data = await res.json().catch(() => ({}));
+        // A non-2xx status OR an { emailSent: false } body both mean no
+        // code actually reached the inbox — surface it instead of leaving
+        // the person staring at a code that will never arrive.
+        if (!res.ok || data.emailSent === false) {
+          throw new Error(data.error || "The verification email could not be sent.");
+        }
       } catch (e) {
         console.error("send code failed", e);
-        showToast("Could not send code — check your connection and try Resend.");
+        lastCodeSentAt = 0; // let them retry immediately instead of waiting out the 60s cooldown
+        showToast("Couldn't send the verification email — tap Resend in a moment, or contact support if it keeps failing.");
       }
     }
 
@@ -1250,21 +1258,59 @@
     let authResolved = false;
     let maintenanceOn = false;
     let signupLocked = false;
+    let settingsReady = false;
+    let authListenerStarted = false;
 
-    // Check site settings (maintenance mode / announcement banner / signup
-    // lock) before anything else — this is a public read, so it works for
-    // signed-out visitors too. Controlled from admin.html's Settings tab.
-    (async () => {
-      try {
-        const settingsSnap = await getDoc(doc(db, "settings", "global"));
-        const settings = settingsSnap.exists() ? settingsSnap.data() : {};
-        signupLocked = !!settings.signup_locked;
-        if (settings.maintenance_mode) {
-          maintenanceOn = true;
-          document.getElementById("boot-loading-screen").classList.add("hidden");
-          document.getElementById("maintenance-screen").classList.remove("hidden");
+    function startAuthListenerOnce() {
+      if (authListenerStarted) return;
+      authListenerStarted = true;
+      onAuthStateChanged(auth, async (user) => {
+        if (maintenanceOn) return;
+        authResolved = true;
+        document.getElementById("boot-loading-screen").classList.add("hidden");
+        currentUser = user;
+        if (!user) { showScreen("signin"); return; }
+
+        await user.reload();
+        if (!user.emailVerified) {
+          showScreen("verify");
+          document.getElementById("verify-email-display").textContent = user.email;
+          if (Date.now() - lastCodeSentAt > 5000) await sendVerifyCode(user, user.displayName);
           return;
         }
+        enterApp(user);
+      });
+    }
+
+    // Live settings listener (maintenance mode / announcement banner /
+    // signup lock) — a public read, so it works for signed-out visitors
+    // too. Controlled from admin.html's Settings tab. Using onSnapshot
+    // instead of a one-time getDoc means: (a) it retries automatically on
+    // reconnect if the very first read hiccups, instead of leaving the
+    // app stuck on whatever it saw once, and (b) an admin flipping
+    // maintenance mode or the announcement applies live, with no reload
+    // needed. The sign-in listener is deliberately started from inside
+    // this callback (only once) so it never races the settings check —
+    // no more "maintenance state resolved after the app already decided
+    // whether to sign someone in."
+    onSnapshot(
+      doc(db, "settings", "global"),
+      (settingsSnap) => {
+        const settings = settingsSnap.exists() ? settingsSnap.data() : {};
+        signupLocked = !!settings.signup_locked;
+        const wasInMaintenance = maintenanceOn;
+        maintenanceOn = !!settings.maintenance_mode;
+
+        if (maintenanceOn) {
+          document.getElementById("boot-loading-screen").classList.add("hidden");
+          document.getElementById("maintenance-screen").classList.remove("hidden");
+        } else if (wasInMaintenance) {
+          // Maintenance just got turned off live — let the app open
+          // instead of leaving people stuck on the maintenance screen.
+          document.getElementById("maintenance-screen").classList.add("hidden");
+          authResolved = false;
+        }
+
         if (settings.announcement) {
           const dismissedKey = "olvra_announcement_dismissed";
           if (sessionStorage.getItem(dismissedKey) !== settings.announcement) {
@@ -1276,27 +1322,19 @@
             };
           }
         }
-      } catch (err) {
-        console.error("Settings check failed:", err);
-      }
-    })();
 
-    onAuthStateChanged(auth, async (user) => {
-      if (maintenanceOn) return;
-      authResolved = true;
-      document.getElementById("boot-loading-screen").classList.add("hidden");
-      currentUser = user;
-      if (!user) { showScreen("signin"); return; }
-
-      await user.reload();
-      if (!user.emailVerified) {
-        showScreen("verify");
-        document.getElementById("verify-email-display").textContent = user.email;
-        if (Date.now() - lastCodeSentAt > 5000) await sendVerifyCode(user, user.displayName);
-        return;
+        settingsReady = true;
+        startAuthListenerOnce();
+      },
+      (err) => {
+        // Even on a permission/network error, don't block sign-in forever
+        // waiting on settings that may never arrive — fail open (no
+        // maintenance, no signup lock) and let people actually sign in.
+        console.error("Settings listener failed:", err);
+        settingsReady = true;
+        startAuthListenerOnce();
       }
-      enterApp(user);
-    });
+    );
 
     // Safety net: if Firebase's auth check hasn't resolved within 6s
     // (slow connection, blocked request, etc.), don't leave the person
