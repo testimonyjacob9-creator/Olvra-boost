@@ -51,6 +51,10 @@ export const SERVICE_TYPE_TO_VARIANT = {
   web_traffic: "web_traffic", subscription: "subscription", answer_poll: "answer_poll",
 };
 
+export function humanizeCategoryKey(key) {
+  return key.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
 export function resolveVariant(service) {
   const byType = service.service_type && SERVICE_TYPE_TO_VARIANT[service.service_type];
   if (byType) {
@@ -62,4 +66,41 @@ export function resolveVariant(service) {
   if (byCategory) return byCategory;
   if (service.requires_custom_text) return "custom_comments";
   return "default";
+}
+
+// A short, plain-language label for what the service actually does —
+// e.g. "Followers", "Likes", "Comments" — instead of the raw provider
+// string, which is often dense jargon ("HQ+REAL | Superinstant |
+// Speed: 5K/H | 30 Days ♻️"). Deliberately does NOT try to extract or
+// restate delivery speed, quantity-per-day, or quality claims from free
+// text — that's unreliable to parse correctly across hundreds of
+// providers, and a wrong claim on a paid order is worse than no claim.
+// The raw name should still be shown alongside this for full detail.
+const KIND_KEYWORDS = [
+  { re: /follower/i, label: "Followers" },
+  { re: /subscri/i, label: "Subscribers" },
+  { re: /\blikes?\b/i, label: "Likes" },
+  { re: /view|play/i, label: "Views" },
+  { re: /custom comment/i, label: "Custom Comments" },
+  { re: /comment/i, label: "Comments" },
+  { re: /emoticon|reaction|react/i, label: "Reactions" },
+  { re: /group member/i, label: "Group Members" },
+  { re: /repost|retweet/i, label: "Reposts" },
+  { re: /\bshare/i, label: "Shares" },
+  { re: /up ?vote/i, label: "Upvotes" },
+  { re: /down ?vote/i, label: "Downvotes" },
+  { re: /\bvote/i, label: "Votes" },
+  { re: /\breview/i, label: "Reviews" },
+  { re: /page follow/i, label: "Page Follows" },
+  { re: /group join/i, label: "Group Joins" },
+  { re: /download/i, label: "Downloads" },
+  { re: /save/i, label: "Saves" },
+];
+
+export function friendlyKind(service) {
+  const text = `${service.category || ""} ${service.name || ""}`;
+  for (const { re, label } of KIND_KEYWORDS) {
+    if (re.test(text)) return label;
+  }
+  return null;
 }
