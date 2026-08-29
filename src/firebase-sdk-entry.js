@@ -31,6 +31,7 @@ export {
   orderBy,
   limit,
   getDocs,
+  getCountFromServer,
   onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
