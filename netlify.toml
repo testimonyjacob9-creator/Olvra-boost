@@ -12,3 +12,11 @@
 # Runs sync-services.js every 6 hours to refresh the BigiSub catalog.
 [functions."sync-services"]
   schedule = "0 */6 * * *"
+
+# Runs sync-order-status.js every 10 minutes to pull live order status
+# from BigiSub for orders that are still in-flight, so users see
+# "completed" automatically instead of only when an admin manually edits
+# the order. Checks at most 25 orders per run (oldest-first) to keep
+# Firestore reads and BigiSub API calls bounded even during a busy period.
+[functions."sync-order-status"]
+  schedule = "*/10 * * * *"
