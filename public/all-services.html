@@ -224,7 +224,17 @@
         backBtn.onclick = (e) => { e.preventDefault(); activePlatform = null; viewMode = "platforms"; document.getElementById("search").value = ""; render(); };
       } else {
         tag.classList.add("hidden");
-        backBtn.onclick = null; // default href="/" behavior applies
+        // Prefer actual browser history (goes to wherever the person
+        // came from, instantly, no reload) over always forcing them back
+        // to "/" — which also re-runs index.html's whole boot/auth check
+        // from scratch every time. Only fall back to href="/" when there
+        // is no history to go back to (e.g. this page was opened fresh).
+        backBtn.onclick = (e) => {
+          if (window.history.length > 1) {
+            e.preventDefault();
+            window.history.back();
+          }
+        };
       }
     }
 

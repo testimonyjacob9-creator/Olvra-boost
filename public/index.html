@@ -1120,7 +1120,9 @@
       }, () => {});
     }
 
+    let authResolved = false;
     onAuthStateChanged(auth, async (user) => {
+      authResolved = true;
       document.getElementById("boot-loading-screen").classList.add("hidden");
       currentUser = user;
       if (!user) { showScreen("signin"); return; }
@@ -1134,6 +1136,18 @@
       }
       enterApp(user);
     });
+
+    // Safety net: if Firebase's auth check hasn't resolved within 6s
+    // (slow connection, blocked request, etc.), don't leave the person
+    // stuck on a blank spinner forever — fall back to the sign-in screen.
+    // onAuthStateChanged still fires whenever it does resolve and will
+    // correct the screen then (e.g. jump to the signed-in app view).
+    setTimeout(() => {
+      if (!authResolved) {
+        document.getElementById("boot-loading-screen").classList.add("hidden");
+        showScreen("signin");
+      }
+    }, 6000);
 
     function animateCount(el, to) {
       const from = parseFloat((el.dataset.val || "0"));

@@ -77,7 +77,7 @@
 <body>
 
   <div class="header">
-    <a href="/" class="back-btn">←</a>
+    <a href="/" class="back-btn" id="back-btn">←</a>
     <h1 id="platform-title">Services</h1>
     <button class="help-btn" id="help-btn" title="How this works">?</button>
   </div>
@@ -132,6 +132,15 @@
     const categoryFilter = (params.get("category") || "").toLowerCase().replace(/\s+/g, "_");
     document.getElementById("platform-title").textContent = platform || "Services";
     document.getElementById("help-btn").onclick = () => openInfoCarousel();
+
+    // Prefer real browser history (instant, goes to wherever the person
+    // actually came from) over always forcing a reload of index.html.
+    document.getElementById("back-btn").onclick = (e) => {
+      if (window.history.length > 1) {
+        e.preventDefault();
+        window.history.back();
+      }
+    };
 
     let allServices = [];
 
