@@ -2,8 +2,15 @@
   "name": "olvra-boost",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "build": "node scripts/generate-config.js && node scripts/bundle-firebase.js"
+  },
   "dependencies": {
     "firebase-admin": "^12.0.0",
+    "firebase": "10.12.0",
     "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0"
   }
 }
