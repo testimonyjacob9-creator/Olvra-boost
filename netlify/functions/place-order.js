@@ -98,16 +98,31 @@ exports.handler = async (event) => {
 
     // Wallet already deducted at this point. Now call BigiSub.
     let bigisubOrder;
+    // BigiSub's own /services/ listing endpoint uses `id` as the service
+    // identifier field, not `service_id` (see sync-services-core.js).
+    // Most SMM-panel-style APIs (the widespread "v2" convention) expect
+    // the order-create field to be named `service`, not `service_id` —
+    // sending both covers either convention without risk, since REST
+    // APIs ignore fields they don't recognize.
+    const orderBody = {
+      service_id: service.service_id,
+      service: service.service_id,
+      quantity: Number(quantity),
+      ...extraFields,
+    };
+    if (link) orderBody.link = link;
+    if (username) orderBody.username = username;
     try {
-      const orderBody = { service_id: service.service_id, quantity, ...extraFields };
-      if (link) orderBody.link = link;
-      if (username) orderBody.username = username;
-
       bigisubOrder = await bigisub.createOrder(process.env.BIGISUB_TOKEN, orderBody);
     } catch (err) {
       // BigiSub call failed AFTER wallet was deducted — refund immediately.
       await userRef.update({ wallet_balance: FieldValue.increment(totalCost) });
-      console.error("BigiSub order failed, wallet refunded:", err.message);
+      console.error(
+        "BigiSub order failed, wallet refunded:",
+        err.message,
+        "| orderBody:", JSON.stringify(orderBody),
+        "| BigiSub response:", JSON.stringify(err.response?.data)
+      );
       throw Object.assign(
         new Error("Order failed with provider. Your wallet has been refunded."),
         { statusCode: 502 }
