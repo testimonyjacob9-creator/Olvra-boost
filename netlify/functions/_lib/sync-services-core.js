@@ -17,11 +17,13 @@ async function runSync() {
 
   let totalSynced = 0;
   const perPlatform = {};
+  const activePlatforms = [];
 
   for (const platform of PLATFORMS) {
     console.log(`Syncing platform: ${platform}`);
     const services = await bigisub.fetchAllServicesForPlatform(token, platform, PAGE_SIZE);
     perPlatform[platform] = services.length;
+    if (services.some((svc) => svc.is_active)) activePlatforms.push(platform);
 
     const chunks = chunk(services, 400);
     for (const group of chunks) {
@@ -64,7 +66,19 @@ async function runSync() {
     }
   }
 
-  return { totalSynced, perPlatform };
+  // Write a single small summary doc listing which platforms currently
+  // have at least one active service. Lets the client do ONE read to
+  // decide which non-curated platform tiles to show on the home screen,
+  // instead of running a separate Firestore query PER platform PER
+  // visitor (10 platforms × every single home-screen load — this was a
+  // major driver of the Spark plan's daily read quota getting exhausted).
+  // See public/index.html's initPlatformGrid()/platformHasServices().
+  await db.collection("catalog_meta").doc("active_platforms").set({
+    platforms: activePlatforms,
+    updated_at: FieldValue.serverTimestamp(),
+  });
+
+  return { totalSynced, perPlatform, activePlatforms };
 }
 
 function chunk(arr, size) {
