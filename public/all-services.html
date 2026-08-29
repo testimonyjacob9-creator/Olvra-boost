@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>All Services — Olvra Boost</title>
+<title>Services — Olvra Boost</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -11,403 +11,307 @@
     background: #F4F7FE; margin: 0; padding: 0 0 40px; color: #10162B;
     max-width: 460px; margin-left: auto; margin-right: auto;
   }
-  .header { display:flex; align-items:center; gap:12px; padding:18px 16px 12px; position:sticky; top:0; background:#F4F7FE; z-index:5; }
-  .back-btn { width:38px; height:38px; border-radius:12px; background:#fff; border:1px solid rgba(16,22,54,0.08); display:flex; align-items:center; justify-content:center; text-decoration:none; color:#10162B; font-size:18px; cursor:pointer; }
-  .header h1 { font-size:17px; margin:0; font-weight:700; flex:1; }
-  .header .platform-tag { font-size:11.5px; font-weight:700; color:#1339B0; background:#EEF3FF; padding:4px 9px; border-radius:8px; }
-  .search-wrap { padding:0 16px 10px; }
-  .search-input { width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(16,22,54,0.1); font-size:14px; background:#fff; }
-  .count-label { padding:0 16px 10px; font-size:12px; color:#6B7590; }
-  .group-title { padding:14px 16px 8px; font-size:13px; font-weight:700; color:#1339B0; text-transform:capitalize; }
-
-  /* Platform picker (default landing view) */
-  .platform-list { padding:0 16px; display:flex; flex-direction:column; gap:8px; }
-  .platform-row {
-    background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:14px; padding:14px 16px;
-    display:flex; align-items:center; gap:12px; cursor:pointer; box-shadow:0 4px 14px rgba(23,43,133,0.06);
+  .header {
+    display:flex; align-items:center; gap:12px; padding:18px 16px 12px;
+    position:sticky; top:0; background:#F4F7FE; z-index:5;
   }
-  .platform-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-  .platform-row .label { font-weight:700; font-size:14.5px; flex:1; }
-  .platform-row .count { font-size:12px; color:#6B7590; }
-  .platform-row .chevron { color:#9AA3C0; font-size:16px; }
-
-  /* Category grid (middle tier, between platform and service list) */
-  .category-grid { padding:0 16px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .cat-card { background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:16px 14px; box-shadow:0 4px 14px rgba(23,43,133,0.06); cursor:pointer; }
-  .cat-icon { font-size:22px; margin-bottom:8px; }
-  .cat-name { font-weight:700; font-size:13.5px; line-height:1.3; margin-bottom:6px; }
-  .cat-count { font-size:11.5px; color:#6B7590; margin-bottom:4px; }
-  .cat-price { font-size:11.5px; color:#2C5CF6; font-weight:700; }
-
-  .service-list { padding:0 16px; display:flex; flex-direction:column; gap:10px; }
-  .service-card { background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:14px; box-shadow:0 4px 14px rgba(23,43,133,0.06); cursor:pointer; text-decoration:none; color:inherit; display:block; }
+  .back-btn {
+    width:38px; height:38px; border-radius:12px; background:#fff; border:1px solid rgba(16,22,54,0.08);
+    display:flex; align-items:center; justify-content:center; text-decoration:none; color:#10162B; font-size:18px;
+  }
+  .header h1 { font-size:17px; margin:0; font-weight:700; text-transform:capitalize; flex:1; }
+  .help-btn {
+    width:34px; height:34px; border-radius:10px; background:#EEF3FF; border:none; color:#1339B0;
+    font-size:15px; font-weight:700; cursor:pointer;
+  }
+  .search-wrap { padding: 0 16px 12px; }
+  .search-input {
+    width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(16,22,54,0.1);
+    font-size:14px; background:#fff;
+  }
+  .count-label { padding: 0 16px 10px; font-size:12px; color:#6B7590; }
+  .service-list { padding: 0 16px; display:flex; flex-direction:column; gap:10px; }
+  .service-card {
+    background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:14px;
+    box-shadow:0 4px 14px rgba(23,43,133,0.06); cursor:pointer;
+  }
   .service-card .name { font-size:13.5px; font-weight:600; line-height:1.4; margin-bottom:6px; }
   .service-card .raw-name { font-size:11px; color:#9AA3C0; line-height:1.4; margin:-3px 0 8px; }
   .service-card .meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#6B7590; }
   .price { color:#2C5CF6; font-weight:700; }
-  .empty-state { text-align:center; padding:50px 20px; color:#9AA3C0; font-size:13px; }
-  .skel { background:#EEF3FF; border-radius:16px; height:70px; margin:0 16px 10px; animation:pulse 1.2s ease infinite; }
-  @keyframes pulse { 0%,100%{opacity:0.6;} 50%{opacity:1;} }
+  .badge-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .badge { font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:7px; background:#EEF3FF; color:#1339B0; }
+  .empty-state { text-align:center; padding:40px 20px; color:#9AA3C0; font-size:13px; }
 
-  /* Onboarding modal */
-  .ob-overlay { position:fixed; inset:0; background:rgba(10,14,32,0.6); display:flex; align-items:flex-end; z-index:50; }
-  .ob-overlay.hidden { display:none; }
-  .ob-sheet { background:#10162B; color:#fff; width:100%; max-width:460px; margin:0 auto; border-radius:22px 22px 0 0; padding:26px 22px 22px; max-height:88vh; overflow-y:auto; }
-  .ob-dots { display:flex; gap:5px; justify-content:center; margin-bottom:18px; }
-  .ob-dots span { width:22px; height:4px; border-radius:2px; background:rgba(255,255,255,0.18); }
-  .ob-dots span.active { background:#2C5CF6; }
-  .ob-sheet h2 { font-size:19px; margin:0 0 6px; }
-  .ob-sheet .sub { color:#9AA3C0; font-size:12.5px; margin-bottom:18px; line-height:1.5; }
-  .ob-bullet { display:flex; gap:10px; align-items:flex-start; margin-bottom:14px; font-size:13px; line-height:1.5; color:#E4E8F5; }
-  .ob-bullet .mark { color:#2C5CF6; flex-shrink:0; }
-  .ob-warn { background:rgba(255,159,67,0.1); border:1px solid rgba(255,159,67,0.35); border-radius:12px; padding:12px 14px; font-size:12.5px; color:#FFC98A; line-height:1.5; margin-top:6px; margin-bottom:6px; }
-  .ob-terms-box { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px; max-height:180px; overflow-y:auto; font-size:12px; line-height:1.6; color:#B8C0DA; margin-bottom:14px; }
-  .ob-terms-box p { margin:0 0 10px; }
-  .ob-checkbox-row { display:flex; align-items:flex-start; gap:10px; font-size:12.5px; color:#E4E8F5; margin-bottom:18px; cursor:pointer; }
-  .ob-checkbox-row input { margin-top:2px; width:16px; height:16px; flex-shrink:0; }
-  .ob-actions { display:flex; gap:10px; }
-  .ob-btn { flex:1; padding:14px; border-radius:12px; border:none; font-weight:700; font-size:14px; cursor:pointer; }
-  .ob-btn.skip { background:transparent; color:#9AA3C0; }
-  .ob-btn.primary { background:linear-gradient(145deg,#2C5CF6,#1339B0); color:#fff; }
-  .ob-btn.primary:disabled { opacity:0.45; cursor:not-allowed; }
-  .hidden { display:none !important; }
+  /* Order modal */
+  .overlay {
+    display:none; position:fixed; inset:0; background:rgba(16,22,54,0.5); z-index:20;
+    align-items:flex-end; justify-content:center;
+  }
+  .overlay.show { display:flex; }
+  .modal {
+    background:#fff; border-radius:22px 22px 0 0; width:100%; max-width:460px;
+    padding:22px; max-height:88vh; overflow-y:auto;
+  }
+  .modal h2 { font-size:15px; margin:0 0 4px; line-height:1.4; }
+  .modal .price-row { font-size:12px; color:#6B7590; margin-bottom:16px; }
+  .field-label { font-size:12px; font-weight:600; color:#3A4160; margin:10px 0 4px; }
+  .input {
+    width:100%; padding:13px 14px; border-radius:12px; border:1px solid rgba(16,22,54,0.1);
+    font-size:14px; margin-bottom:2px; font-family:inherit;
+  }
+  #order-fields { margin-bottom:8px; }
+  .qty-row { margin-top:10px; }
+  .cost-box { background:#EEF3FF; border-radius:12px; padding:12px 14px; margin:10px 0; font-size:13px; }
+  .cost-box .row { display:flex; justify-content:space-between; margin-bottom:4px; }
+  .cost-box .total { font-weight:700; color:#1339B0; }
+  .btn { width:100%; padding:14px; border-radius:12px; border:none; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; }
+  .btn-primary { background:linear-gradient(135deg,#2C5CF6,#1339B0); color:#fff; }
+  .btn-ghost { background:#EEF3FF; color:#1339B0; margin-top:8px; }
+  .btn:disabled { opacity:0.6; }
+  .msg { font-size:13px; margin-top:10px; min-height:16px; }
+  .msg.error { color:#E5484D; }
+  .msg.ok { color:#12B76A; }
+
+  @keyframes cardIn{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes modalIn{ from{ opacity:0; transform:translateY(30px); } to{ opacity:1; transform:translateY(0); } }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; } }
+  .service-card{ animation:cardIn 0.4s cubic-bezier(.2,.8,.2,1) both; transition:transform 0.12s ease, box-shadow 0.15s ease; }
+  .service-card:active{ transform:scale(0.98); }
+  .overlay.show .modal{ animation:modalIn 0.3s cubic-bezier(.2,.8,.2,1); }
+  .back-btn,.help-btn{ transition:transform 0.12s ease; }
+  .back-btn:active,.help-btn:active{ transform:scale(0.92); }
+  .btn{ transition:transform 0.12s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
+  .btn:active:not(:disabled){ transform:scale(0.97); }
+  .search-input,.input{ transition:border-color 0.15s ease, box-shadow 0.2s ease; }
+  .search-input:focus,.input:focus{ outline:none; border-color:#2C5CF6; box-shadow:0 0 0 4px rgba(44,92,246,0.12); }
 </style>
 </head>
 <body>
 
   <div class="header">
     <a href="/" class="back-btn" id="back-btn">←</a>
-    <h1 id="header-title">All Services</h1>
-    <span class="platform-tag hidden" id="platform-tag"></span>
+    <h1 id="platform-title">Services</h1>
+    <button class="help-btn" id="help-btn" title="How this works">?</button>
   </div>
 
   <div class="search-wrap">
-    <input class="search-input" id="search" placeholder="Search services…">
+    <input class="search-input" id="search" placeholder="Search services...">
   </div>
   <div class="count-label" id="count-label"></div>
-
-  <div id="results">
-    <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+  <div class="service-list" id="service-list">
+    <div class="empty-state">Loading services…</div>
   </div>
 
-  <!-- ===================== ONBOARDING (first visit only) ===================== -->
-  <div class="ob-overlay hidden" id="ob-overlay">
-    <div class="ob-sheet">
+  <!-- Order modal -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2 id="modal-service-name"></h2>
+      <div class="price-row" id="modal-price-row"></div>
 
-      <div id="ob-step-1">
-        <div class="ob-dots"><span class="active"></span><span></span><span></span></div>
-        <h2>Browse by platform</h2>
-        <div class="sub">Boost Instagram, Facebook, TikTok, Twitter, YouTube, and more — all in one catalog.</div>
-        <div class="ob-bullet"><span class="mark">●</span><span>Pick a platform to see just its services — followers, likes, views, comments, and more.</span></div>
-        <div class="ob-bullet"><span class="mark">●</span><span>Prices already include everything — no hidden fees at checkout.</span></div>
-        <div class="ob-bullet"><span class="mark">●</span><span>Search works across every platform at once if you know exactly what you want.</span></div>
-        <div class="ob-actions">
-          <button class="ob-btn skip" id="ob-skip-1">Skip</button>
-          <button class="ob-btn primary" id="ob-next-1">Next</button>
-        </div>
+      <!-- Variant-specific fields (link / custom_text / hashtag / etc.)
+           are injected here by order-fields.js based on the service's
+           resolved order-create variant. -->
+      <div id="order-fields"></div>
+
+      <div class="qty-row">
+        <div class="field-label">Quantity</div>
+        <input class="input" id="order-qty" type="number" placeholder="Quantity">
       </div>
 
-      <div id="ob-step-2" class="hidden">
-        <div class="ob-dots"><span></span><span class="active"></span><span></span></div>
-        <h2>Delivery expectations</h2>
-        <div class="sub">Please read before ordering — this affects every order you place.</div>
-        <div class="ob-bullet"><span class="mark">●</span><span>Delivery speed varies by service — some complete in minutes, others can take hours or days.</span></div>
-        <div class="ob-bullet"><span class="mark">●</span><span>Most orders deliver in full, but partial delivery or drops can happen with some providers.</span></div>
-        <div class="ob-warn">⚠️ If an order under-delivers or drops, contact support with your order ID — most services include refill/cancel coverage where listed on the service.</div>
-        <div class="ob-actions">
-          <button class="ob-btn skip" id="ob-skip-2">Skip</button>
-          <button class="ob-btn primary" id="ob-next-2">Next</button>
-        </div>
+      <div class="cost-box">
+        <div class="row"><span>Unit price</span><span id="cost-unit">₦0</span></div>
+        <div class="row total"><span>Total</span><span id="cost-total">₦0</span></div>
       </div>
 
-      <div id="ob-step-3" class="hidden">
-        <div class="ob-dots"><span></span><span></span><span class="active"></span></div>
-        <h2>Terms & Conditions</h2>
-        <div class="sub">One-time acceptance — you won't see this again on this device.</div>
-        <div class="ob-terms-box">
-          <p><strong>Service delivery.</strong> Delivery times and outcomes vary by provider and are not guaranteed. Refill/cancel coverage, where offered, is stated on the individual service.</p>
-          <p><strong>Account risk.</strong> Boosting services can carry a risk of action from the destination platform (e.g. Instagram, TikTok). You are responsible for how you use ordered services.</p>
-          <p><strong>Refunds.</strong> Refunds are issued at our discretion for orders that fail to deliver, in line with the specific service's coverage. Orders that deliver, even partially, are generally non-refundable.</p>
-          <p><strong>Accurate information.</strong> You are responsible for providing correct links/usernames. Orders placed against the wrong link or account cannot be recovered once started.</p>
-          <p><strong>Wallet funds.</strong> Funds added to your wallet are used to place orders on this platform and are non-transferable to another account.</p>
-        </div>
-        <label class="ob-checkbox-row">
-          <input type="checkbox" id="ob-terms-check">
-          <span>I've read and accept these terms, including that delivery outcomes are not guaranteed.</span>
-        </label>
-        <div class="ob-actions">
-          <button class="ob-btn primary" id="ob-finish" disabled style="flex:1;">Continue</button>
-        </div>
-      </div>
-
+      <button class="btn btn-primary" id="place-order-btn">Place Order</button>
+      <button class="btn btn-ghost" id="cancel-order-btn">Cancel</button>
+      <div class="msg" id="order-msg"></div>
     </div>
   </div>
 
   <script type="module">
     import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { db, requireSignedInUser } from "./js/firebase-client.js";
-    import { PLATFORMS, CATEGORY_META, humanizeCategoryKey, friendlyKind } from "./js/catalog-config.js";
+    import { db, callFunction, requireSignedInUser } from "./js/firebase-client.js";
+    import { ensureOnboardingAccepted } from "./js/onboarding.js";
+    import { openInfoCarousel } from "./js/info-carousel.js";
+    import { renderOrderFields, collectOrderFields } from "./js/order-fields.js";
+    import { resolveVariant, friendlyKind } from "./js/catalog-config.js";
+
+    let currentUser = null;
+
+    const params = new URLSearchParams(window.location.search);
+    const platform = (params.get("platform") || "").toLowerCase();
+    const categoryFilter = (params.get("category") || "").toLowerCase().replace(/\s+/g, "_");
+    document.getElementById("platform-title").textContent = platform || "Services";
+    document.getElementById("help-btn").onclick = () => openInfoCarousel();
+
+    // Prefer real browser history (instant, goes to wherever the person
+    // actually came from) over always forcing a reload of index.html.
+    document.getElementById("back-btn").onclick = (e) => {
+      if (window.history.length > 1) {
+        e.preventDefault();
+        window.history.back();
+      }
+    };
 
     let allServices = [];
-    let viewMode = "platforms"; // "platforms" | "categories" | "list" | "search"
-    let activePlatform = null;
-    let activeCategory = null; // slug key, e.g. "post_like"
 
-    function categoryKey(s) {
-      return (s.category || "other").toLowerCase().replace(/\s+/g, "_");
+    function renderList(list) {
+      const container = document.getElementById("service-list");
+      document.getElementById("count-label").textContent = `${list.length} service${list.length === 1 ? "" : "s"}`;
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="empty-state">No services found${platform ? " for " + platform : ""}. Try a different search, or check back after the next catalog sync.</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map((s, i) => {
+        const kind = friendlyKind(s);
+        const delay = Math.min(i * 0.03, 0.3).toFixed(2);
+        return `
+        <div class="service-card" data-id="${s.service_id}" style="animation-delay:${delay}s">
+          <div class="name">${escapeHtml(kind || s.name)}</div>
+          ${kind ? `<div class="raw-name">${escapeHtml(s.name)}</div>` : ""}
+          <div class="meta">
+            <span>${s.min_quantity.toLocaleString()} – ${s.max_quantity.toLocaleString()} units</span>
+            <span class="price">₦${s.sell_price}/unit</span>
+          </div>
+          <div class="badge-row">
+            ${s.has_refill ? '<span class="badge">Refill</span>' : ""}
+            ${s.has_cancel ? '<span class="badge">Cancel</span>' : ""}
+            ${s.has_dripfeed ? '<span class="badge">Drip-feed</span>' : ""}
+          </div>
+        </div>
+      `;
+      }).join("");
+
+      container.querySelectorAll(".service-card").forEach((card) => {
+        card.onclick = () => openOrderModal(card.dataset.id);
+      });
     }
 
     function escapeHtml(str) {
-      const d = document.createElement("div");
-      d.textContent = str;
-      return d.innerHTML;
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
     }
 
-    // ---- Onboarding (shown once per device) ----
-    const OB_KEY = "ob_onboarding_v1";
-    function maybeShowOnboarding() {
-      if (localStorage.getItem(OB_KEY)) return;
-      document.getElementById("ob-overlay").classList.remove("hidden");
-    }
-    function closeOnboarding() {
-      localStorage.setItem(OB_KEY, "1");
-      document.getElementById("ob-overlay").classList.add("hidden");
-    }
-    function goToStep(n) {
-      [1, 2, 3].forEach((i) => document.getElementById(`ob-step-${i}`).classList.toggle("hidden", i !== n));
-    }
-    document.getElementById("ob-next-1").onclick = () => goToStep(2);
-    document.getElementById("ob-skip-1").onclick = closeOnboarding;
-    document.getElementById("ob-next-2").onclick = () => goToStep(3);
-    document.getElementById("ob-skip-2").onclick = closeOnboarding;
-    document.getElementById("ob-terms-check").onchange = (e) => {
-      document.getElementById("ob-finish").disabled = !e.target.checked;
+    document.getElementById("search").oninput = (e) => {
+      const term = e.target.value.trim().toLowerCase();
+      const filtered = term
+        ? allServices.filter((s) => s.name.toLowerCase().includes(term))
+        : allServices;
+      renderList(filtered);
     };
-    document.getElementById("ob-finish").onclick = closeOnboarding;
 
-    // ---- Data load ----
     async function loadServices() {
       try {
-        const q = query(collection(db, "services"), where("is_active", "==", true));
+        let q;
+        if (platform) {
+          q = query(
+            collection(db, "services"),
+            where("platform", "==", platform),
+            where("is_active", "==", true)
+          );
+        } else {
+          q = query(collection(db, "services"), where("is_active", "==", true));
+        }
         const snap = await getDocs(q);
-        allServices = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let services = snap.docs.map((d) => d.data());
+
+        // Category-select.html links here with &category=<key> — filter to
+        // that category, and always exclude subscription-type services
+        // (those live on auto-services.html, not here).
+        services = services.filter((s) => resolveVariant(s) !== "subscription");
+        if (categoryFilter) {
+          services = services.filter((s) => (s.category || "").toLowerCase().replace(/\s+/g, "_") === categoryFilter);
+        }
+
+        allServices = services;
+        renderList(allServices);
       } catch (err) {
         console.error(err);
-        document.getElementById("results").innerHTML = `<div class="empty-state">Couldn't load services — check your connection and try again.</div>`;
-        return;
-      }
-      render();
-    }
-
-    // ---- Header/back-button behavior depends on view ----
-    function updateHeader() {
-      const tag = document.getElementById("platform-tag");
-      const title = document.getElementById("header-title");
-      const backBtn = document.getElementById("back-btn");
-      title.textContent = "All Services";
-
-      if (viewMode === "list" && activePlatform) {
-        tag.textContent = activeCategory
-          ? `${platformLabel(activePlatform)} · ${categoryLabel(activeCategory)}`
-          : platformLabel(activePlatform);
-        tag.classList.remove("hidden");
-        backBtn.onclick = (e) => {
-          e.preventDefault();
-          if (activeCategory) { activeCategory = null; viewMode = "categories"; }
-          else { activePlatform = null; viewMode = "platforms"; }
-          document.getElementById("search").value = "";
-          render();
-        };
-      } else if (viewMode === "categories" && activePlatform) {
-        tag.textContent = platformLabel(activePlatform);
-        tag.classList.remove("hidden");
-        backBtn.onclick = (e) => { e.preventDefault(); activePlatform = null; viewMode = "platforms"; document.getElementById("search").value = ""; render(); };
-      } else {
-        tag.classList.add("hidden");
-        // Prefer actual browser history (goes to wherever the person
-        // came from, instantly, no reload) over always forcing them back
-        // to "/" — which also re-runs index.html's whole boot/auth check
-        // from scratch every time. Only fall back to href="/" when there
-        // is no history to go back to (e.g. this page was opened fresh).
-        backBtn.onclick = (e) => {
-          if (window.history.length > 1) {
-            e.preventDefault();
-            window.history.back();
-          }
-        };
+        document.getElementById("service-list").innerHTML =
+          `<div class="empty-state">Couldn't load services — pull to refresh or check back shortly.</div>`;
       }
     }
 
-    function categoryLabel(key) {
-      return (CATEGORY_META[key] && CATEGORY_META[key].label) || humanizeCategoryKey(key);
-    }
-    function categoryIcon(key) {
-      return (CATEGORY_META[key] && CATEGORY_META[key].icon) || "📦";
+    // ---- Order modal ----
+    let selectedService = null;
+    const overlay = document.getElementById("overlay");
+    const fieldsContainer = document.getElementById("order-fields");
+
+    function openOrderModal(serviceId) {
+      selectedService = allServices.find((s) => String(s.service_id) === String(serviceId));
+      if (!selectedService) return;
+
+      document.getElementById("modal-service-name").textContent = selectedService.name;
+      document.getElementById("modal-price-row").textContent =
+        `₦${selectedService.sell_price}/unit · ${selectedService.min_quantity.toLocaleString()}–${selectedService.max_quantity.toLocaleString()} units`;
+
+      renderOrderFields(fieldsContainer, selectedService);
+      document.getElementById("order-qty").value = selectedService.min_quantity;
+      document.getElementById("order-msg").textContent = "";
+      updateCost();
+      overlay.classList.add("show");
     }
 
-    function platformMeta(id) {
-      return PLATFORMS.find((p) => p.id === id) || { id, label: id.charAt(0).toUpperCase() + id.slice(1), color: "#9AA3C0" };
+    function updateCost() {
+      if (!selectedService) return;
+      const qty = Number(document.getElementById("order-qty").value) || 0;
+      const total = Math.round(selectedService.sell_price * qty * 100) / 100;
+      document.getElementById("cost-unit").textContent = `₦${selectedService.sell_price}`;
+      document.getElementById("cost-total").textContent = `₦${total.toLocaleString()}`;
     }
-    function platformLabel(id) { return platformMeta(id).label; }
+    document.getElementById("order-qty").oninput = updateCost;
 
-    // ---- Render ----
-    function render() {
-      const term = document.getElementById("search").value.trim().toLowerCase();
+    document.getElementById("cancel-order-btn").onclick = () => overlay.classList.remove("show");
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.remove("show"); };
 
-      if (term) {
-        renderSearchResults(term);
+    document.getElementById("place-order-btn").onclick = async () => {
+      const msgEl = document.getElementById("order-msg");
+      msgEl.textContent = "";
+
+      const qty = Number(document.getElementById("order-qty").value);
+      if (!qty || qty < selectedService.min_quantity || qty > selectedService.max_quantity) {
+        msgEl.textContent = `Quantity must be between ${selectedService.min_quantity} and ${selectedService.max_quantity}.`;
+        msgEl.className = "msg error";
         return;
       }
 
-      if (viewMode === "platforms") {
-        renderPlatformList();
+      const fields = collectOrderFields(fieldsContainer, selectedService);
+      if (!fields.ok) {
+        msgEl.textContent = fields.error;
+        msgEl.className = "msg error";
         return;
       }
 
-      if (viewMode === "categories") {
-        renderCategoryList();
-        return;
+      const btn = document.getElementById("place-order-btn");
+      btn.disabled = true;
+      btn.textContent = "Placing order…";
+
+      try {
+        // Gate on terms/how-it-works acceptance before the first spend.
+        // No-ops instantly (no modal) for anyone who's already accepted.
+        await ensureOnboardingAccepted(db, currentUser);
+
+        const body = { serviceId: selectedService.service_id, quantity: qty, ...fields.body };
+
+        const result = await callFunction("place-order", body);
+        msgEl.textContent = `Order placed! Tracking ID: ${result.trackingId}`;
+        msgEl.className = "msg ok";
+        setTimeout(() => { window.location.href = "/orders.html"; }, 1500);
+      } catch (err) {
+        msgEl.textContent = err.message || "Order failed.";
+        msgEl.className = "msg error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Place Order";
       }
+    };
 
-      renderServiceList();
-    }
-
-    function renderPlatformList() {
-      updateHeader();
-      document.getElementById("count-label").textContent = "";
-      const counts = {};
-      allServices.forEach((s) => { const p = s.platform || "other"; counts[p] = (counts[p] || 0) + 1; });
-
-      const ids = Object.keys(counts);
-      if (!ids.length) {
-        document.getElementById("results").innerHTML = `<div class="empty-state">No services synced yet — check back soon, or contact support if this persists.</div>`;
-        return;
-      }
-
-      // Curated platforms first (in catalog-config order), then anything
-      // else present in the data that isn't in that list.
-      const curatedIds = PLATFORMS.map((p) => p.id).filter((id) => counts[id]);
-      const extraIds = ids.filter((id) => !curatedIds.includes(id)).sort();
-      const orderedIds = [...curatedIds, ...extraIds];
-
-      document.getElementById("results").innerHTML = `<div class="platform-list">${orderedIds.map((id) => {
-        const meta = platformMeta(id);
-        return `
-          <div class="platform-row" data-platform="${escapeHtml(id)}">
-            <span class="platform-dot" style="background:${meta.color}"></span>
-            <span class="label">${escapeHtml(meta.label)}</span>
-            <span class="count">${counts[id]} service${counts[id] === 1 ? "" : "s"}</span>
-            <span class="chevron">›</span>
-          </div>`;
-      }).join("")}</div>`;
-
-      document.getElementById("results").querySelectorAll(".platform-row").forEach((row) => {
-        row.onclick = () => {
-          activePlatform = row.dataset.platform;
-          activeCategory = null;
-          viewMode = "categories";
-          render();
-        };
-      });
-    }
-
-    function renderCategoryList() {
-      updateHeader();
-      const inPlatform = allServices.filter((s) => s.platform === activePlatform);
-      const groups = {};
-      inPlatform.forEach((s) => {
-        const key = categoryKey(s);
-        if (!groups[key]) groups[key] = { key, count: 0, minPrice: Infinity, maxPrice: 0 };
-        groups[key].count += 1;
-        groups[key].minPrice = Math.min(groups[key].minPrice, Number(s.sell_price || 0));
-        groups[key].maxPrice = Math.max(groups[key].maxPrice, Number(s.sell_price || 0));
-      });
-
-      const keys = Object.keys(groups);
-      document.getElementById("count-label").textContent = "";
-      if (!keys.length) {
-        document.getElementById("results").innerHTML = `<div class="empty-state">No categories found for this platform.</div>`;
-        return;
-      }
-
-      document.getElementById("results").innerHTML = `<div class="category-grid">${keys.map((key) => {
-        const g = groups[key];
-        return `
-          <div class="cat-card" data-key="${escapeHtml(key)}">
-            <div class="cat-icon">${categoryIcon(key)}</div>
-            <div class="cat-name">${escapeHtml(categoryLabel(key))}</div>
-            <div class="cat-count">${g.count} service${g.count === 1 ? "" : "s"}</div>
-            <div class="cat-price">₦${g.minPrice.toLocaleString()} – ₦${g.maxPrice.toLocaleString()}</div>
-          </div>`;
-      }).join("")}</div>`;
-
-      document.getElementById("results").querySelectorAll(".cat-card").forEach((card) => {
-        card.onclick = () => {
-          activeCategory = card.dataset.key;
-          viewMode = "list";
-          render();
-        };
-      });
-    }
-
-    function renderServiceList() {
-      updateHeader();
-      const list = allServices.filter((s) => s.platform === activePlatform && (!activeCategory || categoryKey(s) === activeCategory));
-      document.getElementById("count-label").textContent = `${list.length} service${list.length === 1 ? "" : "s"}`;
-      const container = document.getElementById("results");
-      if (!list.length) {
-        container.innerHTML = `<div class="empty-state">No services in this platform right now.</div>`;
-        return;
-      }
-      container.innerHTML = `<div class="service-list">${list.map(renderCard).join("")}</div>`;
-    }
-
-    function renderSearchResults(term) {
-      // Search always looks across everything, regardless of which
-      // platform/category (if any) was selected — it's the fastest path
-      // when the person already knows what they want.
-      document.getElementById("platform-tag").classList.add("hidden");
-      document.getElementById("header-title").textContent = "All Services";
-      document.getElementById("back-btn").onclick = null;
-
-      const list = allServices.filter((s) => (s.name || "").toLowerCase().includes(term));
-      document.getElementById("count-label").textContent = `${list.length} result${list.length === 1 ? "" : "s"}`;
-      const container = document.getElementById("results");
-      if (!list.length) {
-        container.innerHTML = `<div class="empty-state">No services match your search.</div>`;
-        return;
-      }
-      const byPlatform = {};
-      list.forEach((s) => { (byPlatform[s.platform || "other"] ||= []).push(s); });
-      container.innerHTML = Object.entries(byPlatform).map(([platform, services]) => `
-        <div class="group-title">${escapeHtml(platformLabel(platform))}</div>
-        <div class="service-list">${services.map(renderCard).join("")}</div>
-      `).join("");
-    }
-
-    function renderCard(s) {
-      const kind = friendlyKind(s);
-      return `
-        <a class="service-card" href="/services.html?platform=${encodeURIComponent(s.platform || "")}&category=${encodeURIComponent(s.category || "")}">
-          <div class="name">${escapeHtml(kind || s.name || "Service")}</div>
-          ${kind ? `<div class="raw-name">${escapeHtml(s.name || "")}</div>` : ""}
-          <div class="meta">
-            <span>${s.min_quantity || 0} - ${(s.max_quantity || 0).toLocaleString()} units</span>
-            <span class="price">₦${Number(s.sell_price || 0).toLocaleString()}/unit</span>
-          </div>
-        </a>`;
-    }
-
-    document.getElementById("search").addEventListener("input", render);
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const initialQ = urlParams.get("q");
-    if (initialQ) document.getElementById("search").value = initialQ;
-
-    requireSignedInUser().then(() => {
-      loadServices();
-      maybeShowOnboarding();
-    });
+    requireSignedInUser().then((user) => { currentUser = user; loadServices(); });
   </script>
 </body>
 </html>
