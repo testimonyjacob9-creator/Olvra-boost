@@ -109,7 +109,7 @@
 
   <script type="module">
     import { auth, db, callFunction, requireSignedInUser } from "./js/firebase-client.js";
-    import { doc as fsDoc, getDoc as fsGetDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { doc as fsDoc, getDoc as fsGetDoc } from "./js/firebase-sdk.bundle.js";
 
     const cfg = window.APP_CONFIG || {};
 

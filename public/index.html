@@ -18,26 +18,6 @@
 
 <!-- Google Search Console site verification: paste your <meta name="google-site-verification" ...> tag here once you have it -->
 
-<!-- TEMPORARY DEBUG TOOL — remove once the sign-in bug is found. Loads
-     Eruda (an on-page mobile dev console) and shows a plain red banner
-     for any uncaught JS error, so the failure is visible without needing
-     a computer or desktop DevTools. -->
-<script>
-  window.onerror = function (msg, src, line, col, err) {
-    var box = document.getElementById("__debug_error_banner");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "__debug_error_banner";
-      box.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:999999;background:#c0152f;color:#fff;font:12px/1.4 monospace;padding:10px;white-space:pre-wrap;max-height:40vh;overflow:auto;";
-      document.documentElement.appendChild(box);
-    }
-    box.textContent += "ERROR: " + msg + "\n  at " + src + ":" + line + ":" + col + "\n\n";
-    return false;
-  };
-</script>
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>try { eruda.init(); } catch (e) {}</script>
-
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#2C5CF6">
 <link rel="icon" href="/favicon.webp" type="image/webp">
@@ -936,11 +916,9 @@
   <script type="module">
     import {
       onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-      updateProfile, signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {
+      updateProfile, signOut,
       doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    } from "./js/firebase-sdk.bundle.js";
     import { auth, db, callFunction, withNetworkRetry } from "./js/firebase-client.js";
     import { ensureOnboardingAccepted } from "./js/onboarding.js";
 

@@ -55,8 +55,7 @@
   </div>
 
   <script type="module">
-    import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { signInWithEmailAndPassword, signOut, doc, getDoc } from "./js/firebase-sdk.bundle.js";
     import { auth, db, withNetworkRetry } from "./js/firebase-client.js";
 
     const form = document.getElementById("login-form");
