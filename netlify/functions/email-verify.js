@@ -49,15 +49,21 @@ exports.handler = async (event) => {
       await db.collection("emailVerifyCodes").doc(uid).set({ code: newCode, expiresAt, email });
 
       const { subject, html } = verificationCodeEmail({ name, code: newCode });
+      let emailSent = true;
+      let emailError = null;
       try {
         await sendEmail({ to: email, toName: name, subject, html });
       } catch (emailErr) {
         // Don't fail the whole request just because the email provider hiccuped —
-        // log it, the user can hit "resend" from the UI.
+        // the code is still stored so a retry can work — but DO tell the
+        // client the truth, so it can show a real error instead of leaving
+        // someone staring at a code screen with no code ever coming.
         console.error("email-verify send error:", emailErr.message);
+        emailSent = false;
+        emailError = "Verification email could not be sent right now.";
       }
 
-      return ok({ ok: true });
+      return ok({ ok: true, emailSent, error: emailError });
     }
 
     if (action === "confirm") {
