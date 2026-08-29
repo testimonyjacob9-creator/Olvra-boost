@@ -160,6 +160,13 @@
     <button id="copy-uid-btn" class="pill-btn" style="margin-top:12px;">Copy UID</button>
   </div>
 
+  <div id="boot-error-screen" class="gate hidden">
+    <div class="big">⚠️</div>
+    <h2>Couldn't load the admin dashboard</h2>
+    <p id="boot-error-message">Something went wrong while checking admin access.</p>
+    <button id="boot-error-retry" class="pill-btn" style="margin-top:12px;">Try again</button>
+  </div>
+
   <div id="admin-screen" class="hidden">
     <div class="header">
       <a href="/" class="back-btn">←</a>
@@ -596,24 +603,55 @@
       btn.disabled = false; btn.textContent = "🔄 Sync now";
     };
 
-    requireSignedInAdmin().then(async (user) => {
-      const adminSnap = await getDoc(doc(db, "admins", user.uid));
-      if (!adminSnap.exists()) {
-        document.getElementById("gate-uid").textContent = user.uid;
-        document.getElementById("copy-uid-btn").onclick = () => {
-          navigator.clipboard.writeText(user.uid);
-          showToast("UID copied");
-        };
-        document.getElementById("gate-screen").classList.remove("hidden");
-        return;
-      }
-      document.getElementById("admin-screen").classList.remove("hidden");
-      loadStats();
-      loadOrders();
-      loadTopups();
-      loadSupport();
-      loadSettings();
-    });
+    function bootAdmin() {
+      document.getElementById("boot-error-screen").classList.add("hidden");
+      document.getElementById("gate-screen").classList.add("hidden");
+      document.getElementById("admin-screen").classList.add("hidden");
+
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        document.getElementById("boot-error-message").textContent =
+          "This is taking too long — Firebase may be unreachable, or your sign-in expired.";
+        document.getElementById("boot-error-screen").classList.remove("hidden");
+      }, 10000);
+
+      requireSignedInAdmin()
+        .then(async (user) => {
+          const adminSnap = await getDoc(doc(db, "admins", user.uid));
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          if (!adminSnap.exists()) {
+            document.getElementById("gate-uid").textContent = user.uid;
+            document.getElementById("copy-uid-btn").onclick = () => {
+              navigator.clipboard.writeText(user.uid);
+              showToast("UID copied");
+            };
+            document.getElementById("gate-screen").classList.remove("hidden");
+            return;
+          }
+          document.getElementById("admin-screen").classList.remove("hidden");
+          loadStats();
+          loadOrders();
+          loadTopups();
+          loadSupport();
+          loadSettings();
+        })
+        .catch((err) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          console.error("Admin boot failed:", err);
+          document.getElementById("boot-error-message").textContent =
+            err.message || "Something went wrong while checking admin access.";
+          document.getElementById("boot-error-screen").classList.remove("hidden");
+        });
+    }
+
+    document.getElementById("boot-error-retry").onclick = bootAdmin;
+    bootAdmin();
   </script>
 </body>
 </html>
