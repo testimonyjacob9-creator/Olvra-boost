@@ -253,7 +253,7 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { collection, query, orderBy, limit, getDocs, doc, getDoc, setDoc, signOut } from "./js/firebase-sdk.bundle.js";
+    import { collection, query, orderBy, limit, getDocs, getCountFromServer, doc, getDoc, setDoc, signOut } from "./js/firebase-sdk.bundle.js";
     import { db, auth, callFunction } from "./js/firebase-client.js";
 
     function requireSignedInAdmin() {
@@ -288,6 +288,7 @@
         document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
         btn.classList.add("active");
         document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+        if (btn.dataset.tab === "users") loadUsersTabIfNeeded();
       };
     });
 
@@ -297,17 +298,39 @@
     };
 
     // ===== Overview =====
+    // NOTE: this used to fetch the entire `users` collection on every
+    // dashboard load just to show a count + total wallet balance — that's
+    // N reads (one per user document) every single time this page opens,
+    // which is a big part of what blew through the Firestore free-tier
+    // daily read quota. getCountFromServer() gets the count for the cost
+    // of 1 read no matter how many users exist. The full user list (and
+    // the wallet total, which does need real document data) now only
+    // loads lazily, the first time the Users tab is actually opened —
+    // see loadUsersTabIfNeeded() below.
     let allUsers = [];
+    let usersTabLoaded = false;
     async function loadStats() {
+      try {
+        const countSnap = await getCountFromServer(collection(db, "users"));
+        document.getElementById("stat-users").textContent = countSnap.data().count;
+        document.getElementById("stat-wallets").textContent = "—";
+      } catch (err) { console.error(err); }
+    }
+
+    async function loadUsersTabIfNeeded() {
+      if (usersTabLoaded) return;
+      usersTabLoaded = true;
       try {
         const usersSnap = await getDocs(collection(db, "users"));
         allUsers = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
         let totalWallet = 0;
         allUsers.forEach((u) => { totalWallet += (u.wallet_balance || 0); });
-        document.getElementById("stat-users").textContent = allUsers.length;
         document.getElementById("stat-wallets").textContent = `₦${totalWallet.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
         renderUsers(allUsers);
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+        usersTabLoaded = false; // allow retry on next tab click if it failed
+      }
     }
 
     function orderRowHtml(o, id, i, forOverview) {
@@ -422,6 +445,7 @@
             showToast("Wallet updated");
             amountEl.value = ""; reasonEl.value = "";
             loadStats();
+            usersTabLoaded = false; loadUsersTabIfNeeded(); // refresh the list — this user's balance just changed
           } catch (err) {
             showToast(err.message || "Adjustment failed");
           }
@@ -437,6 +461,7 @@
             await callFunction("admin-actions", { action: "setUserDisabled", targetUid: uid, disabled: !currentlySuspended });
             showToast(currentlySuspended ? "User unsuspended" : "User suspended");
             loadStats();
+            usersTabLoaded = false; loadUsersTabIfNeeded(); // refresh the list — this user's status just changed
           } catch (err) {
             showToast(err.message || "Action failed");
             btn.disabled = false;

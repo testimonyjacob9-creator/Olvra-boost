@@ -1572,6 +1572,41 @@
       renderPlatformGrid(curated);
       if (SHOW_ALL_PLATFORMS_REGARDLESS) { renderPlatformGrid(PLATFORMS); return; }
       const nonCurated = PLATFORMS.filter((p) => !p.curated);
+
+      // Preferred path: ONE read of the small summary doc the
+      // sync-services scheduled function writes (see
+      // netlify/functions/_lib/sync-services-core.js) listing which
+      // platforms currently have an active service. This replaces what
+      // used to be a separate Firestore query PER non-curated platform,
+      // run on every single home-screen load by every visitor — a major
+      // driver of the Spark plan's daily Firestore read quota getting
+      // exhausted. Cached in sessionStorage too, so navigating between
+      // pages in the same visit doesn't even re-read that one doc.
+      try {
+        const CACHE_KEY = "olvra_active_platforms_cache_v1";
+        let activeSet = null;
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          activeSet = new Set(JSON.parse(cached));
+        } else {
+          const metaSnap = await getDoc(doc(db, "catalog_meta", "active_platforms"));
+          if (metaSnap.exists()) {
+            const platforms = metaSnap.data().platforms || [];
+            activeSet = new Set(platforms);
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify(platforms));
+          }
+        }
+        if (activeSet) {
+          const extra = nonCurated.filter((p) => activeSet.has(p.id));
+          renderPlatformGrid([...curated, ...extra]);
+          return;
+        }
+      } catch (err) {
+        console.error("catalog_meta/active_platforms read failed, falling back to per-platform checks:", err);
+      }
+
+      // Fallback (e.g. sync-services hasn't run yet on a brand-new
+      // deploy, or the summary doc read failed): old per-platform check.
       const checks = await Promise.all(nonCurated.map((p) => platformHasServices(p.id)));
       const extra = nonCurated.filter((_, i) => checks[i]);
       renderPlatformGrid([...curated, ...extra]);
