@@ -1301,6 +1301,14 @@
       answer_poll: { label: "Poll Answers", icon: "🗳️" },
     };
 
+    // Fallback for any category key not in the curated map above (e.g.
+    // "post_down_vote", "repost_thread" from newly-synced platforms) —
+    // turns the raw slug into readable Title Case instead of showing it
+    // verbatim, so new/uncommon categories still read cleanly.
+    function humanizeCategoryKey(key) {
+      return key.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    }
+
     const SERVICE_TYPE_TO_VARIANT = {
       followers: "default", likes: "default", views: "default", shares: "default",
       post_like: "default", video_share: "default", video_view: "default",
@@ -1400,7 +1408,7 @@
 
         const grid = document.getElementById("category-grid");
         grid.innerHTML = Object.values(byCategory).map((c) => {
-          const meta = CATEGORY_META[c.key] || { label: c.key, icon: "📦" };
+          const meta = CATEGORY_META[c.key] || { label: humanizeCategoryKey(c.key), icon: "📦" };
           return `
             <div class="cat-card" data-key="${c.key}">
               <div class="cat-icon">${meta.icon}</div>

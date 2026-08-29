@@ -31,9 +31,18 @@
   .platform-row .count { font-size:12px; color:#6B7590; }
   .platform-row .chevron { color:#9AA3C0; font-size:16px; }
 
+  /* Category grid (middle tier, between platform and service list) */
+  .category-grid { padding:0 16px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .cat-card { background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:16px 14px; box-shadow:0 4px 14px rgba(23,43,133,0.06); cursor:pointer; }
+  .cat-icon { font-size:22px; margin-bottom:8px; }
+  .cat-name { font-weight:700; font-size:13.5px; line-height:1.3; margin-bottom:6px; }
+  .cat-count { font-size:11.5px; color:#6B7590; margin-bottom:4px; }
+  .cat-price { font-size:11.5px; color:#2C5CF6; font-weight:700; }
+
   .service-list { padding:0 16px; display:flex; flex-direction:column; gap:10px; }
   .service-card { background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:14px; box-shadow:0 4px 14px rgba(23,43,133,0.06); cursor:pointer; text-decoration:none; color:inherit; display:block; }
   .service-card .name { font-size:13.5px; font-weight:600; line-height:1.4; margin-bottom:6px; }
+  .service-card .raw-name { font-size:11px; color:#9AA3C0; line-height:1.4; margin:-3px 0 8px; }
   .service-card .meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#6B7590; }
   .price { color:#2C5CF6; font-weight:700; }
   .empty-state { text-align:center; padding:50px 20px; color:#9AA3C0; font-size:13px; }
@@ -137,11 +146,16 @@
   <script type="module">
     import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { db, requireSignedInUser } from "./js/firebase-client.js";
-    import { PLATFORMS } from "./js/catalog-config.js";
+    import { PLATFORMS, CATEGORY_META, humanizeCategoryKey, friendlyKind } from "./js/catalog-config.js";
 
     let allServices = [];
-    let viewMode = "platforms"; // "platforms" | "list" | "search"
+    let viewMode = "platforms"; // "platforms" | "categories" | "list" | "search"
     let activePlatform = null;
+    let activeCategory = null; // slug key, e.g. "post_like"
+
+    function categoryKey(s) {
+      return (s.category || "other").toLowerCase().replace(/\s+/g, "_");
+    }
 
     function escapeHtml(str) {
       const d = document.createElement("div");
@@ -190,16 +204,35 @@
       const tag = document.getElementById("platform-tag");
       const title = document.getElementById("header-title");
       const backBtn = document.getElementById("back-btn");
+      title.textContent = "All Services";
+
       if (viewMode === "list" && activePlatform) {
-        title.textContent = "All Services";
+        tag.textContent = activeCategory
+          ? `${platformLabel(activePlatform)} · ${categoryLabel(activeCategory)}`
+          : platformLabel(activePlatform);
+        tag.classList.remove("hidden");
+        backBtn.onclick = (e) => {
+          e.preventDefault();
+          if (activeCategory) { activeCategory = null; viewMode = "categories"; }
+          else { activePlatform = null; viewMode = "platforms"; }
+          document.getElementById("search").value = "";
+          render();
+        };
+      } else if (viewMode === "categories" && activePlatform) {
         tag.textContent = platformLabel(activePlatform);
         tag.classList.remove("hidden");
         backBtn.onclick = (e) => { e.preventDefault(); activePlatform = null; viewMode = "platforms"; document.getElementById("search").value = ""; render(); };
       } else {
-        title.textContent = "All Services";
         tag.classList.add("hidden");
         backBtn.onclick = null; // default href="/" behavior applies
       }
+    }
+
+    function categoryLabel(key) {
+      return (CATEGORY_META[key] && CATEGORY_META[key].label) || humanizeCategoryKey(key);
+    }
+    function categoryIcon(key) {
+      return (CATEGORY_META[key] && CATEGORY_META[key].icon) || "📦";
     }
 
     function platformMeta(id) {
@@ -218,6 +251,11 @@
 
       if (viewMode === "platforms") {
         renderPlatformList();
+        return;
+      }
+
+      if (viewMode === "categories") {
+        renderCategoryList();
         return;
       }
 
@@ -256,6 +294,46 @@
       document.getElementById("results").querySelectorAll(".platform-row").forEach((row) => {
         row.onclick = () => {
           activePlatform = row.dataset.platform;
+          activeCategory = null;
+          viewMode = "categories";
+          render();
+        };
+      });
+    }
+
+    function renderCategoryList() {
+      updateHeader();
+      const inPlatform = allServices.filter((s) => s.platform === activePlatform);
+      const groups = {};
+      inPlatform.forEach((s) => {
+        const key = categoryKey(s);
+        if (!groups[key]) groups[key] = { key, count: 0, minPrice: Infinity, maxPrice: 0 };
+        groups[key].count += 1;
+        groups[key].minPrice = Math.min(groups[key].minPrice, Number(s.sell_price || 0));
+        groups[key].maxPrice = Math.max(groups[key].maxPrice, Number(s.sell_price || 0));
+      });
+
+      const keys = Object.keys(groups);
+      document.getElementById("count-label").textContent = "";
+      if (!keys.length) {
+        document.getElementById("results").innerHTML = `<div class="empty-state">No categories found for this platform.</div>`;
+        return;
+      }
+
+      document.getElementById("results").innerHTML = `<div class="category-grid">${keys.map((key) => {
+        const g = groups[key];
+        return `
+          <div class="cat-card" data-key="${escapeHtml(key)}">
+            <div class="cat-icon">${categoryIcon(key)}</div>
+            <div class="cat-name">${escapeHtml(categoryLabel(key))}</div>
+            <div class="cat-count">${g.count} service${g.count === 1 ? "" : "s"}</div>
+            <div class="cat-price">₦${g.minPrice.toLocaleString()} – ₦${g.maxPrice.toLocaleString()}</div>
+          </div>`;
+      }).join("")}</div>`;
+
+      document.getElementById("results").querySelectorAll(".cat-card").forEach((card) => {
+        card.onclick = () => {
+          activeCategory = card.dataset.key;
           viewMode = "list";
           render();
         };
@@ -264,7 +342,7 @@
 
     function renderServiceList() {
       updateHeader();
-      const list = allServices.filter((s) => s.platform === activePlatform);
+      const list = allServices.filter((s) => s.platform === activePlatform && (!activeCategory || categoryKey(s) === activeCategory));
       document.getElementById("count-label").textContent = `${list.length} service${list.length === 1 ? "" : "s"}`;
       const container = document.getElementById("results");
       if (!list.length) {
@@ -276,8 +354,8 @@
 
     function renderSearchResults(term) {
       // Search always looks across everything, regardless of which
-      // platform (if any) was selected — it's the fastest path when the
-      // person already knows what they want.
+      // platform/category (if any) was selected — it's the fastest path
+      // when the person already knows what they want.
       document.getElementById("platform-tag").classList.add("hidden");
       document.getElementById("header-title").textContent = "All Services";
       document.getElementById("back-btn").onclick = null;
@@ -298,9 +376,11 @@
     }
 
     function renderCard(s) {
+      const kind = friendlyKind(s);
       return `
         <a class="service-card" href="/services.html?platform=${encodeURIComponent(s.platform || "")}&category=${encodeURIComponent(s.category || "")}">
-          <div class="name">${escapeHtml(s.name || "Service")}</div>
+          <div class="name">${escapeHtml(kind || s.name || "Service")}</div>
+          ${kind ? `<div class="raw-name">${escapeHtml(s.name || "")}</div>` : ""}
           <div class="meta">
             <span>${s.min_quantity || 0} - ${(s.max_quantity || 0).toLocaleString()} units</span>
             <span class="price">₦${Number(s.sell_price || 0).toLocaleString()}/unit</span>

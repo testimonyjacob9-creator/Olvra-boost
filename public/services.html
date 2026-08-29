@@ -36,6 +36,7 @@
     box-shadow:0 4px 14px rgba(23,43,133,0.06); cursor:pointer;
   }
   .service-card .name { font-size:13.5px; font-weight:600; line-height:1.4; margin-bottom:6px; }
+  .service-card .raw-name { font-size:11px; color:#9AA3C0; line-height:1.4; margin:-3px 0 8px; }
   .service-card .meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#6B7590; }
   .price { color:#2C5CF6; font-weight:700; }
   .badge-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
@@ -122,13 +123,13 @@
     import { ensureOnboardingAccepted } from "./js/onboarding.js";
     import { openInfoCarousel } from "./js/info-carousel.js";
     import { renderOrderFields, collectOrderFields } from "./js/order-fields.js";
-    import { resolveVariant } from "./js/catalog-config.js";
+    import { resolveVariant, friendlyKind } from "./js/catalog-config.js";
 
     let currentUser = null;
 
     const params = new URLSearchParams(window.location.search);
     const platform = (params.get("platform") || "").toLowerCase();
-    const categoryFilter = (params.get("category") || "").toLowerCase();
+    const categoryFilter = (params.get("category") || "").toLowerCase().replace(/\s+/g, "_");
     document.getElementById("platform-title").textContent = platform || "Services";
     document.getElementById("help-btn").onclick = () => openInfoCarousel();
 
@@ -143,9 +144,12 @@
         return;
       }
 
-      container.innerHTML = list.map((s) => `
+      container.innerHTML = list.map((s) => {
+        const kind = friendlyKind(s);
+        return `
         <div class="service-card" data-id="${s.service_id}">
-          <div class="name">${escapeHtml(s.name)}</div>
+          <div class="name">${escapeHtml(kind || s.name)}</div>
+          ${kind ? `<div class="raw-name">${escapeHtml(s.name)}</div>` : ""}
           <div class="meta">
             <span>${s.min_quantity.toLocaleString()} – ${s.max_quantity.toLocaleString()} units</span>
             <span class="price">₦${s.sell_price}/unit</span>
@@ -156,7 +160,8 @@
             ${s.has_dripfeed ? '<span class="badge">Drip-feed</span>' : ""}
           </div>
         </div>
-      `).join("");
+      `;
+      }).join("");
 
       container.querySelectorAll(".service-card").forEach((card) => {
         card.onclick = () => openOrderModal(card.dataset.id);
