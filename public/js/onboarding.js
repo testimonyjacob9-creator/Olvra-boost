@@ -12,7 +12,7 @@
 // Bump ONBOARDING_VERSION any time the terms change meaningfully; that
 // invalidates prior acceptance and shows the flow again.
 
-import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, serverTimestamp } from "./firebase-sdk.bundle.js";
 
 const ONBOARDING_VERSION = "v1";
 const LOCAL_KEY = `olvra_onboarding_accepted_${ONBOARDING_VERSION}`;

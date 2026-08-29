@@ -6,9 +6,12 @@
 // global simply doesn't exist after a fresh page load. This module fixes
 // that by giving every page its own working init.
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// Bundled locally from the `firebase` npm package (see
+// scripts/bundle-firebase.js) and served from our own domain — NOT loaded
+// from gstatic.com. This was changed on 2026-08-29 after gstatic.com
+// became unreachable/broken for many users, taking down all sign-in and
+// sign-up. See git history / NETLIFY_ENV_SETUP.md for the full story.
+import { initializeApp, getAuth, getFirestore } from "./firebase-sdk.bundle.js";
 
 // Hardcoded directly (same approach as WoodPayVTU) — no build-time
 // injection, no config.js, nothing that depends on Netlify env vars or the
