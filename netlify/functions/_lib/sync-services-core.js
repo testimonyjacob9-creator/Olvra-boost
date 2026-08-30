@@ -6,7 +6,7 @@
 // of drifting out of sync with each other.
 
 const { db, FieldValue } = require("./firebase-admin");
-const { PLATFORMS, MARKUP, PAGE_SIZE } = require("./config");
+const { PLATFORMS, MARKUP, CATEGORY_MARKUP_OVERRIDES, PAGE_SIZE } = require("./config");
 const bigisub = require("./bigisub");
 
 async function runSync() {
@@ -30,7 +30,7 @@ async function runSync() {
       const batch = db.batch();
       for (const svc of group) {
         const costPrice = parseFloat(svc.price);
-        const sellPrice = round2(costPrice * (1 + MARKUP));
+        const sellPrice = round2(costPrice * (1 + markupFor(svc.category)));
 
         // BigiSub's real API returns the service identifier as `id`, not
         // `service_id` (confirmed against a live response 2026-08-28) —
@@ -89,6 +89,17 @@ function chunk(arr, size) {
 
 function round2(n) {
   return Math.round(n * 100) / 100;
+}
+
+// Same normalization public/index.html uses on the client for category
+// matching ("Post Like" -> "post_like"), so the lookup keys line up with
+// what's in CATEGORY_MARKUP_OVERRIDES.
+function markupFor(category) {
+  const key = category && String(category).toLowerCase().trim().replace(/\s+/g, "_");
+  if (key && Object.prototype.hasOwnProperty.call(CATEGORY_MARKUP_OVERRIDES, key)) {
+    return CATEGORY_MARKUP_OVERRIDES[key];
+  }
+  return MARKUP;
 }
 
 module.exports = { runSync };
