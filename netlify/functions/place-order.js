@@ -62,7 +62,7 @@ exports.handler = async (event) => {
 
     // Read service + user, validate, deduct wallet — all inside one transaction
     // so two simultaneous orders can't double-spend the same balance.
-    const { totalCost, service } = await db.runTransaction(async (tx) => {
+    const { totalCost, service, olivesUsed } = await db.runTransaction(async (tx) => {
       const serviceSnap = await tx.get(serviceRef);
       if (!serviceSnap.exists) {
         throw Object.assign(new Error("Service not found."), { statusCode: 404 });
@@ -86,14 +86,34 @@ exports.handler = async (event) => {
         throw Object.assign(new Error("User wallet not found."), { statusCode: 404 });
       }
       const wallet = userSnap.data().wallet_balance || 0;
+      const olives = userSnap.data().olive_balance || 0;
+      const oliveValue = round2(olives * 2); // 1 Olive = ₦2, referral-earned, not withdrawable
 
-      if (wallet < totalCost) {
+      if (wallet + oliveValue < totalCost) {
         throw Object.assign(new Error("Insufficient wallet balance."), { statusCode: 402 });
       }
 
-      tx.update(userRef, { wallet_balance: FieldValue.increment(-totalCost) });
+      // Spend wallet first, then Olives for whatever's left. Olives only
+      // come in whole units (₦2 each), so if the remainder isn't an exact
+      // multiple of 2 we round UP the Olives spent and credit the few kobo
+      // of overshoot straight back to the wallet as change — the user is
+      // never short-changed by the rounding.
+      const walletUsed = Math.min(wallet, totalCost);
+      const remainder = round2(totalCost - walletUsed);
+      let olivesUsed = 0;
+      let changeToWallet = 0;
+      if (remainder > 0) {
+        olivesUsed = Math.ceil(remainder / 2);
+        changeToWallet = round2(olivesUsed * 2 - remainder);
+      }
 
-      return { totalCost, service: svc };
+      const walletDelta = changeToWallet - walletUsed;
+      tx.update(userRef, {
+        wallet_balance: FieldValue.increment(walletDelta),
+        ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(-olivesUsed) } : {}),
+      });
+
+      return { totalCost, service: svc, olivesUsed };
     });
 
     // Wallet already deducted at this point. Now call BigiSub.
@@ -115,8 +135,11 @@ exports.handler = async (event) => {
     try {
       bigisubOrder = await bigisub.createOrder(process.env.BIGISUB_TOKEN, orderBody);
     } catch (err) {
-      // BigiSub call failed AFTER wallet was deducted — refund immediately.
-      await userRef.update({ wallet_balance: FieldValue.increment(totalCost) });
+      // BigiSub call failed AFTER wallet/Olives were deducted — refund both immediately.
+      await userRef.update({
+        wallet_balance: FieldValue.increment(totalCost - (olivesUsed > 0 ? olivesUsed * 2 : 0)),
+        ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
+      });
       console.error(
         "BigiSub order failed, wallet refunded:",
         err.message,
@@ -141,6 +164,7 @@ exports.handler = async (event) => {
       quantity,
       unit_price: service.sell_price,
       total_amount: totalCost,
+      ...(olivesUsed > 0 ? { olives_used: olivesUsed } : {}),
       status: bigisubOrder.status || "processing",
       bigisub_order_id: bigisubOrder.id,
       bigisub_tran_id: bigisubOrder.tran_id,

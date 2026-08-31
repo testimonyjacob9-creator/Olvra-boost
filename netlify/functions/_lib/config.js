@@ -28,6 +28,21 @@ module.exports = {
     video_view: 0.15,
   },
 
+  // Platform + category overrides — checked BEFORE CATEGORY_MARKUP_OVERRIDES
+  // above, so these win when both could apply. Keys are `platform` from
+  // BigiSub (lowercase, matches the PLATFORMS list below), then the same
+  // normalized category key used in CATEGORY_MARKUP_OVERRIDES.
+  //
+  // 2026-08-31: Oliver asked for TikTok followers specifically at 2%
+  // (lower than the 5% flat rate everything else defaults to) — followers
+  // on other platforms are untouched.
+  PLATFORM_CATEGORY_MARKUP_OVERRIDES: {
+    tiktok: {
+      followers: 0.02,
+      follower: 0.02,
+    },
+  },
+
   // Platforms to sync. Originally launched narrow with just 5 — expanded
   // 2026-08-28 to match BigiSub's real "Select Platform" list confirmed
   // live in their own app (their documented /marketinghub/platforms/

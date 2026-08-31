@@ -20,3 +20,22 @@
 # Firestore reads and BigiSub API calls bounded even during a busy period.
 [functions."sync-order-status"]
   schedule = "*/10 * * * *"
+
+# The bundled Firebase SDK is the single largest download on every page
+# (see scripts/bundle-firebase.js) but its content only changes on a new
+# deploy — each filename stays the same across deploys, so a long
+# immutable cache means a returning visitor re-downloads it 0 times
+# instead of once per page navigation (this app does full page loads,
+# not a single-page app, so without this header it re-fetches on every
+# single page). Netlify's own asset hashing isn't in play here since the
+# filename is fixed, so this header is what actually saves the repeat
+# download.
+[[headers]]
+  for = "/js/firebase-sdk.bundle.js"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, immutable"

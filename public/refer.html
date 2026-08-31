@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refer &amp; Earn — Olvra Boost</title>
+<script src="config.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #F4F7FE; margin: 0; padding: 20px; color: #10162B;
+    max-width: 460px; margin-left: auto; margin-right: auto;
+  }
+  .card {
+    background: #fff; border: 1px solid rgba(16,22,54,0.08); border-radius: 20px;
+    padding: 22px; margin-bottom: 16px; box-shadow: 0 6px 22px rgba(23,43,133,0.08);
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { color: #6B7590; font-size: 13px; margin: 0 0 18px; line-height:1.5; }
+  .btn {
+    width: 100%; padding: 14px; border-radius: 12px; border: none;
+    font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .btn-primary { background: linear-gradient(135deg,#2C5CF6,#1339B0); color: #fff; }
+  .btn-ghost { background: #EEF3FF; color: #1339B0; }
+  a.back { display:block; text-align:center; margin-top:6px; color:#6B7590; font-size:13px; text-decoration:none; }
+
+  .olive-hero {
+    text-align:center; padding: 10px 0 6px;
+  }
+  .olive-hero .emoji { font-size: 44px; line-height:1; }
+  .olive-hero .count { font-size: 36px; font-weight: 800; font-family:'JetBrains Mono',monospace; margin-top:6px; }
+  .olive-hero .value { color:#6B7590; font-size: 13px; margin-top:2px; }
+
+  .link-box {
+    display:flex; align-items:center; gap:8px; background:#EEF3FF; border-radius:12px;
+    padding: 12px 14px; margin: 14px 0;
+  }
+  .link-box .link-text {
+    flex:1; font-size:13px; color:#1339B0; font-weight:600; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;
+  }
+  .link-box button {
+    background:#2C5CF6; color:#fff; border:none; border-radius:8px; padding:8px 14px;
+    font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0;
+  }
+
+  .how-it-works { font-size: 13px; color:#3A4266; line-height: 1.8; }
+  .how-it-works b { color:#10162B; }
+
+  .stat-row { display:flex; gap:10px; margin-top:14px; }
+  .stat { flex:1; background:#F4F7FE; border-radius:12px; padding:12px; text-align:center; }
+  .stat .n { font-size:20px; font-weight:800; }
+  .stat .l { font-size:11px; color:#6B7590; margin-top:2px; }
+
+  .msg { font-size: 13px; margin-top: 10px; min-height: 16px; text-align:center; }
+
+  @keyframes cardIn{ from{ opacity:0; transform:translateY(16px); } to{ opacity:1; transform:translateY(0); } }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; } }
+  .card{ animation:cardIn 0.45s cubic-bezier(.2,.8,.2,1) both; }
+  .card:nth-of-type(2){ animation-delay:0.08s; }
+  .btn{ transition:transform 0.12s ease; }
+  .btn:active{ transform:scale(0.96); }
+</style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="olive-hero">
+      <div class="emoji">🫒</div>
+      <div class="count" id="olive-count">0</div>
+      <div class="value" id="olive-value">worth ₦0</div>
+    </div>
+    <h1 style="text-align:center; margin-top:14px;">Refer friends, earn Olives</h1>
+    <p class="sub" style="text-align:center;">Share your link. When someone signs up and funds their wallet for the first time, you earn <b>1 Olive (₦2)</b> — spendable on any order.</p>
+
+    <div class="link-box">
+      <div class="link-text" id="ref-link">—</div>
+      <button id="copy-btn">Copy</button>
+    </div>
+    <button class="btn btn-primary" id="share-btn">Share your link</button>
+    <div class="msg" id="msg"></div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="n" id="stat-referrals">0</div>
+        <div class="l">Friends who funded</div>
+      </div>
+      <div class="stat">
+        <div class="n" id="stat-olives">0</div>
+        <div class="l">Olives earned</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h1>How it works</h1>
+    <div class="how-it-works">
+      1. Share your link with a friend<br>
+      2. They sign up on Olvra Boost<br>
+      3. When they fund their wallet for the <b>first time</b>, you get <b>1 🫒 Olive</b><br>
+      4. Olives are worth ₦2 each and can be spent on any order — just not withdrawn or transferred
+    </div>
+  </div>
+
+  <a class="back" href="/">← Back to dashboard</a>
+
+  <script type="module">
+    import { db, requireSignedInUser } from "./js/firebase-client.js";
+    import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from "./js/firebase-sdk.bundle.js";
+
+    requireSignedInUser().then(async (user) => {
+      const link = `${window.location.origin}/?ref=${user.uid}`;
+      document.getElementById("ref-link").textContent = link;
+
+      document.getElementById("copy-btn").onclick = () => {
+        navigator.clipboard?.writeText(link).then(() => showMsg("Link copied!"));
+      };
+
+      document.getElementById("share-btn").onclick = async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: "Olvra Boost",
+              text: "Grow your social media with Olvra Boost — sign up with my link:",
+              url: link,
+            });
+          } catch { /* user cancelled — ignore */ }
+        } else {
+          navigator.clipboard?.writeText(link).then(() => showMsg("Link copied — paste it anywhere!"));
+        }
+      };
+
+      function showMsg(text) {
+        const m = document.getElementById("msg");
+        m.textContent = text;
+        setTimeout(() => { if (m.textContent === text) m.textContent = ""; }, 2500);
+      }
+
+      // Live Olive balance
+      onSnapshot(doc(db, "users", user.uid), (snap) => {
+        if (!snap.exists()) return;
+        const olives = snap.data().olive_balance || 0;
+        document.getElementById("olive-count").textContent = olives;
+        document.getElementById("olive-value").textContent = `worth ₦${(olives * 2).toLocaleString()}`;
+        document.getElementById("stat-olives").textContent = olives;
+      });
+
+      // How many people this user has successfully referred
+      try {
+        const q = query(collection(db, "referrals"), where("referrer_uid", "==", user.uid));
+        const snap = await getDocs(q);
+        document.getElementById("stat-referrals").textContent = snap.size;
+      } catch (e) {
+        console.error("referral count fetch failed:", e);
+      }
+    });
+  </script>
+</body>
+</html>

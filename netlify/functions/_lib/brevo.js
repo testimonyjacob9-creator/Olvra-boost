@@ -7,6 +7,19 @@ const { renderEmail, MUTED } = require("./email-template");
 
 const BREVO_BASE_URL = "https://api.brevo.com/v3";
 
+// Retries transient failures (network errors, Brevo 5xx, or rate limiting)
+// up to 2 extra times with a short backoff. Config errors (missing keys)
+// and 4xx client errors (bad payload) fail immediately — retrying those
+// would just waste time and delay the caller's fallback logic.
+function isRetryable(err) {
+  if (!err.response) return true; // network/timeout error
+  return err.response.status >= 500 || err.response.status === 429;
+}
+
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function sendEmail({ to, toName, subject, html, replyTo, attachment }) {
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL;
@@ -25,14 +38,31 @@ async function sendEmail({ to, toName, subject, html, replyTo, attachment }) {
     payload.attachment = [{ content: attachment.content, name: attachment.name || "screenshot.png" }];
   }
 
-  await axios.post(`${BREVO_BASE_URL}/smtp/email`, payload, {
-    headers: {
-      "api-key": apiKey,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    timeout: 15000,
-  });
+  const delays = [500, 1500]; // ms — only used between retries
+  let lastErr;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      await axios.post(`${BREVO_BASE_URL}/smtp/email`, payload, {
+        headers: {
+          "api-key": apiKey,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        timeout: 15000,
+      });
+      return; // success
+    } catch (err) {
+      lastErr = err;
+      const status = err.response?.status;
+      console.error(
+        `Brevo send failed (attempt ${attempt + 1}/${delays.length + 1}, status ${status || "n/a"}):`,
+        err.response?.data ? JSON.stringify(err.response.data) : err.message
+      );
+      if (!isRetryable(err) || attempt === delays.length) break;
+      await sleep(delays[attempt]);
+    }
+  }
+  throw lastErr;
 }
 
 function orderConfirmationEmail({ serviceName, quantity, totalCharged, orderId, status }) {

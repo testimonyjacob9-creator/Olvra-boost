@@ -26,18 +26,22 @@ service cloud.firestore {
     }
 
     // Users: a user can read/update their own profile, but CANNOT touch
-    // wallet_balance or permanent_account directly — wallet_balance is only
-    // ever changed by the place-order or flutterwave-webhook functions, and
-    // permanent_account is only ever set by create-permanent-account
-    // (all Admin SDK, which bypasses these rules). Admins can read every
-    // user profile (needed for the admin dashboard's user list/stats).
+    // wallet_balance, permanent_account, olive_balance, has_funded, or
+    // referral_paid directly — those are only ever changed by the
+    // place-order or flutterwave-webhook functions (Admin SDK, which
+    // bypasses these rules). referred_by can only be set once, at account
+    // creation (in the signup flow), and never edited afterwards — that
+    // stops someone from backdating a referral after the fact. Admins can
+    // read every user profile (needed for the admin dashboard).
     match /users/{userId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null
                     && request.auth.uid == userId
-                    && !("wallet_balance" in request.resource.data.diff(resource.data).affectedKeys())
-                    && !("permanent_account" in request.resource.data.diff(resource.data).affectedKeys());
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                         "wallet_balance", "permanent_account",
+                         "olive_balance", "has_funded", "referral_paid", "referred_by"
+                       ]);
 
       // Notifications: a user can read/update (mark-read) only their own
       // notifications. Docs are only ever created server-side (Admin SDK,
@@ -71,6 +75,14 @@ service cloud.firestore {
     // read the inbox from the app.
     match /support_messages/{messageId} {
       allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Referrals: created only by flutterwave-webhook.js (Admin SDK) when a
+    // referred user's first funding lands. A user can see their own
+    // referral history (who they successfully referred); admins see all.
+    match /referrals/{referralId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.referrer_uid || isAdmin());
       allow write: if false;
     }
 

@@ -292,6 +292,25 @@
       };
     });
 
+    // ===== Jump from an order row to that user in the Users tab =====
+    document.addEventListener("click", (e) => {
+      const link = e.target.closest("[data-jump-to-user]");
+      if (!link) return;
+      e.preventDefault();
+      const uid = link.dataset.jumpToUser;
+      if (!uid) return;
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+      document.querySelector('.tab-btn[data-tab="users"]').classList.add("active");
+      document.getElementById("panel-users").classList.add("active");
+      loadUsersTabIfNeeded().then(() => {
+        const row = document.getElementById("expand-" + uid);
+        if (!row) return;
+        row.classList.add("show");
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+
     document.getElementById("logout-btn").onclick = async () => {
       await signOut(auth);
       window.location.href = "/admin-login.html";
@@ -335,6 +354,8 @@
 
     function orderRowHtml(o, id, i, forOverview) {
       const cls = o.status === "completed" ? "b-completed" : o.status === "failed" ? "b-failed" : o.status === "cancelled" ? "b-cancelled" : "b-processing";
+      const orderUser = allUsers.find((u) => u.uid === o.uid);
+      const userLabel = orderUser ? (orderUser.full_name || orderUser.email || o.uid) : (o.uid ? o.uid.slice(0, 10) + "…" : "Unknown user");
       const actions = forOverview ? "" : `
         <div class="row-actions">
           <select data-order-status="${id}">
@@ -351,6 +372,7 @@
           <div><div class="name">${escapeHtml(o.service_name || "Order")}</div><div class="meta">${o.quantity} units · ₦${Number(o.total_amount || 0).toLocaleString()} · ${timeAgo(o.created_at)}</div></div>
           <span class="badge ${cls}">${escapeHtml(o.status || "processing")}</span>
         </div>
+        <div class="meta" style="margin-top:2px;">👤 <a href="#" data-jump-to-user="${o.uid || ""}" style="color:inherit;text-decoration:underline;">${escapeHtml(userLabel)}</a></div>
         ${actions}
       </div>`;
     }
@@ -403,7 +425,7 @@
       const suspended = !!u.suspended;
       return `<div class="row" style="animation-delay:${Math.min(i * 0.02, 0.3)}s">
         <div class="row-top">
-          <div><div class="name">${escapeHtml(u.full_name || u.email || "User")}</div><div class="meta">${escapeHtml(u.email || "")} · ₦${Number(u.wallet_balance || 0).toLocaleString()}</div></div>
+          <div><div class="name">${escapeHtml(u.full_name || u.email || "User")}</div><div class="meta">${escapeHtml(u.email || "")} · ₦${Number(u.wallet_balance || 0).toLocaleString()}${u.olive_balance ? ` · 🫒 ${u.olive_balance}` : ""}</div></div>
           <span class="badge ${suspended ? "b-suspended" : "b-active"}">${suspended ? "suspended" : "active"}</span>
         </div>
         <button class="expand-toggle" data-expand="${u.uid}">Manage ▾</button>
@@ -573,7 +595,10 @@
         container.innerHTML = snap.docs.map((d, i) => {
           const s = d.data();
           return `<div class="row" style="animation-delay:${i * 0.02}s;">
-            <div class="name">${escapeHtml(s.email || "Unknown")}</div>
+            <div class="row-top">
+              <div class="name">${escapeHtml(s.email || "Unknown")}</div>
+              ${s.email_failed ? `<span class="badge b-failed" title="Email delivery to support failed — this Firestore record is the only copy">Email failed</span>` : ""}
+            </div>
             <div class="meta">${escapeHtml((s.message || "").slice(0, 140))}${s.has_attachment ? " 📎" : ""} · ${timeAgo(s.created_at)}</div>
             ${s.email ? `<div class="row-actions"><a class="pill-btn ghost" style="text-decoration:none;" href="mailto:${escapeHtml(s.email)}">Reply by email</a></div>` : ""}
           </div>`;
@@ -658,6 +683,7 @@
           }
           document.getElementById("admin-screen").classList.remove("hidden");
           loadStats();
+          await loadUsersTabIfNeeded(); // load first so order rows can show who placed each order
           loadOrders();
           loadTopups();
           loadSupport();

@@ -1,6 +1,6 @@
 // netlify/functions/create-permanent-account.js
 //
-// Creates a Flutterwave v3 STATIC virtual account (Wema Bank) for the
+// Creates a Flutterwave v3 STATIC virtual account (Sterling Bank) for the
 // signed-in user, after they submit their NIN. Unlike a one-off checkout
 // charge, a static account:
 //   - never expires
@@ -25,7 +25,7 @@ const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 
 const FLW_V3_BASE = "https://api.flutterwave.com/v3";
-const ISSUING_BANK_CODE = "035"; // Wema Bank
+const ISSUING_BANK_CODE = "232"; // Sterling Bank PLC — WoodPayVTU already uses Wema (035), so Olvra Boost uses Sterling instead
 const NIN_REGEX = /^[1-9][0-9]{10}$/; // Flutterwave's own validation pattern for nin/bvn
 
 exports.handler = async (event) => {

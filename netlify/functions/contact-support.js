@@ -39,7 +39,7 @@ exports.handler = async (event) => {
     }
 
     // Always record it, even if the email send below fails.
-    await db.collection("support_messages").add({
+    const docRef = await db.collection("support_messages").add({
       uid,
       email: userEmail,
       message: message || "(screenshot attached)",
@@ -64,6 +64,13 @@ exports.handler = async (event) => {
     } catch (emailErr) {
       console.error("contact-support email failed:", emailErr.message);
       emailed = false;
+      // Flag it on the saved record so it's visible in the admin Support tab —
+      // this is the safety net when email delivery fails, not a duplicate channel.
+      try {
+        await db.collection("support_messages").doc(docRef.id).update({ email_failed: true });
+      } catch (flagErr) {
+        console.error("Failed to flag email_failed on support message:", flagErr.message);
+      }
     }
 
     return ok({ received: true, emailed });

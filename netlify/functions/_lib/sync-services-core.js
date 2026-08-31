@@ -6,7 +6,7 @@
 // of drifting out of sync with each other.
 
 const { db, FieldValue } = require("./firebase-admin");
-const { PLATFORMS, MARKUP, CATEGORY_MARKUP_OVERRIDES, PAGE_SIZE } = require("./config");
+const { PLATFORMS, MARKUP, CATEGORY_MARKUP_OVERRIDES, PLATFORM_CATEGORY_MARKUP_OVERRIDES, PAGE_SIZE } = require("./config");
 const bigisub = require("./bigisub");
 
 async function runSync() {
@@ -30,7 +30,7 @@ async function runSync() {
       const batch = db.batch();
       for (const svc of group) {
         const costPrice = parseFloat(svc.price);
-        const sellPrice = round2(costPrice * (1 + markupFor(svc.category)));
+        const sellPrice = round2(costPrice * (1 + markupFor(svc.platform, svc.category)));
 
         // BigiSub's real API returns the service identifier as `id`, not
         // `service_id` (confirmed against a live response 2026-08-28) —
@@ -94,10 +94,23 @@ function round2(n) {
 // Same normalization public/index.html uses on the client for category
 // matching ("Post Like" -> "post_like"), so the lookup keys line up with
 // what's in CATEGORY_MARKUP_OVERRIDES.
-function markupFor(category) {
-  const key = category && String(category).toLowerCase().trim().replace(/\s+/g, "_");
-  if (key && Object.prototype.hasOwnProperty.call(CATEGORY_MARKUP_OVERRIDES, key)) {
-    return CATEGORY_MARKUP_OVERRIDES[key];
+// Same normalization public/index.html uses on the client for category
+// matching ("Post Like" -> "post_like"), so the lookup keys line up with
+// what's in CATEGORY_MARKUP_OVERRIDES.
+function markupFor(platform, category) {
+  const catKey = category && String(category).toLowerCase().trim().replace(/\s+/g, "_");
+  const platKey = platform && String(platform).toLowerCase().trim().replace(/\s+/g, "_");
+
+  // Platform + category override wins first (e.g. TikTok followers at 2%).
+  if (platKey && catKey && PLATFORM_CATEGORY_MARKUP_OVERRIDES[platKey]) {
+    const platOverrides = PLATFORM_CATEGORY_MARKUP_OVERRIDES[platKey];
+    if (Object.prototype.hasOwnProperty.call(platOverrides, catKey)) {
+      return platOverrides[catKey];
+    }
+  }
+
+  if (catKey && Object.prototype.hasOwnProperty.call(CATEGORY_MARKUP_OVERRIDES, catKey)) {
+    return CATEGORY_MARKUP_OVERRIDES[catKey];
   }
   return MARKUP;
 }

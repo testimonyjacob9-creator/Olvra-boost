@@ -18,6 +18,24 @@
 
 <!-- Google Search Console site verification: paste your <meta name="google-site-verification" ...> tag here once you have it -->
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Olvra Boost",
+  "alternateName": "Olvra Boost by Olvra",
+  "url": "https://olvraboost.netlify.app/",
+  "sameAs": "https://olvrahub.netlify.app/olvra-boost.html",
+  "applicationCategory": "SocialNetworkingApplication",
+  "operatingSystem": "Web",
+  "description": "Order real followers, likes, views and comments for Instagram, TikTok, Facebook, Twitter, YouTube and more — pay from an in-app wallet and track every order live.",
+  "image": "https://olvraboost.netlify.app/icons/icon-512.png",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "isPartOf": { "@type": "WebSite", "name": "Olvra Hub", "url": "https://olvrahub.netlify.app/" },
+  "publisher": { "@type": "Organization", "name": "Olvra Systems", "url": "https://olvrahub.netlify.app/" }
+}
+</script>
+
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#2C5CF6">
 <link rel="icon" href="/favicon.webp" type="image/webp">
@@ -395,6 +413,14 @@
   .wallet-balance{ transition:filter 0.2s; }
   .wallet-balance.masked{ filter:blur(9px); user-select:none; }
   .wallet-sub{ font-size:12px; color:var(--green); font-weight:600; margin-top:4px; display:flex; align-items:center; gap:5px; }
+  .olive-chip{
+    margin-top:10px; display:flex; align-items:center; gap:6px;
+    background:rgba(154,205,50,0.14); border:1px solid rgba(154,205,50,0.3);
+    color:#9acd32; font-weight:700; font-size:13px;
+    padding:7px 12px; border-radius:12px; width:fit-content;
+  }
+  .olive-chip .olive-value{ font-weight:500; opacity:0.8; }
+  .olive-chip.hidden{ display:none; }
 
   /* ===== Quick actions ===== */
   .quick-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:16px 16px 0; }
@@ -726,6 +752,7 @@
           <div class="wallet-balance" id="wallet-balance-wrap">₦<span id="wallet-balance">0.00</span></div>
         </div>
         <div class="wallet-sub" id="wallet-sub"></div>
+        <div class="olive-chip hidden" id="olive-chip">🫒 <span id="olive-count">0</span> Olives <span class="olive-value" id="olive-value"></span></div>
         <div class="wallet-actions">
           <button class="btn btn-primary" id="fund-wallet-btn">+ Fund Wallet</button>
           <button class="btn btn-ghost" id="history-btn">History</button>
@@ -788,6 +815,7 @@
       <div class="menu-row" id="menu-services"><div class="mi">🧩</div>Browse All Services<div class="chev">›</div></div>
       <div class="menu-row" id="menu-fund"><div class="mi">💳</div>Fund Wallet<div class="chev">›</div></div>
       <div class="menu-row" id="menu-orders"><div class="mi">🧾</div>Order History<div class="chev">›</div></div>
+      <div class="menu-row" id="menu-refer"><div class="mi">🫒</div>Refer &amp; Earn<div class="chev">›</div></div>
       <div class="menu-row" id="menu-notif"><div class="mi">🔔</div>Notifications<div class="chev">›</div></div>
       <div class="menu-row" id="menu-support"><div class="mi">💬</div>Chat with Olives (Support)<div class="chev">›</div></div>
       <div class="menu-row hidden" id="menu-install"><div class="mi">📲</div>Install App<div class="chev">›</div></div>
@@ -923,6 +951,23 @@
     import { ensureOnboardingAccepted } from "./js/onboarding.js";
 
     const SUPPORT_EMAIL = "olvraboost@outlook.com";
+
+    // ---- Referral capture ----
+    // A shared link looks like https://olvraboost.netlify.app/?ref=<uid>.
+    // Stashed in localStorage (not just the URL) so it survives navigating
+    // from the landing page into the signup flow. Only ever read once, at
+    // account-creation time, then left alone — this is intentionally NOT
+    // cleared here so a user who lands, browses, and signs up minutes later
+    // still gets credited to whoever referred them.
+    (function captureReferral() {
+      const ref = new URLSearchParams(window.location.search).get("ref");
+      if (ref) {
+        localStorage.setItem("ob_ref_uid", ref);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("ref");
+        window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+      }
+    })();
 
     const screens = {
       signin: document.getElementById("signin-screen"),
@@ -1098,12 +1143,18 @@
 
         // The step the old version was missing entirely: without this doc,
         // every wallet/account feature downstream has nothing to read from.
+        const refUid = localStorage.getItem("ob_ref_uid");
+        const referredBy = (refUid && refUid !== cred.user.uid) ? refUid : null;
         await setDoc(doc(db, "users", cred.user.uid), {
           name: signup.name,
           email: signup.email,
           phone: signup.phone,
           country: signup.country,
           wallet_balance: 0,
+          olive_balance: 0,
+          has_funded: false,
+          referred_by: referredBy,
+          referral_paid: false,
           created_at: serverTimestamp(),
         });
 
@@ -1372,6 +1423,16 @@
         card.classList.add("shine");
         setTimeout(() => card.classList.remove("shine"), 1500);
 
+        const olives = data.olive_balance || 0;
+        const oliveChip = document.getElementById("olive-chip");
+        if (olives > 0) {
+          oliveChip.classList.remove("hidden");
+          document.getElementById("olive-count").textContent = olives;
+          document.getElementById("olive-value").textContent = `· worth ₦${(olives * 2).toLocaleString()}`;
+        } else {
+          oliveChip.classList.add("hidden");
+        }
+
         const chip = document.getElementById("account-chip");
         if (data.permanent_account && data.permanent_account.account_number) {
           chip.classList.remove("hidden");
@@ -1454,6 +1515,7 @@
     document.getElementById("profile-back").onclick = () => showScreen("app");
     document.getElementById("menu-services").onclick = () => { window.location.href = "/all-services.html"; };
     document.getElementById("menu-fund").onclick = () => { window.location.href = "/fund.html"; };
+    document.getElementById("menu-refer").onclick = () => { window.location.href = "/refer.html"; };
     document.getElementById("menu-orders").onclick = () => { window.location.href = "/orders.html"; };
     document.getElementById("menu-notif").onclick = () => { window.location.href = "/notifications.html"; };
     document.getElementById("menu-support").onclick = () => { toggleChatbot(); };

@@ -109,13 +109,40 @@
       }
     }
 
+    // Orders are pending until a scheduled background job confirms their
+    // real status with BigiSub (runs every 10 min server-side) — so this
+    // page re-checks Firestore itself every 25s while the tab is actually
+    // visible, and stops the instant it isn't, rather than holding a
+    // permanent live connection open (cheaper on data for anyone on a
+    // metered/slow connection, at the cost of not being instant).
+    let pollTimer = null;
+    function startPolling(uid) {
+      stopPolling();
+      pollTimer = setInterval(() => loadOrders(uid), 25000);
+    }
+    function stopPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (!currentUid) return;
+      if (document.hidden) stopPolling();
+      else { loadOrders(currentUid); startPolling(currentUid); }
+    });
+
+    let currentUid = null;
+
     function escapeHtml(str) {
       const div = document.createElement("div");
       div.textContent = str;
       return div.innerHTML;
     }
 
-    requireSignedInUser().then((user) => loadOrders(user.uid));
+    requireSignedInUser().then((user) => {
+      currentUid = user.uid;
+      loadOrders(currentUid);
+      startPolling(currentUid);
+    });
   </script>
 </body>
 </html>

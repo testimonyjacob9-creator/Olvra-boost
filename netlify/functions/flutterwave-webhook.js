@@ -1,7 +1,7 @@
 // netlify/functions/flutterwave-webhook.js
 //
-// Receives Flutterwave v3 "charge.completed" webhooks for the Wema static
-// virtual accounts created in create-permanent-account.js, and credits the
+// Receives Flutterwave v3 "charge.completed" webhooks for the Sterling Bank
+// static virtual accounts created in create-permanent-account.js, and credits the
 // matching user's wallet once a transfer is confirmed.
 //
 // IMPORTANT — before this goes live:
@@ -108,6 +108,8 @@ exports.handler = async (event) => {
     // into a static account, so keying on it would only ever credit once).
     const txRef = db.collection("wallet_topups").doc(String(chargeId || reference + "-" + amount));
     const result = await db.runTransaction(async (tx) => {
+      // ---- ALL READS FIRST (Firestore transactions require every read to
+      // happen before any write) ----
       const already = await tx.get(txRef);
       if (already.exists) {
         return { alreadyProcessed: true, netCredit: 0 };
@@ -117,6 +119,7 @@ exports.handler = async (event) => {
       if (!userSnap.exists) {
         throw Object.assign(new Error("User not found for wallet credit."), { statusCode: 404 });
       }
+      const userData = userSnap.data();
 
       // Flat ₦50 charge per funding — deducted from what the user sent,
       // not absorbed by the platform.
@@ -138,7 +141,44 @@ exports.handler = async (event) => {
         return { alreadyProcessed: false, netCredit: 0, tooSmall: true };
       }
 
-      tx.update(userRef, { wallet_balance: FieldValue.increment(netCredit) });
+      // This user's FIRST-EVER successful funding is what triggers a
+      // referral payout (see contact-support-style comment history: 2026-
+      // 08-31, Testimony wanted the payout gated on first funding, not
+      // signup, to cut down on fake-account abuse). If eligible, we need
+      // the referrer's doc read here too — before any writes below.
+      const isFirstFunding = !userData.has_funded;
+      let referrerRef = null;
+      let referrerSnap = null;
+      let referrerId = null;
+      if (isFirstFunding && userData.referred_by && !userData.referral_paid) {
+        referrerId = userData.referred_by;
+        if (referrerId && referrerId !== uid) {
+          referrerRef = db.collection("users").doc(referrerId);
+          referrerSnap = await tx.get(referrerRef);
+        }
+      }
+      const referralEligible = !!(referrerRef && referrerSnap && referrerSnap.exists);
+
+      // ---- WRITES (no more reads past this point) ----
+      const userUpdate = { wallet_balance: FieldValue.increment(netCredit) };
+      if (isFirstFunding) {
+        userUpdate.has_funded = true;
+        if (referralEligible) userUpdate.referral_paid = true;
+      }
+      tx.update(userRef, userUpdate);
+
+      if (referralEligible) {
+        tx.update(referrerRef, { olive_balance: FieldValue.increment(1) });
+        tx.set(db.collection("referrals").doc(), {
+          referrer_uid: referrerId,
+          referred_uid: uid,
+          referred_email: userData.email || null,
+          olives_awarded: 1,
+          olive_value_ngn: 2,
+          created_at: FieldValue.serverTimestamp(),
+        });
+      }
+
       tx.set(txRef, {
         uid,
         gross_amount: amount,
@@ -151,7 +191,7 @@ exports.handler = async (event) => {
         credited_at: FieldValue.serverTimestamp(),
       });
 
-      return { alreadyProcessed: false, netCredit };
+      return { alreadyProcessed: false, netCredit, referralAwardedTo: referralEligible ? referrerId : null };
     });
 
     if (!result.alreadyProcessed && !result.tooSmall) {
@@ -175,6 +215,21 @@ exports.handler = async (event) => {
         }
       } catch (emailErr) {
         console.error("Wallet funded email/notification failed:", emailErr.message);
+      }
+
+      // Best-effort — let the referrer know they just earned an Olive.
+      if (result.referralAwardedTo) {
+        try {
+          await db.collection("users").doc(result.referralAwardedTo).collection("notifications").add({
+            type: "referral_earned",
+            title: "🫒 You earned an Olive!",
+            body: "Someone you referred just funded their wallet for the first time — 1 Olive (₦2) added to your balance.",
+            read: false,
+            created_at: FieldValue.serverTimestamp(),
+          });
+        } catch (notifErr) {
+          console.error("Referral notification failed:", notifErr.message);
+        }
       }
     }
 
