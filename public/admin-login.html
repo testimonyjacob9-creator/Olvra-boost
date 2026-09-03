@@ -94,8 +94,16 @@
       const password = document.getElementById("password").value;
 
       try {
-        const cred = await withNetworkRetry(() => signInWithEmailAndPassword(auth, email, password));
-        const adminSnap = await getDoc(doc(db, "admins", cred.user.uid));
+        const cred = await withNetworkRetry(
+          () => signInWithEmailAndPassword(auth, email, password),
+          4,
+          (attempt) => { btn.textContent = `Signing in… (retry ${attempt})`; }
+        );
+        const adminSnap = await withNetworkRetry(
+          () => getDoc(doc(db, "admins", cred.user.uid)),
+          4,
+          (attempt) => { btn.textContent = `Checking access… (retry ${attempt})`; }
+        );
         if (!adminSnap.exists()) {
           await signOut(auth);
           errorText.textContent = "This account isn't on the admin allowlist.";
@@ -107,7 +115,9 @@
       } catch (err) {
         errorText.textContent = err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found"
           ? "Incorrect email or password."
-          : (err.message || "Sign-in failed.");
+          : (err.code === "auth/network-request-failed" || err.code === "unavailable" || err.code === "deadline-exceeded")
+            ? "Couldn't reach the server after several tries — check your connection and try again."
+            : (err.message || "Sign-in failed.");
         btn.disabled = false;
         btn.textContent = "Sign in";
       }

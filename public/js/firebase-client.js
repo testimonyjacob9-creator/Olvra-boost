@@ -49,18 +49,42 @@ export async function callFunction(name, body) {
 }
 
 /**
- * Firebase's SDK doesn't retry "auth/network-request-failed" on its own —
- * a short automatic retry helps meaningfully on weak mobile connections.
+ * Firebase's SDK doesn't retry network failures on its own — a short
+ * automatic retry helps meaningfully on weak mobile connections (this app
+ * has real users on very slow/flaky Nigerian mobile data, seen as low as
+ * a few hundred bytes/sec — a single failed attempt there is normal, not
+ * exceptional).
+ *
+ * Covers BOTH Firebase Auth's error code ("auth/network-request-failed")
+ * AND Firestore's own connectivity codes ("unavailable",
+ * "deadline-exceeded", "resource-exhausted") — a bare getDoc() failing on
+ * a flaky connection was previously falling straight through to a raw,
+ * confusing error message with no retry at all (2026-09-02: this is what
+ * was actually causing "network error" on admin login — the sign-in
+ * itself retried fine, but the very next Firestore read right after it
+ * didn't).
+ *
+ * `onRetry(attempt, attempts)` is optional — pass it to show the user
+ * "still trying..." instead of letting the button sit there looking frozen.
  */
-export async function withNetworkRetry(fn, attempts = 3) {
+const RETRYABLE_CODES = new Set([
+  "auth/network-request-failed",
+  "unavailable",
+  "deadline-exceeded",
+  "resource-exhausted",
+]);
+
+export async function withNetworkRetry(fn, attempts = 4, onRetry) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (err.code !== "auth/network-request-failed" || i === attempts - 1) throw err;
-      await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+      const code = (err.code || "").replace(/^firestore\//, "");
+      if (!RETRYABLE_CODES.has(code) || i === attempts - 1) throw err;
+      if (onRetry) onRetry(i + 1, attempts);
+      await new Promise((r) => setTimeout(r, 700 * (i + 1)));
     }
   }
   throw lastErr;

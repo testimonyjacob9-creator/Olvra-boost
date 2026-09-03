@@ -324,8 +324,20 @@
     padding:15px 16px; color:#fff; display:flex; align-items:center; gap:12px; cursor:pointer;
     box-shadow:0 10px 24px rgba(44,92,246,0.28);
   }
-  .auto-banner .t{ font-size:13.5px; font-weight:700; }
+  .auto-banner .t{ font-size:13.5px; font-weight:700; margin-top:2px; }
   .auto-banner .s{ font-size:11.5px; opacity:0.85; margin-top:2px; }
+
+  .source-intro{ font-size:12.5px; color:var(--muted-2); padding:2px 16px 16px; line-height:1.5; }
+  .source-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 16px; }
+  .source-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:22px 14px;
+    box-shadow:var(--shadow); cursor:pointer; text-align:center;
+  }
+  .source-icon{ font-size:32px; margin-bottom:12px; }
+  .source-name{ font-size:14px; font-weight:700; margin-bottom:6px; }
+  .source-desc{ font-size:11.5px; color:var(--muted-2); line-height:1.4; }
+  .source-card{ transition:transform 0.12s ease, box-shadow 0.15s ease; }
+  .source-card:active{ transform:scale(0.97); }
 
   .service-list{ padding:0 16px; display:flex; flex-direction:column; gap:10px; }
   .service-card{
@@ -835,6 +847,33 @@
     </div>
   </div>
 
+  <!-- ===================== SOURCE PICKER SCREEN ===================== -->
+  <!-- Shown between tapping a platform tile and the category grid, only
+       when a platform actually has services from both providers — see
+       openCategoryScreen()'s pre-check. Card labels are deliberately
+       generic ("Local Source" / "Global Source") — the real providers
+       are never named to the user (Testimony's call, 2026-09-02). -->
+  <div id="source-screen" class="hidden">
+    <div class="page-header">
+      <button class="icon-btn" id="source-back">←</button>
+      <div class="page-title" id="source-platform-title">Choose a Source</div>
+      <div style="width:36px"></div>
+    </div>
+    <div class="source-intro">Pick where this order gets fulfilled from — both are real, verified suppliers.</div>
+    <div class="source-grid">
+      <div class="source-card" id="source-local" data-source="bigisub">
+        <div class="source-icon">🇳🇬</div>
+        <div class="source-name">Local Source</div>
+        <div class="source-desc">Fast delivery from a local supplier</div>
+      </div>
+      <div class="source-card" id="source-global" data-source="owlet">
+        <div class="source-icon">🌐</div>
+        <div class="source-name">Global Source</div>
+        <div class="source-desc">Wider catalog, international supplier</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== CATEGORY SCREEN ===================== -->
 
   <div id="category-screen" class="hidden">
@@ -980,6 +1019,7 @@
       app: document.getElementById("app-screen"),
       profile: document.getElementById("profile-screen"),
       category: document.getElementById("category-screen"),
+      source: document.getElementById("source-screen"),
       autoServices: document.getElementById("auto-services-screen"),
     };
     function showScreen(name) {
@@ -1051,16 +1091,22 @@
 
       const btn = document.getElementById("signin-submit");
       btn.disabled = true;
+      const originalLabel = btn.textContent;
       try {
-        await withNetworkRetry(() => signInWithEmailAndPassword(auth, email, password));
+        await withNetworkRetry(
+          () => signInWithEmailAndPassword(auth, email, password),
+          4,
+          (attempt) => { btn.textContent = `Signing in… (retry ${attempt})`; }
+        );
       } catch (err) {
-        if (err.code === "auth/network-request-failed") {
+        if (err.code === "auth/network-request-failed" || err.code === "unavailable" || err.code === "deadline-exceeded") {
           showFieldError(errEl, "Couldn't reach the server after several tries — check your connection and try again.");
         } else {
           showFieldError(errEl, (err.message || "").replace("Firebase: ", ""));
         }
       } finally {
         btn.disabled = false;
+        btn.textContent = originalLabel;
       }
     };
 
@@ -1624,10 +1670,44 @@
         const tile = document.createElement("div");
         tile.className = "platform-tile";
         tile.innerHTML = `<div class="dot" style="background:${p.color}"></div><span>${p.label}</span>`;
-        tile.onclick = () => openCategoryScreen(p.id, p.label);
+        tile.onclick = () => routeToCategoryOrSource(p.id, p.label);
         grid.appendChild(tile);
       });
     }
+
+    // Checks whether this platform actually has services from BOTH
+    // providers before showing the source picker — a platform Owlet
+    // doesn't cover yet (or vice versa) skips straight to categories
+    // instead of offering a dead second option.
+    let currentSourceFilter = null; // set by the picker, read by openCategoryScreen
+    async function routeToCategoryOrSource(platformId, platformLabel) {
+      currentSourceFilter = null;
+      try {
+        const [bigisubSnap, owletSnap] = await Promise.all([
+          getDocs(query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true), where("provider", "==", "bigisub"), limit(1))),
+          getDocs(query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true), where("provider", "==", "owlet"), limit(1))),
+        ]);
+        if (!bigisubSnap.empty && !owletSnap.empty) {
+          openSourceScreen(platformId, platformLabel);
+          return;
+        }
+      } catch (err) {
+        console.error("Provider availability check failed, skipping picker:", err);
+      }
+      openCategoryScreen(platformId, platformLabel);
+    }
+
+    function openSourceScreen(platformId, platformLabel) {
+      document.getElementById("source-platform-title").textContent = platformLabel || platformId;
+      showScreen("source");
+      document.querySelectorAll(".source-card").forEach((card) => {
+        card.onclick = () => {
+          currentSourceFilter = card.dataset.source;
+          openCategoryScreen(platformId, platformLabel);
+        };
+      });
+    }
+    document.getElementById("source-back").onclick = () => showScreen("app");
 
     async function initPlatformGrid() {
       const curated = PLATFORMS.filter((p) => p.curated);
@@ -1688,7 +1768,12 @@
       showScreen("category");
 
       try {
-        const q = query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true));
+        const clauses = [
+          where("platform", "==", platformId),
+          where("is_active", "==", true),
+        ];
+        if (currentSourceFilter) clauses.push(where("provider", "==", currentSourceFilter));
+        const q = query(collection(db, "services"), ...clauses);
         const snap = await getDocs(q);
         const services = snap.docs.map((d) => d.data());
 
@@ -1728,7 +1813,8 @@
 
         grid.querySelectorAll(".cat-card").forEach((card) => {
           card.onclick = () => {
-            window.location.href = `/all-services.html?platform=${platformId}&category=${card.dataset.key}`;
+            const suffix = currentSourceFilter ? `&provider=${currentSourceFilter}` : "";
+            window.location.href = `/all-services.html?platform=${platformId}&category=${card.dataset.key}${suffix}`;
           };
         });
       } catch (err) {
@@ -1738,7 +1824,9 @@
       }
     }
 
-    document.getElementById("category-back").onclick = () => showScreen("app");
+    document.getElementById("category-back").onclick = () => {
+      showScreen(currentSourceFilter ? "source" : "app");
+    };
     document.getElementById("category-help-btn").onclick = () => openInfoCarousel();
     document.getElementById("app-help-btn").onclick = () => openInfoCarousel();
 
@@ -1757,7 +1845,7 @@
           ? query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true))
           : query(collection(db, "services"), where("is_active", "==", true));
         const snap = await getDocs(q);
-        autoServicesForPlatform = snap.docs.map((d) => d.data()).filter((s) => resolveVariant(s) === "subscription");
+        autoServicesForPlatform = snap.docs.map((d) => ({ ...d.data(), _docId: d.id })).filter((s) => resolveVariant(s) === "subscription");
 
         if (autoServicesForPlatform.length === 0) {
           list.innerHTML = `<div class="empty-state">No auto services available right now.</div>`;
@@ -1765,7 +1853,7 @@
         }
 
         list.innerHTML = autoServicesForPlatform.map((s) => `
-          <div class="service-card" data-id="${s.service_id}">
+          <div class="service-card" data-id="${s._docId}">
             <div class="name">${s.name}</div>
             <div class="meta">
               <span>${s.min_quantity.toLocaleString()} – ${s.max_quantity.toLocaleString()} units</span>
@@ -1788,7 +1876,7 @@
     const autoOverlay = document.getElementById("auto-overlay");
 
     function openAutoModal(serviceId) {
-      selectedAutoService = autoServicesForPlatform.find((s) => String(s.service_id) === String(serviceId));
+      selectedAutoService = autoServicesForPlatform.find((s) => String(s._docId) === String(serviceId));
       if (!selectedAutoService) return;
       document.getElementById("auto-modal-name").textContent = selectedAutoService.name;
       document.getElementById("auto-modal-price").textContent =
@@ -1820,7 +1908,7 @@
       try {
         await ensureOnboardingAccepted(db, currentUser);
         const body = {
-          serviceId: selectedAutoService.service_id,
+          serviceId: selectedAutoService._docId,
           quantity: selectedAutoService.min_quantity,
           username,
           old_posts: Number(document.getElementById("auto-old-posts").value) || undefined,

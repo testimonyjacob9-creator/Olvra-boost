@@ -143,6 +143,7 @@
     const params = new URLSearchParams(window.location.search);
     const platform = (params.get("platform") || "").toLowerCase();
     const categoryFilter = (params.get("category") || "").toLowerCase().replace(/\s+/g, "_");
+    const providerFilter = params.get("provider") || null;
     document.getElementById("platform-title").textContent = platform || "Services";
     document.getElementById("help-btn").onclick = () => openInfoCarousel();
 
@@ -170,7 +171,7 @@
         const kind = friendlyKind(s);
         const delay = Math.min(i * 0.03, 0.3).toFixed(2);
         return `
-        <div class="service-card" data-id="${s.service_id}" style="animation-delay:${delay}s">
+        <div class="service-card" data-id="${s._docId}" style="animation-delay:${delay}s">
           <div class="name">${escapeHtml(kind || s.name)}</div>
           ${kind ? `<div class="raw-name">${escapeHtml(s.name)}</div>` : ""}
           <div class="meta">
@@ -218,7 +219,10 @@
           q = query(collection(db, "services"), where("is_active", "==", true));
         }
         const snap = await getDocs(q);
-        let services = snap.docs.map((d) => d.data());
+        let services = snap.docs.map((d) => ({ ...d.data(), _docId: d.id }));
+        if (providerFilter) {
+          services = services.filter((s) => s.provider === providerFilter);
+        }
 
         // Category-select.html links here with &category=<key> — filter to
         // that category, and always exclude subscription-type services
@@ -243,7 +247,7 @@
     const fieldsContainer = document.getElementById("order-fields");
 
     function openOrderModal(serviceId) {
-      selectedService = allServices.find((s) => String(s.service_id) === String(serviceId));
+      selectedService = allServices.find((s) => String(s._docId) === String(serviceId));
       if (!selectedService) return;
 
       document.getElementById("modal-service-name").textContent = selectedService.name;
@@ -296,7 +300,7 @@
         // No-ops instantly (no modal) for anyone who's already accepted.
         await ensureOnboardingAccepted(db, currentUser);
 
-        const body = { serviceId: selectedService.service_id, quantity: qty, ...fields.body };
+        const body = { serviceId: selectedService._docId, quantity: qty, ...fields.body };
 
         const result = await callFunction("place-order", body);
         msgEl.textContent = `Order placed! Tracking ID: ${result.trackingId}`;
