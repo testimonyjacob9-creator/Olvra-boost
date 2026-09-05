@@ -118,7 +118,7 @@
     let pollTimer = null;
     function startPolling(uid) {
       stopPolling();
-      pollTimer = setInterval(() => loadOrders(uid), 25000);
+      pollTimer = setInterval(() => loadOrders(uid), 45000);
     }
     function stopPolling() {
       if (pollTimer) clearInterval(pollTimer);

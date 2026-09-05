@@ -3,6 +3,10 @@
 // to Firestore. Runs every 6 hours (see schedule in netlify.toml). The app
 // reads from Firestore, never hits BigiSub directly from the client.
 //
+// BigiSub only — Owlet has its own separate daily schedule
+// (sync-services-owlet.js) since its catalog is far larger and doesn't
+// need 6-hour freshness (2026-09-03, see that file for why).
+//
 // Netlify scheduled functions ignore whatever you return to the caller —
 // there is no caller, it's cron — so we just log and swallow the result.
 // IMPORTANT: this does NOT run immediately after a deploy — only at its
@@ -14,8 +18,8 @@ const { runSync } = require("./_lib/sync-services-core");
 
 exports.handler = async () => {
   try {
-    const { totalSynced } = await runSync();
-    console.log(`Sync complete. Total services synced: ${totalSynced}`);
+    const { totalSynced } = await runSync({ includeOwlet: false });
+    console.log(`BigiSub sync complete. Total services synced: ${totalSynced}`);
     return { statusCode: 200, body: `Synced ${totalSynced} services` };
   } catch (err) {
     console.error("Sync failed:", err.message);

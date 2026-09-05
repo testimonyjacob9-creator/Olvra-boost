@@ -13,6 +13,12 @@
 [functions."sync-services"]
   schedule = "0 */6 * * *"
 
+# Owlet's catalog is far larger than BigiSub's — synced once a day
+# instead of every 6 hours to keep it from eating the daily Firestore
+# write quota (2026-09-03).
+[functions."sync-services-owlet"]
+  schedule = "0 3 * * *"
+
 # Runs sync-order-status.js every 10 minutes to pull live order status
 # from BigiSub for orders that are still in-flight, so users see
 # "completed" automatically instead of only when an admin manually edits

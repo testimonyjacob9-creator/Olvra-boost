@@ -13,9 +13,9 @@ const {
 const bigisub = require("./bigisub");
 const owlet = require("./owlet");
 
-async function runSync() {
+async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
   const token = process.env.BIGISUB_TOKEN;
-  if (!token) {
+  if (includeBigisub && !token) {
     throw new Error("BIGISUB_TOKEN env var is missing.");
   }
 
@@ -23,6 +23,7 @@ async function runSync() {
   const perPlatform = {};
   const activePlatforms = [];
 
+  if (includeBigisub) {
   for (const platform of PLATFORMS) {
     console.log(`Syncing platform: ${platform}`);
     const services = await bigisub.fetchAllServicesForPlatform(token, platform, PAGE_SIZE);
@@ -70,13 +71,19 @@ async function runSync() {
       totalSynced += group.length;
     }
   }
+  } // end includeBigisub
 
   // ---- Owlet ("Global Source" / Source 2) ----
-  // Only runs if OWLET_API_KEY is set — fails safe (skips, doesn't throw)
-  // if it's missing, so BigiSub sync keeps working on its own either way.
+  // Only runs if OWLET_API_KEY is set AND includeOwlet is true — split out
+  // onto its own daily schedule (see sync-services-owlet.js) rather than
+  // running every 6 hours like BigiSub: its catalog is roughly 10x the
+  // size, so syncing it 4x/day was a meaningfully large chunk of daily
+  // Firestore write quota for a catalog that doesn't need that much
+  // freshness (2026-09-03 — this was the main driver behind hitting the
+  // daily Firestore quota).
   let owletSynced = 0;
   const owletKey = process.env.OWLET_API_KEY;
-  if (owletKey) {
+  if (includeOwlet && owletKey) {
     try {
       const allOwletServices = await owlet.fetchAllServices(owletKey);
       const matched = allOwletServices
@@ -132,7 +139,7 @@ async function runSync() {
     } catch (err) {
       console.error("Owlet sync failed:", err.message);
     }
-  } else {
+  } else if (includeOwlet) {
     console.warn("OWLET_API_KEY not set — skipping Owlet sync.");
   }
 
