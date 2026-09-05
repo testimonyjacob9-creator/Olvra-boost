@@ -18,6 +18,7 @@ const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 const bigisub = require("./_lib/bigisub");
 const owlet = require("./_lib/owlet");
+const { OWLET_SOURCES } = require("./_lib/config");
 const { sendEmail, orderConfirmationEmail } = require("./_lib/brevo");
 
 exports.handler = async (event) => {
@@ -126,9 +127,16 @@ exports.handler = async (event) => {
     let providerOrderId, providerTranId, providerStatus, providerRaw;
     try {
       if (provider === "owlet") {
-        const owletKey = process.env.OWLET_API_KEY;
-        if (!owletKey) throw new Error("Owlet is not configured (OWLET_API_KEY missing).");
-        const result = await owlet.createOrder(owletKey, {
+        // Multiple Owlet-family accounts are pooled into one "Global
+        // Source" (config.js OWLET_SOURCES) — each service remembers
+        // which account it came from (owlet_account, set at sync time)
+        // since each account has its own key and spends from its own
+        // separate wallet balance.
+        const source = OWLET_SOURCES.find((s) => s.id === service.owlet_account);
+        if (!source) throw new Error(`Unknown Owlet source account "${service.owlet_account}".`);
+        const owletKey = process.env[source.envKey];
+        if (!owletKey) throw new Error(`Owlet source "${source.id}" is not configured (${source.envKey} missing).`);
+        const result = await owlet.createOrder(source.baseUrl, owletKey, {
           service: service.service_id,
           link: link || username,
           quantity: Number(quantity),
@@ -197,7 +205,7 @@ exports.handler = async (event) => {
       bigisub_order_id: provider === "bigisub" ? providerOrderId : null,
       bigisub_tran_id: provider === "bigisub" ? providerTranId : null,
       owlet_order_id: provider === "owlet" ? providerOrderId : null,
-      ...(provider === "owlet" ? { owlet_raw_response: providerRaw } : {}),
+      ...(provider === "owlet" ? { owlet_account: service.owlet_account, owlet_raw_response: providerRaw } : {}),
       created_at: FieldValue.serverTimestamp(),
     });
 

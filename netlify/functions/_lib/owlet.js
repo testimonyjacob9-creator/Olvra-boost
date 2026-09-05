@@ -1,7 +1,11 @@
 // _lib/owlet.js
-// Thin wrapper around Owlet's action-based API (single endpoint, every
-// call is POST { key, action, ...params }). Shown to users as "Global
-// Source" — never by its real name (Testimony's call, 2026-09-02).
+// Thin wrapper around the Owlet-family action-based API (single endpoint
+// per account, every call is POST { key, action, ...params }). "Owlet-
+// family" because there are now MULTIPLE accounts on this same platform
+// pooled together as one "Global Source" the user sees (Testimony's call,
+// 2026-09-03 — see OWLET_SOURCES in config.js) — each with its own
+// endpoint + key + wallet balance, so every function here takes baseUrl
+// explicitly rather than assuming a single hardcoded one.
 //
 // Confirmed live against the real API 2026-09-02:
 //   - balance  -> { balance: "0.00", currency: "NGN" }
@@ -20,10 +24,9 @@
 // reconciliation and an easy fix once a real successful order is seen.
 
 const axios = require("axios");
-const { OWLET_BASE_URL } = require("./config");
 
-async function call(key, action, extra = {}) {
-  const res = await axios.post(OWLET_BASE_URL, { key, action, ...extra }, { timeout: 20000 });
+async function call(baseUrl, key, action, extra = {}) {
+  const res = await axios.post(baseUrl, { key, action, ...extra }, { timeout: 20000 });
   return res.data;
 }
 
@@ -33,23 +36,24 @@ function unwrapError(err) {
 }
 
 /**
- * Fetch the full Owlet social-growth services list. Confirmed to return
- * everything in ONE call (no pagination params in their docs) — as of
- * 2026-09-02 that's ~6,832 services, so callers should filter down
- * (by platform) before doing anything expensive with the result.
+ * Fetch the full services list for ONE Owlet-family account. Confirmed to
+ * return everything in ONE call (no pagination params in their docs) —
+ * as of 2026-09-03 that's ~6,800-14,600 services depending on the
+ * account, so callers should filter down (by platform) before doing
+ * anything expensive with the result.
  */
-async function fetchAllServices(key) {
+async function fetchAllServices(baseUrl, key) {
   try {
-    const data = await call(key, "services");
+    const data = await call(baseUrl, key, "services");
     return Array.isArray(data) ? data : (data?.data || []);
   } catch (err) {
     throw unwrapError(err);
   }
 }
 
-async function getBalance(key) {
+async function getBalance(baseUrl, key) {
   try {
-    const data = await call(key, "balance");
+    const data = await call(baseUrl, key, "balance");
     return parseFloat(data.balance || 0);
   } catch (err) {
     throw unwrapError(err);
@@ -61,9 +65,9 @@ async function getBalance(key) {
  * best-effort field-name guesses (see file header); `raw` is the full
  * response, always, so nothing is lost if the guess is wrong.
  */
-async function createOrder(key, { service, link, quantity }) {
+async function createOrder(baseUrl, key, { service, link, quantity }) {
   try {
-    const data = await call(key, "add", { service, link, quantity });
+    const data = await call(baseUrl, key, "add", { service, link, quantity });
     const orderId = data.order ?? data.order_id ?? data.id ?? null;
     const status = data.status ?? data.order_status ?? "processing";
     return { orderId, status, raw: data };
@@ -76,9 +80,9 @@ async function createOrder(key, { service, link, quantity }) {
  * Checks an order's status. Returns { status, raw } — same caveat as
  * createOrder() on the exact field name.
  */
-async function getOrderStatus(key, orderId) {
+async function getOrderStatus(baseUrl, key, orderId) {
   try {
-    const data = await call(key, "status", { order: orderId });
+    const data = await call(baseUrl, key, "status", { order: orderId });
     const status = data.status ?? data.order_status ?? null;
     return { status, raw: data };
   } catch (err) {

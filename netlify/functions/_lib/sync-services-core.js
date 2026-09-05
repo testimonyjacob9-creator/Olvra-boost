@@ -8,7 +8,7 @@
 const { db, FieldValue } = require("./firebase-admin");
 const {
   PLATFORMS, MARKUP, CATEGORY_MARKUP_OVERRIDES, PLATFORM_CATEGORY_MARKUP_OVERRIDES, PAGE_SIZE,
-  OWLET_MARKUP, OWLET_PLATFORM_ALIASES,
+  OWLET_MARKUP, OWLET_PLATFORM_ALIASES, OWLET_SOURCES,
 } = require("./config");
 const bigisub = require("./bigisub");
 const owlet = require("./owlet");
@@ -84,76 +84,87 @@ async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
   }
   } // end includeBigisub
 
-  // ---- Owlet ("Global Source" / Source 2) ----
-  // Only runs if OWLET_API_KEY is set AND includeOwlet is true — split out
-  // onto its own daily schedule (see sync-services-owlet.js) rather than
-  // running every 6 hours like BigiSub: its catalog is roughly 10x the
-  // size, so syncing it 4x/day was a meaningfully large chunk of daily
-  // Firestore write quota for a catalog that doesn't need that much
-  // freshness (2026-09-03 — this was the main driver behind hitting the
-  // daily Firestore quota).
+  // ---- Owlet-family ("Global Source" / Source 2) ----
+  // Loops over every account in OWLET_SOURCES (config.js) — currently 2,
+  // pooled into the same "Global Source" the user picks (Testimony's
+  // call, 2026-09-03: wider stock, not a 3rd picker card). Only runs if
+  // includeOwlet is true — split out onto its own daily schedule (see
+  // sync-services-owlet.js) rather than running every 6 hours like
+  // BigiSub: the combined catalog is enormous (~21K raw services across
+  // both accounts as of 2026-09-03), so syncing that often was a
+  // meaningful chunk of daily Firestore write quota for a catalog that
+  // doesn't need that much freshness.
   let owletSynced = 0;
   const owletActivePlatforms = new Set();
-  const owletKey = process.env.OWLET_API_KEY;
-  if (includeOwlet && owletKey) {
-    try {
-      const allOwletServices = await owlet.fetchAllServices(owletKey);
-      const matched = allOwletServices
-        .map((svc) => ({ ...svc, platform: detectOwletPlatform(svc) }))
-        .filter((svc) => svc.platform && PLATFORMS.includes(svc.platform));
-      matched.forEach((svc) => owletActivePlatforms.add(svc.platform));
-
-      const owletChunks = chunk(matched, 400);
-      for (const group of owletChunks) {
-        const batch = db.batch();
-        for (const svc of group) {
-          // Owlet's "rate" is price per 1000 units (the near-universal
-          // SMM-panel convention) — BigiSub's `price` above is already
-          // per-unit, so this is a DIFFERENT conversion, not a copy-paste
-          // of the BigiSub math. Confirmed via a live test order attempt
-          // 2026-09-02 (insufficient-funds error came back correctly
-          // priced against this assumption, at least at the request-
-          // validation stage — full confirmation needs one real funded
-          // order).
-          const costPrice = round2(parseFloat(svc.rate) / 1000);
-          const sellPrice = round2(costPrice * (1 + OWLET_MARKUP));
-
-          // Prefixed doc ID — Owlet's service IDs are a different id
-          // space than BigiSub's, this just guarantees no collision.
-          const ref = db.collection("services").doc(`owlet_${svc.service}`);
-          batch.set(
-            ref,
-            {
-              service_id: svc.service,
-              provider: "owlet",
-              name: svc.name,
-              platform: svc.platform,
-              country: null,
-              category: svc.category,
-              description: "",
-              cost_price: costPrice,
-              sell_price: sellPrice,
-              pricing_model: "rate_per_1000",
-              min_quantity: svc.min,
-              max_quantity: svc.max,
-              is_active: true,
-              service_type: svc.type || "Default",
-              has_dripfeed: false,
-              has_refill: !!svc.refill,
-              has_cancel: !!svc.cancel,
-              synced_at: FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-          );
-        }
-        await batch.commit();
-        owletSynced += group.length;
+  if (includeOwlet) {
+    for (const source of OWLET_SOURCES) {
+      const sourceKey = process.env[source.envKey];
+      if (!sourceKey) {
+        console.warn(`${source.envKey} not set — skipping Owlet source "${source.id}".`);
+        continue;
       }
-    } catch (err) {
-      console.error("Owlet sync failed:", err.message);
+      try {
+        const allOwletServices = await owlet.fetchAllServices(source.baseUrl, sourceKey);
+        const matched = allOwletServices
+          .map((svc) => ({ ...svc, platform: detectOwletPlatform(svc) }))
+          .filter((svc) => svc.platform && PLATFORMS.includes(svc.platform));
+        matched.forEach((svc) => owletActivePlatforms.add(svc.platform));
+
+        const owletChunks = chunk(matched, 400);
+        for (const group of owletChunks) {
+          const batch = db.batch();
+          for (const svc of group) {
+            // Owlet's "rate" is price per 1000 units (the near-universal
+            // SMM-panel convention) — BigiSub's `price` above is already
+            // per-unit, so this is a DIFFERENT conversion, not a copy-paste
+            // of the BigiSub math. Confirmed via a live test order attempt
+            // 2026-09-02 (insufficient-funds error came back correctly
+            // priced against this assumption, at least at the request-
+            // validation stage — full confirmation needs one real funded
+            // order).
+            const costPrice = round2(parseFloat(svc.rate) / 1000);
+            const sellPrice = round2(costPrice * (1 + OWLET_MARKUP));
+
+            // Prefixed with the account id too — two different Owlet
+            // accounts could plausibly reuse overlapping service IDs,
+            // this guarantees no collision between accounts OR with
+            // BigiSub's own numeric IDs.
+            const ref = db.collection("services").doc(`owlet_${source.id}_${svc.service}`);
+            batch.set(
+              ref,
+              {
+                service_id: svc.service,
+                provider: "owlet",
+                owlet_account: source.id, // which account/key to order against — see place-order.js
+                name: svc.name,
+                platform: svc.platform,
+                country: null,
+                category: svc.category,
+                description: "",
+                cost_price: costPrice,
+                sell_price: sellPrice,
+                pricing_model: "rate_per_1000",
+                min_quantity: svc.min,
+                max_quantity: svc.max,
+                is_active: true,
+                service_type: svc.type || "Default",
+                has_dripfeed: false,
+                has_refill: !!svc.refill,
+                has_cancel: !!svc.cancel,
+                synced_at: FieldValue.serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+          await batch.commit();
+          owletSynced += group.length;
+        }
+      } catch (err) {
+        console.error(`Owlet sync failed for source "${source.id}":`, err.message);
+      }
     }
-  } else if (includeOwlet) {
-    console.warn("OWLET_API_KEY not set — skipping Owlet sync.");
+  } else {
+    console.warn("includeOwlet is false — skipping Owlet-family sync this run.");
   }
 
   // Write a single small summary doc listing which platforms currently

@@ -11,7 +11,16 @@ module.exports = {
   // Flat 5% markup on everything from Owlet, deliberately NOT using the
   // per-category/per-platform overrides above (Testimony's call — those
   // overrides are BigiSub-specific tuning, not meant to carry over).
-  OWLET_BASE_URL: "https://olvrahub.mysocials.store/api/store-v2",
+  // Multiple Owlet-family accounts, all pooled into the same "Global
+  // Source" the user picks from — Testimony's call (2026-09-03): more
+  // stock under one option, not a third picker card. Each needs its OWN
+  // API key as a Netlify env var (never hardcoded — same reasoning as
+  // every other secret in this app) since each account only spends from
+  // its own separate wallet balance.
+  OWLET_SOURCES: [
+    { id: "primary", baseUrl: "https://olvrahub.mysocials.store/api/store-v2", envKey: "OWLET_API_KEY" },
+    { id: "a1socials", baseUrl: "https://a1socials.mysocials.store/api/store-v2", envKey: "OWLET_A1SOCIALS_API_KEY" },
+  ],
   OWLET_MARKUP: 0.05,
 
   // Owlet's service list has no clean `platform` field (unlike BigiSub) —

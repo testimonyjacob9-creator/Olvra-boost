@@ -9,6 +9,7 @@
 // sync-services-core.js.
 
 const { db, FieldValue } = require("./firebase-admin");
+const { OWLET_SOURCES } = require("./config");
 const bigisub = require("./bigisub");
 const owlet = require("./owlet");
 
@@ -103,9 +104,9 @@ function round2(n) {
  */
 async function runOrderStatusSync({ limit = 25 } = {}) {
   const bigisubToken = process.env.BIGISUB_TOKEN;
-  const owletKey = process.env.OWLET_API_KEY;
-  if (!bigisubToken && !owletKey) {
-    throw new Error("Neither BIGISUB_TOKEN nor OWLET_API_KEY env var is set — nothing to sync against.");
+  const anyOwletConfigured = OWLET_SOURCES.some((s) => process.env[s.envKey]);
+  if (!bigisubToken && !anyOwletConfigured) {
+    throw new Error("Neither BIGISUB_TOKEN nor any Owlet source key is set — nothing to sync against.");
   }
 
   const snap = await db
@@ -132,13 +133,20 @@ async function runOrderStatusSync({ limit = 25 } = {}) {
     const providerOrderId = provider === "owlet" ? order.owlet_order_id : order.bigisub_order_id;
     if (!providerOrderId) continue; // nothing to check against
 
-    if (provider === "owlet" && !owletKey) continue; // key not configured — skip, don't crash the whole run
+    // Owlet orders remember which of the (now multiple) Owlet accounts
+    // they were placed against — need the matching source's key/baseUrl,
+    // not just any configured one.
+    let owletSource = null;
+    if (provider === "owlet") {
+      owletSource = OWLET_SOURCES.find((s) => s.id === order.owlet_account);
+      if (!owletSource || !process.env[owletSource.envKey]) continue; // account/key not available — skip, don't crash the run
+    }
     if (provider === "bigisub" && !bigisubToken) continue;
 
     checked += 1;
     try {
       const live = provider === "owlet"
-        ? await owlet.getOrderStatus(owletKey, providerOrderId)
+        ? await owlet.getOrderStatus(owletSource.baseUrl, process.env[owletSource.envKey], providerOrderId)
         : await bigisub.getOrderStatus(bigisubToken, providerOrderId);
 
       const mapped = mapStatus(live.status);
