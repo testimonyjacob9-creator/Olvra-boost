@@ -26,7 +26,18 @@ async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
   if (includeBigisub) {
   for (const platform of PLATFORMS) {
     console.log(`Syncing platform: ${platform}`);
-    const services = await bigisub.fetchAllServicesForPlatform(token, platform, PAGE_SIZE);
+    let services;
+    try {
+      services = await bigisub.fetchAllServicesForPlatform(token, platform, PAGE_SIZE);
+    } catch (err) {
+      // One platform BigiSub doesn't recognize (or a transient error on
+      // just that call) used to take down the ENTIRE sync loop — every
+      // platform after it in the list never got synced either. Now it's
+      // just skipped and logged, so widening PLATFORMS is safe even
+      // before confirming BigiSub actually supports every new entry.
+      console.error(`BigiSub fetch failed for platform "${platform}", skipping it this run:`, err.message);
+      continue;
+    }
     perPlatform[platform] = services.length;
     if (services.some((svc) => svc.is_active)) activePlatforms.push(platform);
 
@@ -82,6 +93,7 @@ async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
   // freshness (2026-09-03 — this was the main driver behind hitting the
   // daily Firestore quota).
   let owletSynced = 0;
+  const owletActivePlatforms = new Set();
   const owletKey = process.env.OWLET_API_KEY;
   if (includeOwlet && owletKey) {
     try {
@@ -89,6 +101,7 @@ async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
       const matched = allOwletServices
         .map((svc) => ({ ...svc, platform: detectOwletPlatform(svc) }))
         .filter((svc) => svc.platform && PLATFORMS.includes(svc.platform));
+      matched.forEach((svc) => owletActivePlatforms.add(svc.platform));
 
       const owletChunks = chunk(matched, 400);
       for (const group of owletChunks) {
@@ -150,12 +163,26 @@ async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
   // visitor (10 platforms × every single home-screen load — this was a
   // major driver of the Spark plan's daily read quota getting exhausted).
   // See public/index.html's initPlatformGrid()/platformHasServices().
-  await db.collection("catalog_meta").doc("active_platforms").set({
-    platforms: activePlatforms,
+  //
+  // MERGED with whatever's already there, not overwritten — BigiSub and
+  // Owlet now sync on separate schedules (BigiSub every 6h, Owlet once
+  // daily), so any single run of this function only knows about ONE
+  // provider's platforms. A plain overwrite would erase the other
+  // provider's contribution every time its schedule fires. Trade-off: a
+  // platform that genuinely goes inactive on one provider stays listed
+  // until the OTHER provider's next run also confirms it's gone — safer
+  // than a real tile flickering in and out depending on which schedule
+  // happened to run most recently.
+  const metaRef = db.collection("catalog_meta").doc("active_platforms");
+  const existingMetaSnap = await metaRef.get();
+  const existingPlatforms = existingMetaSnap.exists ? (existingMetaSnap.data().platforms || []) : [];
+  const mergedPlatforms = [...new Set([...existingPlatforms, ...activePlatforms, ...owletActivePlatforms])];
+  await metaRef.set({
+    platforms: mergedPlatforms,
     updated_at: FieldValue.serverTimestamp(),
   });
 
-  return { totalSynced: totalSynced + owletSynced, perPlatform, activePlatforms, owletSynced };
+  return { totalSynced: totalSynced + owletSynced, perPlatform, activePlatforms: mergedPlatforms, owletSynced };
 }
 
 function chunk(arr, size) {

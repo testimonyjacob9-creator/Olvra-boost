@@ -38,6 +38,12 @@ module.exports = {
     soundcloud: ["soundcloud"],
     google: ["google"],
     trustpilot: ["trustpilot"],
+    snapchat: ["snapchat", "snap chat"],
+    pinterest: ["pinterest"],
+    discord: ["discord"],
+    twitch: ["twitch"],
+    threads: ["threads"],
+    reddit: ["reddit"],
   },
 
   // Flat markup applied to every service price during sync, EXCEPT
@@ -90,7 +96,9 @@ module.exports = {
   PLATFORMS: [
     "instagram", "facebook", "twitter", "tiktok", "youtube",
     "linkedin", "telegram", "whatsapp", "apple_music", "spotify",
-    "audiomack", "soundcloud", "google", "trustpilot", "other",
+    "audiomack", "soundcloud", "google", "trustpilot",
+    "snapchat", "pinterest", "discord", "twitch", "threads", "reddit",
+    "other",
   ],
 
   // How many services to fetch per page from BigiSub (their API is paginated).
