@@ -110,26 +110,55 @@ async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
           .filter((svc) => svc.platform && PLATFORMS.includes(svc.platform));
         matched.forEach((svc) => owletActivePlatforms.add(svc.platform));
 
-        const owletChunks = chunk(matched, 400);
+        // Only write what actually changed. Was writing every matched
+        // service unconditionally, every single sync — with ~21K raw
+        // services across 2 accounts, that's a lot of writes for data
+        // that mostly hasn't moved since yesterday (SMM panel pricing
+        // doesn't churn daily for most of a catalog this size). ONE bulk
+        // query reads everything already synced for this source, then
+        // each service is compared before deciding to write.
+        //
+        // This trades writes for reads, which is worth doing specifically
+        // because Firestore's Spark plan gives reads 2.5x more daily
+        // headroom (50K) than writes (20K) — writes were the tighter
+        // constraint, so shifting load onto the roomier quota helps even
+        // though the total operation count technically goes up.
+        // (2026-09-04 — this was a real contributor to hitting the daily
+        // quota.)
+        const existingSnap = await db
+          .collection("services")
+          .where("provider", "==", "owlet")
+          .where("owlet_account", "==", source.id)
+          .get();
+        const existingById = new Map();
+        existingSnap.forEach((d) => existingById.set(d.id, d.data()));
+
+        const toWrite = [];
+        for (const svc of matched) {
+          const costPrice = round2(parseFloat(svc.rate) / 1000);
+          const sellPrice = round2(costPrice * (1 + OWLET_MARKUP));
+          const docId = `owlet_${source.id}_${svc.service}`;
+          const existing = existingById.get(docId);
+          const unchanged = existing
+            && existing.cost_price === costPrice
+            && existing.sell_price === sellPrice
+            && existing.min_quantity === svc.min
+            && existing.max_quantity === svc.max
+            && existing.has_refill === !!svc.refill
+            && existing.has_cancel === !!svc.cancel
+            && existing.name === svc.name;
+          if (!unchanged) toWrite.push({ svc, docId, costPrice, sellPrice });
+        }
+
+        const owletChunks = chunk(toWrite, 400);
         for (const group of owletChunks) {
           const batch = db.batch();
-          for (const svc of group) {
-            // Owlet's "rate" is price per 1000 units (the near-universal
-            // SMM-panel convention) — BigiSub's `price` above is already
-            // per-unit, so this is a DIFFERENT conversion, not a copy-paste
-            // of the BigiSub math. Confirmed via a live test order attempt
-            // 2026-09-02 (insufficient-funds error came back correctly
-            // priced against this assumption, at least at the request-
-            // validation stage — full confirmation needs one real funded
-            // order).
-            const costPrice = round2(parseFloat(svc.rate) / 1000);
-            const sellPrice = round2(costPrice * (1 + OWLET_MARKUP));
-
+          for (const { svc, docId, costPrice, sellPrice } of group) {
             // Prefixed with the account id too — two different Owlet
             // accounts could plausibly reuse overlapping service IDs,
             // this guarantees no collision between accounts OR with
             // BigiSub's own numeric IDs.
-            const ref = db.collection("services").doc(`owlet_${source.id}_${svc.service}`);
+            const ref = db.collection("services").doc(docId);
             batch.set(
               ref,
               {

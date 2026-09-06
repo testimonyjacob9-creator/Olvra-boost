@@ -253,7 +253,7 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { collection, query, orderBy, limit, getDocs, getCountFromServer, doc, getDoc, setDoc, signOut } from "./js/firebase-sdk.bundle.js";
+    import { collection, query, orderBy, limit, getDocs, getCountFromServer, doc, getDoc, setDoc, signOut, documentId, where } from "./js/firebase-sdk.bundle.js";
     import { db, auth, callFunction } from "./js/firebase-client.js";
 
     function requireSignedInAdmin() {
@@ -394,6 +394,25 @@
           ordersContainer.innerHTML = `<div class="empty-state">No orders yet.</div>`;
           return;
         }
+
+        // Fetches ONLY the users behind these orders — not the whole
+        // collection (was previously an eager full-collection read on
+        // every single admin login, before this fix: 2026-09-04). Skips
+        // any uid already known from a prior loadOrders()/Users-tab call,
+        // and batches the rest in groups of 30 (Firestore's "in" query
+        // limit).
+        const knownUids = new Set(allUsers.map((u) => u.uid));
+        const neededUids = [...new Set(ordersCache.map((o) => o.uid).filter((uid) => uid && !knownUids.has(uid)))];
+        for (let i = 0; i < neededUids.length; i += 30) {
+          const batch = neededUids.slice(i, i + 30);
+          try {
+            const usersSnap = await getDocs(query(collection(db, "users"), where(documentId(), "in", batch)));
+            usersSnap.forEach((d) => allUsers.push({ uid: d.id, ...d.data() }));
+          } catch (err) {
+            console.error("Targeted user lookup failed:", err);
+          }
+        }
+
         overviewContainer.innerHTML = ordersCache.slice(0, 8).map((o, i) => orderRowHtml(o, o.id, i, true)).join("");
         ordersContainer.innerHTML = ordersCache.map((o, i) => orderRowHtml(o, o.id, i, false)).join("");
         ordersContainer.querySelectorAll("[data-order-apply]").forEach((btn) => {
@@ -683,7 +702,6 @@
           }
           document.getElementById("admin-screen").classList.remove("hidden");
           loadStats();
-          await loadUsersTabIfNeeded(); // load first so order rows can show who placed each order
           loadOrders();
           loadTopups();
           loadSupport();

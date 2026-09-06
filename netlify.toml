@@ -20,12 +20,20 @@
   schedule = "0 3 * * *"
 
 # Runs sync-order-status.js every 10 minutes to pull live order status
-# from BigiSub for orders that are still in-flight, so users see
+# from BigiSub/Owlet for orders that are still in-flight, so users see
 # "completed" automatically instead of only when an admin manually edits
 # the order. Checks at most 25 orders per run (oldest-first) to keep
-# Firestore reads and BigiSub API calls bounded even during a busy period.
+# Firestore reads and provider API calls bounded even during a busy
+# period.
+#
+# 2026-09-04: was every 10 minutes before — that's 144 runs/day × up to 25
+# reads = up to 3,600 reads/day as a GUARANTEED baseline whether or not
+# anything actually changed, a meaningful chunk of a Spark-plan daily
+# quota on its own. 15 minutes = 96 runs/day × 25 = up to 2,400/day, still
+# well within "not stuck on pending" territory (worst case ~15 min delay
+# vs ~10 min before).
 [functions."sync-order-status"]
-  schedule = "*/10 * * * *"
+  schedule = "*/15 * * * *"
 
 # The bundled Firebase SDK is the single largest download on every page
 # (see scripts/bundle-firebase.js) but its content only changes on a new
