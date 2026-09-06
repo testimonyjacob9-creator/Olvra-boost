@@ -41,18 +41,48 @@ async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
     perPlatform[platform] = services.length;
     if (services.some((svc) => svc.is_active)) activePlatforms.push(platform);
 
-    const chunks = chunk(services, 400);
+    // Same fix as Owlet got below: only write what actually changed,
+    // instead of unconditionally rewriting every service on every 6-hour
+    // run. One bulk query per platform reads what's already synced, then
+    // each service is compared before deciding to write — trades some
+    // reads for far fewer writes, worth it since Firestore's Spark plan
+    // gives reads 2.5x more daily headroom (50K) than writes (20K).
+    // (2026-09-04.)
+    const existingBigisubSnap = await db
+      .collection("services")
+      .where("provider", "==", "bigisub")
+      .where("platform", "==", platform)
+      .get();
+    const existingBigisubById = new Map();
+    existingBigisubSnap.forEach((d) => existingBigisubById.set(d.id, d.data()));
+
+    const bigisubToWrite = [];
+    for (const svc of services) {
+      const costPrice = parseFloat(svc.price);
+      const sellPrice = round2(costPrice * (1 + markupFor(svc.platform, svc.category)));
+      const docId = String(svc.id);
+      const existing = existingBigisubById.get(docId);
+      const unchanged = existing
+        && existing.cost_price === costPrice
+        && existing.sell_price === sellPrice
+        && existing.min_quantity === svc.min_quantity
+        && existing.max_quantity === svc.max_quantity
+        && existing.is_active === svc.is_active
+        && existing.has_refill === !!svc.has_refill
+        && existing.has_cancel === !!svc.has_cancel
+        && existing.name === svc.name;
+      if (!unchanged) bigisubToWrite.push({ svc, docId, costPrice, sellPrice });
+    }
+
+    const chunks = chunk(bigisubToWrite, 400);
     for (const group of chunks) {
       const batch = db.batch();
-      for (const svc of group) {
-        const costPrice = parseFloat(svc.price);
-        const sellPrice = round2(costPrice * (1 + markupFor(svc.platform, svc.category)));
-
+      for (const { svc, docId, costPrice, sellPrice } of group) {
         // BigiSub's real API returns the service identifier as `id`, not
         // `service_id` (confirmed against a live response 2026-08-28) —
         // we still store/consume it as `service_id` everywhere downstream
         // (place-order.js, services.html, index.html), so map it here.
-        const ref = db.collection("services").doc(String(svc.id));
+        const ref = db.collection("services").doc(docId);
         batch.set(
           ref,
           {

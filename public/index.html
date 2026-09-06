@@ -1663,7 +1663,7 @@
     // =========================================================
     async function platformHasServices(platformId) {
       try {
-        const q = query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true));
+        const q = query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true), limit(1));
         const snap = await getDocs(q);
         return !snap.empty;
       } catch { return false; }

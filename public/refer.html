@@ -108,7 +108,7 @@
 
   <script type="module">
     import { db, requireSignedInUser } from "./js/firebase-client.js";
-    import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from "./js/firebase-sdk.bundle.js";
+    import { doc, getDoc, onSnapshot, collection, query, where, getCountFromServer } from "./js/firebase-sdk.bundle.js";
 
     requireSignedInUser().then(async (user) => {
       const link = `${window.location.origin}/?ref=${user.uid}`;
@@ -147,11 +147,13 @@
         document.getElementById("stat-olives").textContent = olives;
       });
 
-      // How many people this user has successfully referred
+      // How many people this user has successfully referred — a count
+      // query (billed as 1 read regardless of match count) instead of
+      // downloading every referral doc just to read snap.size.
       try {
         const q = query(collection(db, "referrals"), where("referrer_uid", "==", user.uid));
-        const snap = await getDocs(q);
-        document.getElementById("stat-referrals").textContent = snap.size;
+        const countSnap = await getCountFromServer(q);
+        document.getElementById("stat-referrals").textContent = countSnap.data().count;
       } catch (e) {
         console.error("referral count fetch failed:", e);
       }
