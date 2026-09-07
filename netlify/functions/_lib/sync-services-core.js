@@ -176,7 +176,16 @@ async function runSync({ includeBigisub = true, includeOwlet = true } = {}) {
             && existing.max_quantity === svc.max
             && existing.has_refill === !!svc.refill
             && existing.has_cancel === !!svc.cancel
-            && existing.name === svc.name;
+            && existing.name === svc.name
+            // Catches schema migrations too — a doc synced before
+            // owlet_account existed (or with the wrong account id after
+            // a copy/rename) would otherwise be silently skipped forever,
+            // since none of the price/name fields above would look
+            // "changed". Confirmed live 2026-09-07: exactly this caused
+            // every Owlet order to fail with "Unknown Owlet source
+            // account 'undefined'" on services synced before multi-
+            // account support existed.
+            && existing.owlet_account === source.id;
           if (!unchanged) toWrite.push({ svc, docId, costPrice, sellPrice });
         }
 
