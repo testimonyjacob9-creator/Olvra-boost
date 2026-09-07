@@ -289,6 +289,9 @@
         btn.classList.add("active");
         document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
         if (btn.dataset.tab === "users") loadUsersTabIfNeeded();
+        if (btn.dataset.tab === "topups") loadTopupsIfNeeded();
+        if (btn.dataset.tab === "support") loadSupportIfNeeded();
+        if (btn.dataset.tab === "settings") loadSettingsIfNeeded();
       };
     });
 
@@ -583,6 +586,12 @@
     });
 
     // ===== Top-ups =====
+    let topupsLoaded = false;
+    function loadTopupsIfNeeded() {
+      if (topupsLoaded) return;
+      topupsLoaded = true;
+      loadTopups();
+    }
     async function loadTopups() {
       const container = document.getElementById("topups-list");
       try {
@@ -605,6 +614,12 @@
     }
 
     // ===== Support =====
+    let supportLoaded = false;
+    function loadSupportIfNeeded() {
+      if (supportLoaded) return;
+      supportLoaded = true;
+      loadSupport();
+    }
     async function loadSupport() {
       const container = document.getElementById("support-list");
       try {
@@ -629,6 +644,12 @@
     }
 
     // ===== Settings =====
+    let settingsLoaded = false;
+    function loadSettingsIfNeeded() {
+      if (settingsLoaded) return;
+      settingsLoaded = true;
+      loadSettings();
+    }
     async function loadSettings() {
       try {
         const snap = await getDoc(doc(db, "settings", "global"));
@@ -703,9 +724,11 @@
           document.getElementById("admin-screen").classList.remove("hidden");
           loadStats();
           loadOrders();
-          loadTopups();
-          loadSupport();
-          loadSettings();
+          // Top-ups/Support/Settings now load lazily (only when their tab
+          // is actually clicked, same pattern Users already used) — these
+          // were firing on every single admin login regardless of whether
+          // you ever opened those tabs, real cost on a session that might
+          // just be checking Orders. (2026-09-07.)
         })
         .catch((err) => {
           if (settled) return;
