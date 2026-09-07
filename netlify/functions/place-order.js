@@ -173,10 +173,17 @@ exports.handler = async (event) => {
         wallet_balance: FieldValue.increment(totalCost - (olivesUsed > 0 ? olivesUsed * 2 : 0)),
         ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
       });
+      // err.message alone (e.g. "Request failed with status code 400")
+      // never shows WHY the provider rejected it — that's in the response
+      // BODY, which axios doesn't include in .message. Logging it
+      // explicitly here (2026-09-07) after a stretch of orders failing
+      // with no diagnosable reason in the logs.
       console.error(
         `${provider} order failed, wallet refunded:`,
         err.message,
-        "| service:", service.service_id
+        "| service:", service.service_id,
+        "| provider response:", JSON.stringify(err.response?.data || null),
+        "| status:", err.response?.status || "n/a"
       );
       throw Object.assign(
         new Error("Order failed with provider. Your wallet has been refunded."),
