@@ -1686,6 +1686,28 @@
     // doesn't cover yet (or vice versa) skips straight to categories
     // instead of offering a dead second option.
     let currentSourceFilter = null; // set by the picker, read by openCategoryScreen
+
+    // Cache-first category/service browsing — see openCategoryScreen()
+    // for the reasoning. Same helpers as all-services.html.
+    const SERVICE_CACHE_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+    function readServiceCache(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const { savedAt, data } = JSON.parse(raw);
+        if (!savedAt || Date.now() - savedAt > SERVICE_CACHE_MAX_AGE_MS) return null;
+        return Array.isArray(data) ? data : null;
+      } catch {
+        return null;
+      }
+    }
+    function writeServiceCache(key, data) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), data }));
+      } catch {
+        // Storage full or disabled (private browsing) — skip silently.
+      }
+    }
     async function routeToCategoryOrSource(platformId, platformLabel) {
       currentSourceFilter = null;
       try {
@@ -1773,6 +1795,13 @@
       document.getElementById("auto-banner").classList.add("hidden");
       showScreen("category");
 
+      // Cache-first, same reasoning as all-services.html: show whatever's
+      // saved on this device instantly, refresh in the background right
+      // after regardless. (2026-09-07.)
+      const cacheKey = `cat_cache_${platformId}_${currentSourceFilter || "all"}`;
+      const cached = readServiceCache(cacheKey);
+      if (cached) renderCategoryGrid(cached, platformId);
+
       try {
         const clauses = [
           where("platform", "==", platformId),
@@ -1782,52 +1811,63 @@
         const q = query(collection(db, "services"), ...clauses);
         const snap = await getDocs(q);
         const services = snap.docs.map((d) => d.data());
-
-        if (services.length === 0) {
-          document.getElementById("category-empty").classList.remove("hidden");
-          return;
-        }
-
-        const hasSubscription = services.some((s) => resolveVariant(s) === "subscription");
-        if (hasSubscription) {
-          const banner = document.getElementById("auto-banner");
-          banner.classList.remove("hidden");
-          banner.onclick = () => openAutoServicesScreen(platformId);
-        }
-
-        const orderable = services.filter((s) => resolveVariant(s) !== "subscription");
-        const byCategory = {};
-        orderable.forEach((s) => {
-          const key = (s.category || "other").toLowerCase().replace(/\s+/g, "_");
-          if (!byCategory[key]) byCategory[key] = { key, services: [], minPrice: Infinity, maxPrice: 0 };
-          byCategory[key].services.push(s);
-          byCategory[key].minPrice = Math.min(byCategory[key].minPrice, s.sell_price);
-          byCategory[key].maxPrice = Math.max(byCategory[key].maxPrice, s.sell_price);
-        });
-
-        const grid = document.getElementById("category-grid");
-        grid.innerHTML = Object.values(byCategory).map((c) => {
-          const meta = CATEGORY_META[c.key] || { label: humanizeCategoryKey(c.key), icon: "📦" };
-          return `
-            <div class="cat-card" data-key="${c.key}">
-              <div class="cat-icon">${meta.icon}</div>
-              <div class="cat-name">${meta.label}</div>
-              <div class="cat-count">${c.services.length} service${c.services.length === 1 ? "" : "s"}</div>
-              <div class="cat-price">₦${c.minPrice} – ₦${c.maxPrice}</div>
-            </div>`;
-        }).join("");
-
-        grid.querySelectorAll(".cat-card").forEach((card) => {
-          card.onclick = () => {
-            const suffix = currentSourceFilter ? `&provider=${currentSourceFilter}` : "";
-            window.location.href = `/all-services.html?platform=${platformId}&category=${card.dataset.key}${suffix}`;
-          };
-        });
+        renderCategoryGrid(services, platformId);
+        writeServiceCache(cacheKey, services);
       } catch (err) {
         console.error(err);
-        document.getElementById("category-empty").textContent = "Couldn't load categories — try again shortly.";
-        document.getElementById("category-empty").classList.remove("hidden");
+        // Only show the error state if there was nothing cached to fall back on.
+        if (!cached) {
+          document.getElementById("category-empty").textContent = "Couldn't load categories — try again shortly.";
+          document.getElementById("category-empty").classList.remove("hidden");
+        }
       }
+    }
+
+    function renderCategoryGrid(services, platformId) {
+      if (services.length === 0) {
+        document.getElementById("category-empty").classList.remove("hidden");
+        document.getElementById("category-grid").innerHTML = "";
+        return;
+      }
+      document.getElementById("category-empty").classList.add("hidden");
+
+      const hasSubscription = services.some((s) => resolveVariant(s) === "subscription");
+      const banner = document.getElementById("auto-banner");
+      if (hasSubscription) {
+        banner.classList.remove("hidden");
+        banner.onclick = () => openAutoServicesScreen(platformId);
+      } else {
+        banner.classList.add("hidden");
+      }
+
+      const orderable = services.filter((s) => resolveVariant(s) !== "subscription");
+      const byCategory = {};
+      orderable.forEach((s) => {
+        const key = (s.category || "other").toLowerCase().replace(/\s+/g, "_");
+        if (!byCategory[key]) byCategory[key] = { key, services: [], minPrice: Infinity, maxPrice: 0 };
+        byCategory[key].services.push(s);
+        byCategory[key].minPrice = Math.min(byCategory[key].minPrice, s.sell_price);
+        byCategory[key].maxPrice = Math.max(byCategory[key].maxPrice, s.sell_price);
+      });
+
+      const grid = document.getElementById("category-grid");
+      grid.innerHTML = Object.values(byCategory).map((c) => {
+        const meta = CATEGORY_META[c.key] || { label: humanizeCategoryKey(c.key), icon: "📦" };
+        return `
+          <div class="cat-card" data-key="${c.key}">
+            <div class="cat-icon">${meta.icon}</div>
+            <div class="cat-name">${meta.label}</div>
+            <div class="cat-count">${c.services.length} service${c.services.length === 1 ? "" : "s"}</div>
+            <div class="cat-price">₦${c.minPrice} – ₦${c.maxPrice}</div>
+          </div>`;
+      }).join("");
+
+      grid.querySelectorAll(".cat-card").forEach((card) => {
+        card.onclick = () => {
+          const suffix = currentSourceFilter ? `&provider=${currentSourceFilter}` : "";
+          window.location.href = `/all-services.html?platform=${platformId}&category=${card.dataset.key}${suffix}`;
+        };
+      });
     }
 
     document.getElementById("category-back").onclick = () => {

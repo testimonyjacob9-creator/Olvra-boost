@@ -158,6 +158,34 @@
 
     let allServices = [];
 
+    // Cache-first service list — see loadServices() for the full
+    // reasoning. localStorage (not sessionStorage) so it survives closing
+    // the app entirely, not just this tab. Entries older than 3 days are
+    // ignored — not because a fresher fetch wouldn't happen anyway (it
+    // always does), just so a phone that hasn't opened the app in weeks
+    // doesn't flash genuinely ancient data for the split second before
+    // the real fetch resolves.
+    const SERVICE_CACHE_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+    function readServiceCache(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const { savedAt, data } = JSON.parse(raw);
+        if (!savedAt || Date.now() - savedAt > SERVICE_CACHE_MAX_AGE_MS) return null;
+        return Array.isArray(data) ? data : null;
+      } catch {
+        return null;
+      }
+    }
+    function writeServiceCache(key, data) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), data }));
+      } catch {
+        // Storage full or disabled (private browsing) — just skip
+        // caching silently, the page still works without it.
+      }
+    }
+
     function renderList(list) {
       const container = document.getElementById("service-list");
       document.getElementById("count-label").textContent = `${list.length} service${list.length === 1 ? "" : "s"}`;
@@ -208,6 +236,21 @@
 
     async function loadServices() {
       try {
+        // Cache-first: render whatever we have saved on this device
+        // INSTANTLY, before even asking Firestore anything, so a repeat
+        // visit never sits on a loading spinner. The fresh Firestore read
+        // still always happens right after, in the background — this
+        // just changes what the user sees WHILE that's in flight. Safe to
+        // show possibly-stale prices here since place-order.js always
+        // re-verifies the real price server-side; nothing here is ever
+        // trusted for an actual charge. (2026-09-07.)
+        const cacheKey = `svc_cache_${platform || "all"}_${categoryFilter || "all"}_${providerFilter || "all"}`;
+        const cached = readServiceCache(cacheKey);
+        if (cached) {
+          allServices = cached;
+          renderList(allServices);
+        }
+
         let q;
         if (platform) {
           q = query(
@@ -234,10 +277,15 @@
 
         allServices = services;
         renderList(allServices);
+        writeServiceCache(cacheKey, services);
       } catch (err) {
         console.error(err);
-        document.getElementById("service-list").innerHTML =
-          `<div class="empty-state">Couldn't load services — pull to refresh or check back shortly.</div>`;
+        // Only show the error state if we had nothing cached to fall
+        // back on — a stale-but-present list beats an error screen.
+        if (!allServices.length) {
+          document.getElementById("service-list").innerHTML =
+            `<div class="empty-state">Couldn't load services — pull to refresh or check back shortly.</div>`;
+        }
       }
     }
 
