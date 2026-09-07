@@ -9,9 +9,18 @@
 [functions]
   node_bundler = "esbuild"
 
-# Runs sync-services.js every 6 hours to refresh the BigiSub catalog.
+# 2026-09-07: BigiSub's sync used to run every 6 hours. After adding the
+# diff-check fix (which reads every existing service per platform to
+# compare against the fresh fetch, instead of writing everything blind),
+# that comparison itself became a real read cost — 4x/day against the
+# full catalog, independent of actual user traffic. This was the real
+# cause of hitting the daily Firestore quota within an hour of it
+# resetting, even with only ~28 users. Matching what already fixed this
+# exact problem for Owlet: once a day instead of 4x, cutting this specific
+# cost by 75%. Staggered an hour before Owlet's run so they don't both
+# hit Firestore at once.
 [functions."sync-services"]
-  schedule = "0 */6 * * *"
+  schedule = "0 2 * * *"
 
 # Owlet's catalog is far larger than BigiSub's — synced once a day
 # instead of every 6 hours to keep it from eating the daily Firestore
