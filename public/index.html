@@ -327,18 +327,6 @@
   .auto-banner .t{ font-size:13.5px; font-weight:700; margin-top:2px; }
   .auto-banner .s{ font-size:11.5px; opacity:0.85; margin-top:2px; }
 
-  .source-intro{ font-size:12.5px; color:var(--muted-2); padding:2px 16px 16px; line-height:1.5; }
-  .source-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 16px; }
-  .source-card{
-    background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:22px 14px;
-    box-shadow:var(--shadow); cursor:pointer; text-align:center;
-  }
-  .source-icon{ font-size:32px; margin-bottom:12px; }
-  .source-name{ font-size:14px; font-weight:700; margin-bottom:6px; }
-  .source-desc{ font-size:11.5px; color:var(--muted-2); line-height:1.4; }
-  .source-card{ transition:transform 0.12s ease, box-shadow 0.15s ease; }
-  .source-card:active{ transform:scale(0.97); }
-
   .service-list{ padding:0 16px; display:flex; flex-direction:column; gap:10px; }
   .service-card{
     background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:14px;
@@ -847,33 +835,6 @@
     </div>
   </div>
 
-  <!-- ===================== SOURCE PICKER SCREEN ===================== -->
-  <!-- Shown between tapping a platform tile and the category grid, only
-       when a platform actually has services from both providers — see
-       openCategoryScreen()'s pre-check. Card labels are deliberately
-       generic ("Local Source" / "Global Source") — the real providers
-       are never named to the user (Testimony's call, 2026-09-02). -->
-  <div id="source-screen" class="hidden">
-    <div class="page-header">
-      <button class="icon-btn" id="source-back">←</button>
-      <div class="page-title" id="source-platform-title">Choose a Source</div>
-      <div style="width:36px"></div>
-    </div>
-    <div class="source-intro">Pick where this order gets fulfilled from — both are real, verified suppliers.</div>
-    <div class="source-grid">
-      <div class="source-card" id="source-local" data-source="bigisub">
-        <div class="source-icon">🇳🇬</div>
-        <div class="source-name">Local Source</div>
-        <div class="source-desc">Fast delivery from a local supplier</div>
-      </div>
-      <div class="source-card" id="source-global" data-source="owlet">
-        <div class="source-icon">🌐</div>
-        <div class="source-name">Global Source</div>
-        <div class="source-desc">Wider catalog, international supplier</div>
-      </div>
-    </div>
-  </div>
-
   <!-- ===================== CATEGORY SCREEN ===================== -->
 
   <div id="category-screen" class="hidden">
@@ -1019,7 +980,6 @@
       app: document.getElementById("app-screen"),
       profile: document.getElementById("profile-screen"),
       category: document.getElementById("category-screen"),
-      source: document.getElementById("source-screen"),
       autoServices: document.getElementById("auto-services-screen"),
     };
     function showScreen(name) {
@@ -1685,7 +1645,7 @@
     // providers before showing the source picker — a platform Owlet
     // doesn't cover yet (or vice versa) skips straight to categories
     // instead of offering a dead second option.
-    let currentSourceFilter = null; // set by the picker, read by openCategoryScreen
+
 
     // Cache-first category/service browsing — see openCategoryScreen()
     // for the reasoning. Same helpers as all-services.html.
@@ -1709,33 +1669,8 @@
       }
     }
     async function routeToCategoryOrSource(platformId, platformLabel) {
-      currentSourceFilter = null;
-      try {
-        const [bigisubSnap, owletSnap] = await Promise.all([
-          getDocs(query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true), where("provider", "==", "bigisub"), limit(1))),
-          getDocs(query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true), where("provider", "==", "owlet"), limit(1))),
-        ]);
-        if (!bigisubSnap.empty && !owletSnap.empty) {
-          openSourceScreen(platformId, platformLabel);
-          return;
-        }
-      } catch (err) {
-        console.error("Provider availability check failed, skipping picker:", err);
-      }
       openCategoryScreen(platformId, platformLabel);
     }
-
-    function openSourceScreen(platformId, platformLabel) {
-      document.getElementById("source-platform-title").textContent = platformLabel || platformId;
-      showScreen("source");
-      document.querySelectorAll(".source-card").forEach((card) => {
-        card.onclick = () => {
-          currentSourceFilter = card.dataset.source;
-          openCategoryScreen(platformId, platformLabel);
-        };
-      });
-    }
-    document.getElementById("source-back").onclick = () => showScreen("app");
 
     async function initPlatformGrid() {
       const curated = PLATFORMS.filter((p) => p.curated);
@@ -1798,17 +1733,16 @@
       // Cache-first, same reasoning as all-services.html: show whatever's
       // saved on this device instantly, refresh in the background right
       // after regardless. (2026-09-07.)
-      const cacheKey = `cat_cache_${platformId}_${currentSourceFilter || "all"}`;
+      const cacheKey = `cat_cache_${platformId}`;
       const cached = readServiceCache(cacheKey);
       if (cached) renderCategoryGrid(cached, platformId);
 
       try {
-        const clauses = [
+        const q = query(
+          collection(db, "services"),
           where("platform", "==", platformId),
-          where("is_active", "==", true),
-        ];
-        if (currentSourceFilter) clauses.push(where("provider", "==", currentSourceFilter));
-        const q = query(collection(db, "services"), ...clauses);
+          where("is_active", "==", true)
+        );
         const snap = await getDocs(q);
         const services = snap.docs.map((d) => d.data());
         renderCategoryGrid(services, platformId);
@@ -1824,6 +1758,11 @@
     }
 
     function renderCategoryGrid(services, platformId) {
+      // Owlet was removed 2026-09-07 — defensive filter in case any
+      // leftover "owlet"-tagged docs are still in Firestore (not yet
+      // cleaned up), so they never surface here even though nothing can
+      // fulfill an order against them anymore.
+      services = services.filter((s) => s.provider !== "owlet");
       if (services.length === 0) {
         document.getElementById("category-empty").classList.remove("hidden");
         document.getElementById("category-grid").innerHTML = "";
@@ -1864,14 +1803,13 @@
 
       grid.querySelectorAll(".cat-card").forEach((card) => {
         card.onclick = () => {
-          const suffix = currentSourceFilter ? `&provider=${currentSourceFilter}` : "";
-          window.location.href = `/all-services.html?platform=${platformId}&category=${card.dataset.key}${suffix}`;
+          window.location.href = `/all-services.html?platform=${platformId}&category=${card.dataset.key}`;
         };
       });
     }
 
     document.getElementById("category-back").onclick = () => {
-      showScreen(currentSourceFilter ? "source" : "app");
+      showScreen("app");
     };
     document.getElementById("category-help-btn").onclick = () => openInfoCarousel();
     document.getElementById("app-help-btn").onclick = () => openInfoCarousel();

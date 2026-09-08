@@ -1,34 +1,30 @@
 // netlify/functions/_lib/order-status-sync-core.js
-// Polls the RIGHT provider (BigiSub or Owlet, based on each order's
-// `provider` field) for the live status of orders still "in flight" and
-// writes back whatever the provider reports.
+// Polls BigiSub for the live status of orders still "in flight" and
+// writes back whatever it reports.
 //
 // Shared by the scheduled function (sync-order-status.js, runs on a
 // timer) and the manual-trigger function (sync-order-status-manual.js,
 // for testing / forcing an immediate check) — same reasoning as
 // sync-services-core.js.
+//
+// 2026-09-07: Owlet routing removed entirely per Testimony's request —
+// back to BigiSub as the only provider.
 
 const { db, FieldValue } = require("./firebase-admin");
-const { OWLET_SOURCES } = require("./config");
 const bigisub = require("./bigisub");
-const owlet = require("./owlet");
 
 // Once an order reaches one of these, we stop checking it — no more
-// provider calls or Firestore reads spent on it. "partial" counts as done
-// (the provider delivered what it could and won't change further); the
+// BigiSub calls or Firestore reads spent on it. "partial" counts as done
+// (BigiSub delivered what it could and won't change further); the
 // leftover-refund for a partial delivery is handled below, once, the
 // first time we see it go partial — not on every subsequent poll.
 const TERMINAL_STATUSES = ["completed", "failed", "cancelled", "refunded", "partial"];
 
-// How a provider's raw status strings map onto this app's own status
-// field. Keys are lowercased before lookup. Anything not listed here
-// passes through unchanged (stored as-is, treated as still in-flight) so
-// an unexpected new status value never gets silently miscategorized as
-// done — it'll just keep getting polled and show up in logs. Owlet's
-// exact status vocabulary is unconfirmed (never seen a real completed
-// order yet — see _lib/owlet.js) so this same map is applied to both
-// providers as a best guess; safe either way since unrecognized strings
-// just pass through rather than being misread as terminal.
+// How BigiSub's raw status strings map onto this app's own status field.
+// Keys are lowercased before lookup. Anything not listed here passes
+// through unchanged (stored as-is, treated as still in-flight) so an
+// unexpected new status value never gets silently miscategorized as
+// done — it'll just keep getting polled and show up in logs.
 const STATUS_MAP = {
   pending: "processing",
   processing: "processing",
@@ -59,7 +55,7 @@ const REFUNDABLE_STATUSES = ["failed", "cancelled", "refunded"];
 // place-order.js uses to spend them — an order paid partly with Olives
 // (see olives_used on the order doc) previously only got its naira
 // refunded here, leaving the spent Olives gone forever even though the
-// order failed. Fixed 2026-09-02 while adding Owlet routing to this file.
+// order failed. Fixed 2026-09-02.
 async function refundOrder(order, orderId, note) {
   if (!order.uid || !order.total_amount) return false;
   const olivesUsed = order.olives_used || 0;
@@ -94,19 +90,17 @@ function round2(n) {
 }
 
 /**
- * Checks up to `limit` in-flight orders against their provider and
- * updates Firestore for any whose status changed. Oldest-created first,
- * so a long-stuck order gets priority over one placed a minute ago.
- * `limit` bounds both the Firestore read and the number of provider API
- * calls made per run — keep this modest on a frequent schedule so a
- * traffic spike in orders can't itself become a new quota/rate-limit
- * problem.
+ * Checks up to `limit` in-flight orders against BigiSub and updates
+ * Firestore for any whose status changed. Oldest-created first, so a
+ * long-stuck order gets priority over one placed a minute ago. `limit`
+ * bounds both the Firestore read and the number of BigiSub API calls
+ * made per run — keep this modest on a frequent schedule so a traffic
+ * spike in orders can't itself become a new quota/rate-limit problem.
  */
 async function runOrderStatusSync({ limit = 25 } = {}) {
   const bigisubToken = process.env.BIGISUB_TOKEN;
-  const anyOwletConfigured = OWLET_SOURCES.some((s) => process.env[s.envKey]);
-  if (!bigisubToken && !anyOwletConfigured) {
-    throw new Error("Neither BIGISUB_TOKEN nor any Owlet source key is set — nothing to sync against.");
+  if (!bigisubToken) {
+    throw new Error("BIGISUB_TOKEN env var is missing.");
   }
 
   const snap = await db
@@ -125,29 +119,11 @@ async function runOrderStatusSync({ limit = 25 } = {}) {
   for (const docSnap of snap.docs) {
     const order = docSnap.data();
     const orderId = docSnap.id;
-
-    // Existing orders (before this file supported two providers) have no
-    // `provider` field at all — those are all BigiSub, since that was
-    // the only provider that existed when they were placed.
-    const provider = order.provider || "bigisub";
-    const providerOrderId = provider === "owlet" ? order.owlet_order_id : order.bigisub_order_id;
-    if (!providerOrderId) continue; // nothing to check against
-
-    // Owlet orders remember which of the (now multiple) Owlet accounts
-    // they were placed against — need the matching source's key/baseUrl,
-    // not just any configured one.
-    let owletSource = null;
-    if (provider === "owlet") {
-      owletSource = OWLET_SOURCES.find((s) => s.id === order.owlet_account);
-      if (!owletSource || !process.env[owletSource.envKey]) continue; // account/key not available — skip, don't crash the run
-    }
-    if (provider === "bigisub" && !bigisubToken) continue;
+    if (!order.bigisub_order_id) continue; // nothing to check against
 
     checked += 1;
     try {
-      const live = provider === "owlet"
-        ? await owlet.getOrderStatus(owletSource.baseUrl, process.env[owletSource.envKey], providerOrderId)
-        : await bigisub.getOrderStatus(bigisubToken, providerOrderId);
+      const live = await bigisub.getOrderStatus(bigisubToken, order.bigisub_order_id);
 
       const mapped = mapStatus(live.status);
       if (!mapped || mapped === order.status) continue; // unchanged, nothing to write
@@ -161,7 +137,7 @@ async function runOrderStatusSync({ limit = 25 } = {}) {
       updated += 1;
 
       if (REFUNDABLE_STATUSES.includes(mapped) && !order.refunded_at_sync) {
-        const didRefund = await refundOrder(order, orderId, `Auto-refund — ${provider} reported "${live.status}" for order ${orderId}`);
+        const didRefund = await refundOrder(order, orderId, `Auto-refund — BigiSub reported "${live.status}" for order ${orderId}`);
         if (didRefund) {
           await docSnap.ref.update({ refunded_at_sync: FieldValue.serverTimestamp() });
           refunded += 1;
@@ -186,7 +162,7 @@ async function runOrderStatusSync({ limit = 25 } = {}) {
       }
     } catch (err) {
       errors.push({ orderId, message: err.message });
-      console.error(`Order status check failed for ${orderId} (${provider}):`, err.message);
+      console.error(`Order status check failed for ${orderId}:`, err.message);
     }
   }
 

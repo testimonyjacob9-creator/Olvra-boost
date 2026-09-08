@@ -17,8 +17,6 @@ const { db, FieldValue } = require("./_lib/firebase-admin");
 const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 const bigisub = require("./_lib/bigisub");
-const owlet = require("./_lib/owlet");
-const { OWLET_SOURCES } = require("./_lib/config");
 const { sendEmail, orderConfirmationEmail } = require("./_lib/brevo");
 
 exports.handler = async (event) => {
@@ -118,57 +116,29 @@ exports.handler = async (event) => {
       return { totalCost, service: svc, olivesUsed };
     });
 
-    // Wallet already deducted at this point. Now call the RIGHT provider —
-    // each service is tagged `provider: "bigisub"` or `"owlet"` at sync
-    // time (see sync-services-core.js). Normalized into a common shape
-    // afterward so the rest of this function (order doc, refund, email)
-    // doesn't need to know which provider was used.
-    const provider = service.provider || "bigisub"; // services synced before this existed are all BigiSub
-    let providerOrderId, providerTranId, providerStatus, providerRaw;
+    // Wallet already deducted at this point. Now call BigiSub.
+    // BigiSub's own /services/ listing endpoint uses `id` as the service
+    // identifier field, not `service_id` (see sync-services-core.js).
+    // Most SMM-panel-style APIs (the widespread "v2" convention) expect
+    // the order-create field to be named `service`, not `service_id` —
+    // sending both covers either convention without risk, since REST
+    // APIs ignore fields they don't recognize.
+    const orderBody = {
+      service_id: service.service_id,
+      service: service.service_id,
+      quantity: Number(quantity),
+      ...extraFields,
+    };
+    if (link) orderBody.link = link;
+    if (username) orderBody.username = username;
+    let providerOrderId, providerTranId, providerStatus;
     try {
-      if (provider === "owlet") {
-        // Multiple Owlet-family accounts are pooled into one "Global
-        // Source" (config.js OWLET_SOURCES) — each service remembers
-        // which account it came from (owlet_account, set at sync time)
-        // since each account has its own key and spends from its own
-        // separate wallet balance.
-        const source = OWLET_SOURCES.find((s) => s.id === service.owlet_account);
-        if (!source) throw new Error(`Unknown Owlet source account "${service.owlet_account}".`);
-        const owletKey = process.env[source.envKey];
-        if (!owletKey) throw new Error(`Owlet source "${source.id}" is not configured (${source.envKey} missing).`);
-        const result = await owlet.createOrder(source.baseUrl, owletKey, {
-          service: service.service_id,
-          link: link || username,
-          quantity: Number(quantity),
-        });
-        providerOrderId = result.orderId;
-        providerTranId = result.orderId; // Owlet's docs show one order identifier, not a separate tran_id like BigiSub
-        providerStatus = result.status;
-        providerRaw = result.raw;
-      } else {
-        // BigiSub's own /services/ listing endpoint uses `id` as the
-        // service identifier field, not `service_id` (see
-        // sync-services-core.js). Most SMM-panel-style APIs (the
-        // widespread "v2" convention) expect the order-create field to
-        // be named `service`, not `service_id` — sending both covers
-        // either convention without risk, since REST APIs ignore fields
-        // they don't recognize.
-        const orderBody = {
-          service_id: service.service_id,
-          service: service.service_id,
-          quantity: Number(quantity),
-          ...extraFields,
-        };
-        if (link) orderBody.link = link;
-        if (username) orderBody.username = username;
-        const bigisubOrder = await bigisub.createOrder(process.env.BIGISUB_TOKEN, orderBody);
-        providerOrderId = bigisubOrder.id;
-        providerTranId = bigisubOrder.tran_id;
-        providerStatus = bigisubOrder.status;
-        providerRaw = bigisubOrder;
-      }
+      const bigisubOrder = await bigisub.createOrder(process.env.BIGISUB_TOKEN, orderBody);
+      providerOrderId = bigisubOrder.id;
+      providerTranId = bigisubOrder.tran_id;
+      providerStatus = bigisubOrder.status;
     } catch (err) {
-      // Provider call failed AFTER wallet/Olives were deducted — refund both immediately.
+      // BigiSub call failed AFTER wallet/Olives were deducted — refund both immediately.
       await userRef.update({
         wallet_balance: FieldValue.increment(totalCost - (olivesUsed > 0 ? olivesUsed * 2 : 0)),
         ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
@@ -179,7 +149,7 @@ exports.handler = async (event) => {
       // explicitly here (2026-09-07) after a stretch of orders failing
       // with no diagnosable reason in the logs.
       console.error(
-        `${provider} order failed, wallet refunded:`,
+        "BigiSub order failed, wallet refunded:",
         err.message,
         "| service:", service.service_id,
         "| provider response:", JSON.stringify(err.response?.data || null),
@@ -197,7 +167,6 @@ exports.handler = async (event) => {
       service_id: service.service_id,
       service_name: service.name,
       platform: service.platform,
-      provider,
       link: link || null,
       username: username || null,
       ...(Object.keys(extraFields).length ? { extra_fields: extraFields } : {}),
@@ -206,13 +175,8 @@ exports.handler = async (event) => {
       total_amount: totalCost,
       ...(olivesUsed > 0 ? { olives_used: olivesUsed } : {}),
       status: providerStatus || "processing",
-      // Kept as BOTH the legacy BigiSub-specific fields (existing code —
-      // order-status-sync-core.js, orders.html — already reads these) AND
-      // the new provider-neutral ones, so nothing downstream breaks.
-      bigisub_order_id: provider === "bigisub" ? providerOrderId : null,
-      bigisub_tran_id: provider === "bigisub" ? providerTranId : null,
-      owlet_order_id: provider === "owlet" ? providerOrderId : null,
-      ...(provider === "owlet" ? { owlet_account: service.owlet_account, owlet_raw_response: providerRaw } : {}),
+      bigisub_order_id: providerOrderId,
+      bigisub_tran_id: providerTranId,
       created_at: FieldValue.serverTimestamp(),
     });
 

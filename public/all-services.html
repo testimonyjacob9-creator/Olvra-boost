@@ -143,7 +143,6 @@
     const params = new URLSearchParams(window.location.search);
     const platform = (params.get("platform") || "").toLowerCase();
     const categoryFilter = (params.get("category") || "").toLowerCase().replace(/\s+/g, "_");
-    const providerFilter = params.get("provider") || null;
     document.getElementById("platform-title").textContent = platform || "Services";
     document.getElementById("help-btn").onclick = () => openInfoCarousel();
 
@@ -244,7 +243,7 @@
         // show possibly-stale prices here since place-order.js always
         // re-verifies the real price server-side; nothing here is ever
         // trusted for an actual charge. (2026-09-07.)
-        const cacheKey = `svc_cache_${platform || "all"}_${categoryFilter || "all"}_${providerFilter || "all"}`;
+        const cacheKey = `svc_cache_${platform || "all"}_${categoryFilter || "all"}`;
         const cached = readServiceCache(cacheKey);
         if (cached) {
           allServices = cached;
@@ -263,9 +262,11 @@
         }
         const snap = await getDocs(q);
         let services = snap.docs.map((d) => ({ ...d.data(), _docId: d.id }));
-        if (providerFilter) {
-          services = services.filter((s) => s.provider === providerFilter);
-        }
+        // Owlet was removed 2026-09-07 — any leftover "owlet"-tagged docs
+        // still in Firestore (not yet cleaned up) are filtered out here
+        // defensively, so they never surface to a user even though the
+        // ordering code that would fulfill them no longer exists.
+        services = services.filter((s) => s.provider !== "owlet");
 
         // Category-select.html links here with &category=<key> — filter to
         // that category, and always exclude subscription-type services

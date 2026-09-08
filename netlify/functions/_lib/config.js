@@ -4,57 +4,6 @@
 module.exports = {
   BIGISUB_BASE_URL: "https://api.bigisub.ng",
 
-  // ---- Owlet ("Global Source" / Source 2) ----
-  // 2026-09-02: Testimony added a second provider (Owlet — shown to users
-  // as "Global Source", never by its real name, per his request). Their
-  // API is action-based: POST { key, action, ...params } to one endpoint.
-  // Flat 5% markup on everything from Owlet, deliberately NOT using the
-  // per-category/per-platform overrides above (Testimony's call — those
-  // overrides are BigiSub-specific tuning, not meant to carry over).
-  // Multiple Owlet-family accounts, all pooled into the same "Global
-  // Source" the user picks from — Testimony's call (2026-09-03): more
-  // stock under one option, not a third picker card. Each needs its OWN
-  // API key as a Netlify env var (never hardcoded — same reasoning as
-  // every other secret in this app) since each account only spends from
-  // its own separate wallet balance.
-  OWLET_SOURCES: [
-    { id: "primary", baseUrl: "https://olvrahub.mysocials.store/api/store-v2", envKey: "OWLET_API_KEY" },
-    { id: "a1socials", baseUrl: "https://a1socials.mysocials.store/api/store-v2", envKey: "OWLET_A1SOCIALS_API_KEY" },
-  ],
-  OWLET_MARKUP: 0.05,
-
-  // Owlet's service list has no clean `platform` field (unlike BigiSub) —
-  // just a messy free-text `category` string plus the service `name`.
-  // Detected by substring match against both, lowercased. Deliberately
-  // scoped to platforms Boost already supports (confirmed with Testimony
-  // 2026-09-02 — "just social growth [platforms], matches what Olvra
-  // Boost already does", not Owlet's full catalog) — anything that
-  // doesn't match one of these aliases is skipped during sync, not
-  // imported as "other". Aliases are intentionally loose (e.g. "fb" for
-  // facebook) since Owlet's naming conventions aren't controlled by us.
-  OWLET_PLATFORM_ALIASES: {
-    instagram: ["instagram"],
-    facebook: ["facebook"],
-    twitter: ["twitter", "x.com", " x |", "| x "],
-    tiktok: ["tiktok", "tik tok"],
-    youtube: ["youtube"],
-    linkedin: ["linkedin"],
-    telegram: ["telegram"],
-    whatsapp: ["whatsapp"],
-    apple_music: ["apple music"],
-    spotify: ["spotify"],
-    audiomack: ["audiomack"],
-    soundcloud: ["soundcloud"],
-    google: ["google"],
-    trustpilot: ["trustpilot"],
-    snapchat: ["snapchat", "snap chat"],
-    pinterest: ["pinterest"],
-    discord: ["discord"],
-    twitch: ["twitch"],
-    threads: ["threads"],
-    reddit: ["reddit"],
-  },
-
   // Flat markup applied to every service price during sync, EXCEPT
   // categories listed in CATEGORY_MARKUP_OVERRIDES below, which use their
   // own rate instead. 0.05 = 5%. sell_price = cost_price * (1 + rate).

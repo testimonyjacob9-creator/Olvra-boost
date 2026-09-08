@@ -9,38 +9,17 @@
 [functions]
   node_bundler = "esbuild"
 
-# 2026-09-07: BigiSub's sync used to run every 6 hours. After adding the
-# diff-check fix (which reads every existing service per platform to
-# compare against the fresh fetch, instead of writing everything blind),
-# that comparison itself became a real read cost — 4x/day against the
-# full catalog, independent of actual user traffic. This was the real
-# cause of hitting the daily Firestore quota within an hour of it
-# resetting, even with only ~28 users. Matching what already fixed this
-# exact problem for Owlet: once a day instead of 4x, cutting this specific
-# cost by 75%. Staggered an hour before Owlet's run so they don't both
-# hit Firestore at once.
+# BigiSub's sync used to run every 6 hours; now once daily to reduce
+# Firestore read cost from the diff-check comparison (2026-09-07).
 [functions."sync-services"]
   schedule = "0 2 * * *"
 
-# Owlet's catalog is far larger than BigiSub's — synced once a day
-# instead of every 6 hours to keep it from eating the daily Firestore
-# write quota (2026-09-03).
-[functions."sync-services-owlet"]
-  schedule = "0 3 * * *"
-
-# Runs sync-order-status.js every 10 minutes to pull live order status
-# from BigiSub/Owlet for orders that are still in-flight, so users see
+# Runs sync-order-status.js every 15 minutes to pull live order status
+# from BigiSub for orders that are still in-flight, so users see
 # "completed" automatically instead of only when an admin manually edits
 # the order. Checks at most 25 orders per run (oldest-first) to keep
-# Firestore reads and provider API calls bounded even during a busy
+# Firestore reads and BigiSub API calls bounded even during a busy
 # period.
-#
-# 2026-09-04: was every 10 minutes before — that's 144 runs/day × up to 25
-# reads = up to 3,600 reads/day as a GUARANTEED baseline whether or not
-# anything actually changed, a meaningful chunk of a Spark-plan daily
-# quota on its own. 15 minutes = 96 runs/day × 25 = up to 2,400/day, still
-# well within "not stuck on pending" territory (worst case ~15 min delay
-# vs ~10 min before).
 [functions."sync-order-status"]
   schedule = "*/15 * * * *"
 
