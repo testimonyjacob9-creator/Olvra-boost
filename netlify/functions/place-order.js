@@ -137,15 +137,19 @@ exports.handler = async (event) => {
     });
 
     // Wallet already deducted at this point. Now call BigiSub.
-    // BigiSub's own /services/ listing endpoint uses `id` as the service
-    // identifier field, not `service_id` (see sync-services-core.js).
-    // We used to send BOTH `service_id` and `service` on the theory that
-    // "APIs ignore fields they don't recognize" — but BigiSub actively
-    // VALIDATES `service_id` and was rejecting real, valid services with
-    // "Service not found or not available" (2026-09-09 incident: confirmed
-    // in function logs). Its order-create endpoint only wants `service`.
+    // CORRECTED 2026-09-09: BigiSub's order-create endpoint requires the
+    // field to be named `service_id` — confirmed live via
+    // `"service_id":["This field is required."]` after an earlier fix
+    // here wrongly renamed it to `service`. The EARLIER "Service not
+    // found or not available" error (that prompted that wrong fix) was
+    // never about the field name — it was BigiSub saying the VALUE we
+    // sent isn't a currently valid/orderable service, almost certainly a
+    // stale record from sync-services-core.js (service deactivated or
+    // changed at BigiSub's end since our last daily sync). If this error
+    // recurs, run a manual sync (admin-sync-services) BEFORE assuming
+    // it's a code bug again.
     const orderBody = {
-      service: service.service_id,
+      service_id: service.service_id,
       quantity: Number(quantity),
       ...extraFields,
     };
@@ -177,6 +181,21 @@ exports.handler = async (event) => {
         "| provider response:", JSON.stringify(err.response?.data || null),
         "| status:", err.response?.status || "n/a"
       );
+
+      // Self-healing: if BigiSub is specifically saying THIS service_id
+      // isn't valid/available (as opposed to a link/quantity/transient
+      // error), the stored record is stale until the next sync run. Flip
+      // it inactive right away so it stops appearing orderable and
+      // burning other users through the same deduct-then-refund cycle in
+      // the meantime — sync-services-core.js will correct or re-activate
+      // it on its next run regardless.
+      if (err.response?.data?.errors?.service_id) {
+        try {
+          await serviceRef.update({ is_active: false, deactivated_reason: "Provider rejected: " + providerReason });
+        } catch (deactivateErr) {
+          console.error("Auto-deactivate of bad service failed:", deactivateErr.message);
+        }
+      }
 
       // Previously a failed order left NO trace anywhere — the wallet was
       // silently refunded and the only evidence was in Netlify's function
