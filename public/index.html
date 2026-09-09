@@ -945,7 +945,7 @@
     import {
       onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
       updateProfile, signOut,
-      doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, serverTimestamp
+      doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, getCountFromServer, serverTimestamp
     } from "./js/firebase-sdk.bundle.js";
     import { auth, db, callFunction, withNetworkRetry } from "./js/firebase-client.js";
     import { ensureOnboardingAccepted } from "./js/onboarding.js";
@@ -1284,6 +1284,7 @@
       document.getElementById("profile-name").textContent = label;
       document.getElementById("profile-email").textContent = user.email || "";
       document.getElementById("profile-avatar-initials").textContent = (label[0] || "U").toUpperCase();
+      currentUidForRefresh = user.uid;
       loadWallet(user.uid);
       loadOrders(user.uid);
       watchNotifBadge(user.uid);
@@ -1298,16 +1299,21 @@
       } catch { isAdminUser = false; }
     }
 
-    function watchNotifBadge(uid) {
-      const q = query(collection(db, "users", uid, "notifications"), where("read", "==", false));
-      onSnapshot(q, (snap) => {
-        const n = snap.size;
+    // One-time count instead of a live onSnapshot listener (2026-09-09).
+    // Uses getCountFromServer — billed as 1 read no matter how many
+    // unread notifications exist, instead of downloading every matching
+    // doc just to read snap.size.
+    async function watchNotifBadge(uid) {
+      try {
+        const q = query(collection(db, "users", uid, "notifications"), where("read", "==", false));
+        const countSnap = await getCountFromServer(q);
+        const n = countSnap.data().count;
         [document.getElementById("home-notif-badge"), document.getElementById("nav-notif-badge")].forEach((el) => {
           if (!el) return;
           el.textContent = n > 9 ? "9+" : String(n);
           el.classList.toggle("show", n > 0);
         });
-      }, () => {});
+      } catch {}
     }
 
     let authResolved = false;
@@ -1337,59 +1343,49 @@
       });
     }
 
-    // Live settings listener (maintenance mode / announcement banner /
-    // signup lock) — a public read, so it works for signed-out visitors
-    // too. Controlled from admin.html's Settings tab. Using onSnapshot
-    // instead of a one-time getDoc means: (a) it retries automatically on
-    // reconnect if the very first read hiccups, instead of leaving the
-    // app stuck on whatever it saw once, and (b) an admin flipping
-    // maintenance mode or the announcement applies live, with no reload
-    // needed. The sign-in listener is deliberately started from inside
-    // this callback (only once) so it never races the settings check —
-    // no more "maintenance state resolved after the app already decided
-    // whether to sign someone in."
-    onSnapshot(
-      doc(db, "settings", "global"),
-      (settingsSnap) => {
-        const settings = settingsSnap.exists() ? settingsSnap.data() : {};
-        signupLocked = !!settings.signup_locked;
-        const wasInMaintenance = maintenanceOn;
-        maintenanceOn = !!settings.maintenance_mode;
-
-        if (maintenanceOn) {
-          document.getElementById("boot-loading-screen").classList.add("hidden");
-          document.getElementById("maintenance-screen").classList.remove("hidden");
-        } else if (wasInMaintenance) {
-          // Maintenance just got turned off live — let the app open
-          // instead of leaving people stuck on the maintenance screen.
-          document.getElementById("maintenance-screen").classList.add("hidden");
-          authResolved = false;
-        }
-
-        if (settings.announcement) {
-          const dismissedKey = "olvra_announcement_dismissed";
-          if (sessionStorage.getItem(dismissedKey) !== settings.announcement) {
-            document.getElementById("announcement-text").textContent = settings.announcement;
-            document.getElementById("announcement-banner").classList.remove("hidden");
-            document.getElementById("announcement-dismiss").onclick = () => {
-              document.getElementById("announcement-banner").classList.add("hidden");
-              sessionStorage.setItem(dismissedKey, settings.announcement);
-            };
-          }
-        }
-
-        settingsReady = true;
-        startAuthListenerOnce();
-      },
-      (err) => {
-        // Even on a permission/network error, don't block sign-in forever
-        // waiting on settings that may never arrive — fail open (no
-        // maintenance, no signup lock) and let people actually sign in.
-        console.error("Settings listener failed:", err);
-        settingsReady = true;
-        startAuthListenerOnce();
+    // One-time read instead of a live onSnapshot listener (2026-09-09).
+    // This ran for EVERY visitor, signed in or not, and — as a live
+    // listener — re-read on every reconnect (weak mobile signal, tab
+    // backgrounding, etc.) with no cap across however many visitors/tabs
+    // were open. That made it the single biggest exposure to silent read
+    // growth in the whole app. Trade-off: an admin flipping maintenance
+    // mode or posting an announcement now applies on next page load
+    // instead of instantly to open tabs — acceptable for staying well
+    // under the daily quota.
+    (async function loadSettingsOnce() {
+      let settings = {};
+      try {
+        const settingsSnap = await getDoc(doc(db, "settings", "global"));
+        settings = settingsSnap.exists() ? settingsSnap.data() : {};
+      } catch (err) {
+        // Fail open (no maintenance, no signup lock) rather than block
+        // sign-in forever waiting on settings that may never arrive.
+        console.error("Settings load failed:", err);
       }
-    );
+
+      signupLocked = !!settings.signup_locked;
+      maintenanceOn = !!settings.maintenance_mode;
+
+      if (maintenanceOn) {
+        document.getElementById("boot-loading-screen").classList.add("hidden");
+        document.getElementById("maintenance-screen").classList.remove("hidden");
+      }
+
+      if (settings.announcement) {
+        const dismissedKey = "olvra_announcement_dismissed";
+        if (sessionStorage.getItem(dismissedKey) !== settings.announcement) {
+          document.getElementById("announcement-text").textContent = settings.announcement;
+          document.getElementById("announcement-banner").classList.remove("hidden");
+          document.getElementById("announcement-dismiss").onclick = () => {
+            document.getElementById("announcement-banner").classList.add("hidden");
+            sessionStorage.setItem(dismissedKey, settings.announcement);
+          };
+        }
+      }
+
+      settingsReady = true;
+      startAuthListenerOnce();
+    })();
 
     // Safety net: if Firebase's auth check hasn't resolved within 6s
     // (slow connection, blocked request, etc.), don't leave the person
@@ -1417,9 +1413,16 @@
       requestAnimationFrame(tick);
     }
 
-    function loadWallet(uid) {
-      const ref = doc(db, "users", uid);
-      onSnapshot(ref, (snap) => {
+    // One-time read instead of a live onSnapshot listener (2026-09-09) —
+    // this listener stayed open for the whole session and re-read on
+    // every reconnect (weak mobile signal, backgrounded tab, etc.) with
+    // no cap. Balance now loads once on entering the app and refreshes
+    // via refreshWallet(uid) after actions that actually change it
+    // (see calls below), instead of listening continuously.
+    async function loadWallet(uid) {
+      try {
+        const ref = doc(db, "users", uid);
+        const snap = await getDoc(ref);
         if (!snap.exists()) return;
         const data = snap.data();
         const bal = data.wallet_balance || 0;
@@ -1447,8 +1450,18 @@
         } else {
           chip.classList.add("hidden");
         }
-      });
+      } catch {}
     }
+    let currentUidForRefresh = null;
+    function refreshWallet() {
+      if (currentUidForRefresh) loadWallet(currentUidForRefresh);
+    }
+    // Re-check balance when the tab regains focus (e.g. coming back
+    // from the fund/payment flow) instead of a live listener — one
+    // extra read at most per return-to-tab, not one per reconnect.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") refreshWallet();
+    });
     document.getElementById("chip-copy").onclick = () => {
       const num = document.getElementById("chip-account-number").textContent;
       navigator.clipboard?.writeText(num).then(() => showToast("Account number copied"));
@@ -1650,16 +1663,32 @@
     // Cache-first category/service browsing — see openCategoryScreen()
     // for the reasoning. Same helpers as all-services.html.
     const SERVICE_CACHE_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
-    function readServiceCache(key) {
+    // A cache newer than this skips the network fetch entirely (added
+    // 2026-09-09) — every platform tap used to re-read the whole
+    // platform's services regardless of cache age, one of the biggest
+    // remaining Firestore read drivers in the app. Catalog only changes
+    // once a day (sync-services) or on an admin edit, so 12h is plenty
+    // fresh (widened from 30 min on 2026-09-09).
+    const SERVICE_CACHE_FRESH_MS = 12 * 60 * 60 * 1000;
+    function readServiceCacheRaw(key) {
       try {
         const raw = localStorage.getItem(key);
         if (!raw) return null;
-        const { savedAt, data } = JSON.parse(raw);
-        if (!savedAt || Date.now() - savedAt > SERVICE_CACHE_MAX_AGE_MS) return null;
-        return Array.isArray(data) ? data : null;
+        const parsed = JSON.parse(raw);
+        if (!parsed.savedAt || !Array.isArray(parsed.data)) return null;
+        return parsed;
       } catch {
         return null;
       }
+    }
+    function readServiceCache(key) {
+      const entry = readServiceCacheRaw(key);
+      if (!entry || Date.now() - entry.savedAt > SERVICE_CACHE_MAX_AGE_MS) return null;
+      return entry.data;
+    }
+    function isCacheFresh(key) {
+      const entry = readServiceCacheRaw(key);
+      return !!entry && Date.now() - entry.savedAt <= SERVICE_CACHE_FRESH_MS;
     }
     function writeServiceCache(key, data) {
       try {
@@ -1736,6 +1765,10 @@
       const cacheKey = `cat_cache_${platformId}`;
       const cached = readServiceCache(cacheKey);
       if (cached) renderCategoryGrid(cached, platformId);
+
+      // Skip the network read entirely if the cache is still fresh —
+      // see SERVICE_CACHE_FRESH_MS above. (2026-09-09)
+      if (isCacheFresh(cacheKey)) return;
 
       try {
         const q = query(

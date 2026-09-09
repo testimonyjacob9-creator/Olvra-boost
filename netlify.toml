@@ -14,23 +14,25 @@
 [functions."sync-services"]
   schedule = "0 2 * * *"
 
-# Runs sync-order-status.js every 15 minutes to pull live order status
-# from BigiSub for orders that are still in-flight, so users see
-# "completed" automatically instead of only when an admin manually edits
-# the order. Checks at most 25 orders per run (oldest-first) to keep
-# Firestore reads and BigiSub API calls bounded even during a busy
-# period.
-[functions."sync-order-status"]
-  schedule = "*/15 * * * *"
+# DISABLED (2026-09-09) — Testimony is now updating order status manually
+# from admin.html's order Apply button instead of relying on this
+# automated poll. Function code (sync-order-status.js /
+# order-status-sync-core.js) is left in place in case automated syncing
+# comes back later, but the cron trigger is off so it no longer reads
+# Firestore or calls BigiSub on a timer.
+# [functions."sync-order-status"]
+#   schedule = "0 * * * *"
 
-# Runs daily — checks for users inactive 2+ days and sends the Olives
-# re-engagement email (gated per-user internally so any one person is
-# still only messaged about once every 2 days, not once every day this
-# cron fires). See reengage-users.js for why a daily cron + in-function
-# gating is used instead of trying to express "every 2 days" directly in
-# cron syntax — same pattern WoodPayVTU already uses successfully.
-[functions."reengage-users"]
-  schedule = "0 9 * * *"
+# DISABLED (2026-09-09) — this cron read the entire `users` collection
+# every single day just to find who'd been inactive 2+ days (full
+# collection scan, cost scales with total signups, not active users).
+# Confirmed as the least essential read-burner: it's a marketing email,
+# not core functionality. The function (reengage-users.js) is left in
+# place for a manual/rewritten trigger later — see its file header for
+# a note on switching to a `where("last_activity_at", "<", cutoff)`
+# query instead of pulling everyone, if this gets revived.
+# [functions."reengage-users"]
+#   schedule = "0 9 * * *"
 
 # The bundled Firebase SDK is the single largest download on every page
 # (see scripts/bundle-firebase.js) but its content only changes on a new

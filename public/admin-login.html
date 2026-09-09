@@ -38,7 +38,7 @@
 </style>
 </head>
 <body>
-  <div class="card">
+  <div class="card" id="login-card" style="display:none;">
     <div class="lock">🔒</div>
     <h1>Admin Login</h1>
     <div class="sub">This is a separate sign-in from the customer app. Enter the email/password for an account already on the admin allowlist.</div>
@@ -53,6 +53,11 @@
       <div class="error" id="error-text"></div>
     </form>
   </div>
+  <div class="card" id="restoring-card">
+    <div class="lock">🔒</div>
+    <h1>Checking your session…</h1>
+    <div class="sub">One moment.</div>
+  </div>
 
   <script type="module">
     import { signInWithEmailAndPassword, signOut, doc, getDoc } from "./js/firebase-sdk.bundle.js";
@@ -61,6 +66,14 @@
     const form = document.getElementById("login-form");
     const btn = document.getElementById("submit-btn");
     const errorText = document.getElementById("error-text");
+    const loginCard = document.getElementById("login-card");
+    const restoringCard = document.getElementById("restoring-card");
+
+    // If a redirect ?next= was set (admin.html sends people here when
+    // they're signed out), send them back there after a successful,
+    // admin-verified login. Default to /admin.html.
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next") || "/admin.html";
 
     // This passcode is a convenience trip-wire only — it lives in this
     // public file, so anyone who views source can read it. It is NOT a
@@ -71,11 +84,37 @@
     // wrong screen on a shared/borrowed phone.
     const ADMIN_PASSCODE = "Oliver1$";
 
-    // If a redirect ?next= was set (admin.html sends people here when
-    // they're signed out), send them back there after a successful,
-    // admin-verified login. Default to /admin.html.
-    const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || "/admin.html";
+    // Auto-login when a valid session already exists (2026-09-09) —
+    // Firebase Auth persists sign-in locally by default, so if this
+    // browser already has a valid admin session from before, there's no
+    // reason to make you retype email/password/passcode again. Checks
+    // once on load: if signed in AND still on the admin allowlist,
+    // skip straight to `next`. Otherwise fall back to the normal form.
+    let handled = false;
+    const unsub = auth.onAuthStateChanged(async (user) => {
+      if (handled) return;
+      handled = true;
+      unsub();
+
+      if (user) {
+        try {
+          const adminSnap = await getDoc(doc(db, "admins", user.uid));
+          if (adminSnap.exists()) {
+            window.location.href = next;
+            return;
+          }
+          // Signed in, but not (or no longer) an admin — sign out so the
+          // form starts clean instead of silently failing later.
+          await signOut(auth);
+        } catch {
+          // Network/permission hiccup checking the allowlist — fall
+          // through to the manual form rather than getting stuck.
+        }
+      }
+
+      restoringCard.style.display = "none";
+      loginCard.style.display = "block";
+    });
 
     form.onsubmit = async (e) => {
       e.preventDefault();

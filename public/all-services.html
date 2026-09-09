@@ -160,21 +160,37 @@
     // Cache-first service list — see loadServices() for the full
     // reasoning. localStorage (not sessionStorage) so it survives closing
     // the app entirely, not just this tab. Entries older than 3 days are
-    // ignored — not because a fresher fetch wouldn't happen anyway (it
-    // always does), just so a phone that hasn't opened the app in weeks
-    // doesn't flash genuinely ancient data for the split second before
-    // the real fetch resolves.
+    // ignored so a phone that hasn't opened the app in weeks doesn't
+    // flash genuinely ancient data.
     const SERVICE_CACHE_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
-    function readServiceCache(key) {
+    // A cache newer than this skips the network fetch entirely (added
+    // 2026-09-09). The catalog only changes when sync-services runs
+    // (once daily) or an admin edits it manually — refetching on every
+    // single visit/platform-tap regardless of cache age was reading the
+    // whole services collection over and over for data that hadn't
+    // changed, and was one of the biggest remaining Firestore read
+    // drivers in the app. 12h cuts nearly all repeat-visit waste
+    // (widened from 30 min on 2026-09-09).
+    const SERVICE_CACHE_FRESH_MS = 12 * 60 * 60 * 1000;
+    function readServiceCacheRaw(key) {
       try {
         const raw = localStorage.getItem(key);
         if (!raw) return null;
-        const { savedAt, data } = JSON.parse(raw);
-        if (!savedAt || Date.now() - savedAt > SERVICE_CACHE_MAX_AGE_MS) return null;
-        return Array.isArray(data) ? data : null;
+        const parsed = JSON.parse(raw);
+        if (!parsed.savedAt || !Array.isArray(parsed.data)) return null;
+        return parsed;
       } catch {
         return null;
       }
+    }
+    function readServiceCache(key) {
+      const entry = readServiceCacheRaw(key);
+      if (!entry || Date.now() - entry.savedAt > SERVICE_CACHE_MAX_AGE_MS) return null;
+      return entry.data;
+    }
+    function isCacheFresh(key) {
+      const entry = readServiceCacheRaw(key);
+      return !!entry && Date.now() - entry.savedAt <= SERVICE_CACHE_FRESH_MS;
     }
     function writeServiceCache(key, data) {
       try {
@@ -249,6 +265,10 @@
           allServices = cached;
           renderList(allServices);
         }
+
+        // Skip the network read entirely if the cache is still fresh —
+        // see SERVICE_CACHE_FRESH_MS above. (2026-09-09)
+        if (isCacheFresh(cacheKey)) return;
 
         let q;
         if (platform) {
