@@ -21,6 +21,7 @@
 const { db, auth, FieldValue } = require("./_lib/firebase-admin");
 const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
+const { logWalletTxn } = require("./_lib/wallet-ledger");
 
 async function assertAdmin(uid) {
   const snap = await db.collection("admins").doc(uid).get();
@@ -41,6 +42,14 @@ async function adjustWallet(adminUid, { targetUid, amount, reason }) {
     const updated = current + amount;
     if (updated < 0) throw Object.assign(new Error("This would take the user's wallet negative."), { statusCode: 400 });
     tx.update(userRef, { wallet_balance: updated });
+    logWalletTxn(tx, {
+      uid: targetUid,
+      type: "admin_adjustment",
+      amount,
+      balance_after: updated,
+      note: reason || "Manual admin adjustment",
+      ref_id: adminUid,
+    });
     return updated;
   });
   await db.collection("wallet_topups").add({
@@ -80,7 +89,16 @@ async function updateOrderStatus(adminUid, { orderId, status, refund }) {
       const snap = await tx.get(userRef);
       if (!snap.exists) return;
       const current = snap.data().wallet_balance || 0;
-      tx.update(userRef, { wallet_balance: current + Number(order.total_amount) });
+      const updated = current + Number(order.total_amount);
+      tx.update(userRef, { wallet_balance: updated });
+      logWalletTxn(tx, {
+        uid: order.uid,
+        type: "order_refund",
+        amount: Number(order.total_amount),
+        balance_after: updated,
+        note: `Manual refund for order ${orderId}`,
+        ref_id: orderId,
+      });
     });
     await db.collection("wallet_topups").add({
       uid: order.uid,

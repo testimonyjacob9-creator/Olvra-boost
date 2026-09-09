@@ -383,6 +383,7 @@
           <span class="badge ${cls}">${escapeHtml(o.status || "processing")}</span>
         </div>
         <div class="meta" style="margin-top:2px;">👤 <a href="#" data-jump-to-user="${o.uid || ""}" style="color:inherit;text-decoration:underline;">${escapeHtml(userLabel)}</a></div>
+        ${o.fail_reason ? `<div class="meta" style="margin-top:2px; color:#E5484D;">⚠️ ${escapeHtml(o.fail_reason)}${o.refunded ? " — refunded" : ""}</div>` : ""}
         ${actions}
       </div>`;
     }

@@ -37,6 +37,7 @@ const crypto = require("crypto");
 const { db, FieldValue } = require("./_lib/firebase-admin");
 const { ok, fail } = require("./_lib/respond");
 const { sendEmail, walletFundedEmail } = require("./_lib/brevo");
+const { logWalletTxn } = require("./_lib/wallet-ledger");
 
 // Flutterwave charges a fee on incoming bank transfers into a virtual
 // account. This is passed on to the user as a flat charge per funding,
@@ -169,6 +170,14 @@ exports.handler = async (event) => {
         if (referralEligible) userUpdate.referral_paid = true;
       }
       tx.update(userRef, userUpdate);
+      logWalletTxn(tx, {
+        uid,
+        type: "topup",
+        amount: netCredit,
+        balance_after: round2((userData.wallet_balance || 0) + netCredit),
+        note: `Wallet top-up via bank transfer (ref ${reference})`,
+        ref_id: txRef.id,
+      });
 
       if (referralEligible) {
         tx.update(referrerRef, { olive_balance: FieldValue.increment(1) });
@@ -254,4 +263,16 @@ function isValidSignature(signatureHeader) {
   } catch {
     return false;
   }
+}
+
+// MISSING PREVIOUSLY — this file called round2() at two spots (netCredit
+// calculation, and the ledger's balance_after) without ever defining or
+// importing it. That's a ReferenceError on every single real top-up
+// webhook call, caught by the outer try/catch, logged only to Netlify's
+// function console, and responded to Flutterwave with a 200 (so it never
+// retries) — meaning bank-transfer funding silently never credited the
+// user's wallet at all. This is likely THE most severe bug in the repo:
+// real money in, nothing credited, no visible error to the user or admin.
+function round2(n) {
+  return Math.round(n * 100) / 100;
 }

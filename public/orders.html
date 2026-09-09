@@ -100,6 +100,7 @@
                 <span class="status ${statusClass(o.status)}">${o.status || "processing"}</span>
               </div>
               <div class="meta">${o.quantity} units · ₦${Number(o.total_amount).toLocaleString()} · ${timeAgo(o.created_at)}</div>
+              ${o.fail_reason ? `<div class="meta" style="color:#E5484D;">${escapeHtml(o.refunded ? "Refunded to your wallet — the provider couldn't process this order." : "This order failed.")}</div>` : ""}
               ${o.bigisub_tran_id ? `<div class="track-id">ID: ${o.bigisub_tran_id}</div>` : ""}
             </div>`;
         }).join("");

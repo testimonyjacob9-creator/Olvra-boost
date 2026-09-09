@@ -13,6 +13,7 @@
 
 const { db, FieldValue } = require("./_lib/firebase-admin");
 const { requireAuth } = require("./_lib/require-auth");
+const { logWalletTxn } = require("./_lib/wallet-ledger");
 const { ok, fail } = require("./_lib/respond");
 const { sendEmail, walletFundedEmail } = require("./_lib/brevo");
 
@@ -106,6 +107,14 @@ exports.handler = async (event) => {
       });
 
       const newBalance = (userSnap.data().wallet_balance || 0) + netCredit;
+      logWalletTxn(t, {
+        uid,
+        type: "topup",
+        amount: netCredit,
+        balance_after: round2(newBalance),
+        note: `Wallet top-up via checkout (tx ${transactionId})`,
+        ref_id: topupRef.id,
+      });
       return { alreadyProcessed: false, newBalance };
     });
 

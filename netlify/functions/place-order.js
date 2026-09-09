@@ -18,6 +18,7 @@ const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 const bigisub = require("./_lib/bigisub");
 const { sendEmail, orderConfirmationEmail } = require("./_lib/brevo");
+const { logWalletTxn, logWalletTxAsync } = require("./_lib/wallet-ledger");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -55,6 +56,17 @@ exports.handler = async (event) => {
 
     if (!serviceId || !quantity) {
       throw Object.assign(new Error("serviceId and quantity are required."), { statusCode: 400 });
+    }
+    // Catch oversized links (long tracking query strings on IG/FB links are
+    // the usual culprit) before we touch the wallet at all — BigiSub's own
+    // 500-char limit was previously only discovered after a deduct+refund
+    // round trip, which is a bad user experience for a purely client-fixable
+    // problem.
+    if (link && String(link).length > 500) {
+      throw Object.assign(
+        new Error("That link is too long (max 500 characters). Try a shorter/cleaner version of the URL."),
+        { statusCode: 400 }
+      );
     }
 
     const serviceRef = db.collection("services").doc(String(serviceId));
@@ -113,6 +125,13 @@ exports.handler = async (event) => {
         ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(-olivesUsed) } : {}),
         last_activity_at: FieldValue.serverTimestamp(), // used by reengage-users.js to find inactive users
       });
+      logWalletTxn(tx, {
+        uid,
+        type: "order_charge",
+        amount: walletDelta, // usually negative; can be slightly positive only from olive-rounding change
+        balance_after: round2(wallet + walletDelta),
+        note: `${quantity} × ${svc.name}${olivesUsed > 0 ? ` (+${olivesUsed} olives)` : ""}`,
+      });
 
       return { totalCost, service: svc, olivesUsed };
     });
@@ -120,12 +139,12 @@ exports.handler = async (event) => {
     // Wallet already deducted at this point. Now call BigiSub.
     // BigiSub's own /services/ listing endpoint uses `id` as the service
     // identifier field, not `service_id` (see sync-services-core.js).
-    // Most SMM-panel-style APIs (the widespread "v2" convention) expect
-    // the order-create field to be named `service`, not `service_id` —
-    // sending both covers either convention without risk, since REST
-    // APIs ignore fields they don't recognize.
+    // We used to send BOTH `service_id` and `service` on the theory that
+    // "APIs ignore fields they don't recognize" — but BigiSub actively
+    // VALIDATES `service_id` and was rejecting real, valid services with
+    // "Service not found or not available" (2026-09-09 incident: confirmed
+    // in function logs). Its order-create endpoint only wants `service`.
     const orderBody = {
-      service_id: service.service_id,
       service: service.service_id,
       quantity: Number(quantity),
       ...extraFields,
@@ -140,8 +159,9 @@ exports.handler = async (event) => {
       providerStatus = bigisubOrder.status;
     } catch (err) {
       // BigiSub call failed AFTER wallet/Olives were deducted — refund both immediately.
+      const refundAmount = totalCost - (olivesUsed > 0 ? olivesUsed * 2 : 0);
       await userRef.update({
-        wallet_balance: FieldValue.increment(totalCost - (olivesUsed > 0 ? olivesUsed * 2 : 0)),
+        wallet_balance: FieldValue.increment(refundAmount),
         ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
       });
       // err.message alone (e.g. "Request failed with status code 400")
@@ -149,6 +169,7 @@ exports.handler = async (event) => {
       // BODY, which axios doesn't include in .message. Logging it
       // explicitly here (2026-09-07) after a stretch of orders failing
       // with no diagnosable reason in the logs.
+      const providerReason = extractProviderReason(err);
       console.error(
         "BigiSub order failed, wallet refunded:",
         err.message,
@@ -156,6 +177,78 @@ exports.handler = async (event) => {
         "| provider response:", JSON.stringify(err.response?.data || null),
         "| status:", err.response?.status || "n/a"
       );
+
+      // Previously a failed order left NO trace anywhere — the wallet was
+      // silently refunded and the only evidence was in Netlify's function
+      // logs, invisible to both the user (order history) and admin (orders
+      // tab). Record it as a real order doc with status "failed" so both
+      // surfaces show it, same as a successful order would. Best-effort:
+      // if this write itself fails, the refund above has already happened
+      // and the user still gets the 502 error message below either way.
+      let failedOrderRef;
+      try {
+        failedOrderRef = await db.collection("orders").add({
+          uid,
+          service_id: service.service_id,
+          service_name: service.name,
+          platform: service.platform,
+          link: link || null,
+          username: username || null,
+          ...(Object.keys(extraFields).length ? { extra_fields: extraFields } : {}),
+          quantity,
+          unit_price: service.sell_price,
+          total_amount: totalCost,
+          ...(olivesUsed > 0 ? { olives_used: olivesUsed } : {}),
+          status: "failed",
+          fail_reason: providerReason,
+          refunded: true,
+          created_at: FieldValue.serverTimestamp(),
+        });
+      } catch (writeErr) {
+        console.error("Failed-order record write failed:", writeErr.message);
+      }
+
+      // Ledger entries for the refund — same wallet_topups convention the
+      // admin manual-refund flow already uses (so it shows up in the
+      // admin Top-ups tab too), plus the full-audit wallet_transactions
+      // ledger used by order charges.
+      try {
+        await db.collection("wallet_topups").add({
+          uid,
+          type: "order_refund_auto",
+          gross_amount: refundAmount,
+          fee: 0,
+          net_credit: refundAmount,
+          status: "credited",
+          note: `Auto-refund: order failed with provider (${providerReason})`,
+          credited_at: FieldValue.serverTimestamp(),
+        });
+        const freshBalance = (await userRef.get()).data()?.wallet_balance;
+        await logWalletTxAsync({
+          uid,
+          type: "order_refund",
+          amount: refundAmount,
+          balance_after: typeof freshBalance === "number" ? round2(freshBalance) : null,
+          note: `Refund for failed order (${providerReason})`,
+          ref_id: failedOrderRef?.id || null,
+        });
+      } catch (ledgerErr) {
+        console.error("Refund ledger write failed:", ledgerErr.message);
+      }
+
+      // Best-effort in-app notification, same as a successful order.
+      try {
+        await db.collection("users").doc(uid).collection("notifications").add({
+          type: "order_failed",
+          title: "Order failed — refunded",
+          body: `${quantity} × ${service.name} couldn't be placed (${providerReason}). ₦${totalCost.toLocaleString()} was refunded to your wallet.`,
+          read: false,
+          created_at: FieldValue.serverTimestamp(),
+        });
+      } catch (notifErr) {
+        console.error("Order-failed notification write failed:", notifErr.message);
+      }
+
       throw Object.assign(
         new Error("Order failed with provider. Your wallet has been refunded."),
         { statusCode: 502 }
@@ -223,4 +316,19 @@ exports.handler = async (event) => {
 
 function round2(n) {
   return Math.round(n * 100) / 100;
+}
+
+// Turns BigiSub's validation error shape ({"errors":{"link":["too long"]}})
+// or its generic {"message":"..."} shape into one short, user-facing string
+// instead of a raw JSON blob or axios's uninformative "status code 400".
+function extractProviderReason(err) {
+  const data = err.response?.data;
+  if (data?.errors && typeof data.errors === "object") {
+    const parts = Object.entries(data.errors).map(
+      ([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(" ") : msgs}`
+    );
+    if (parts.length) return parts.join("; ");
+  }
+  if (data?.message) return data.message;
+  return err.message || "unknown error";
 }
