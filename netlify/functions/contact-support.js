@@ -5,7 +5,7 @@
 // Body:    { message, attachment?: { content: base64, name, mime } }
 //
 // Used by the "Olives" chat widget's escalate-to-a-human flow. Emails
-// SUPPORT_EMAIL (olvraboost@outlook.com) with replyTo set to the user's own
+// SUPPORT_EMAIL (testimonyjacob9@gmail.com) with replyTo set to the user's own
 // address, so support can just hit reply. Also saves a copy to Firestore
 // `support_messages` for a record even if email delivery fails.
 
@@ -14,7 +14,7 @@ const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 const { sendEmail, supportEscalationEmail } = require("./_lib/brevo");
 
-const SUPPORT_EMAIL = "olvraboost@outlook.com";
+const SUPPORT_EMAIL = "testimonyjacob9@gmail.com";
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {

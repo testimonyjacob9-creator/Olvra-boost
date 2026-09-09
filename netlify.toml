@@ -23,6 +23,15 @@
 [functions."sync-order-status"]
   schedule = "*/15 * * * *"
 
+# Runs daily — checks for users inactive 2+ days and sends the Olives
+# re-engagement email (gated per-user internally so any one person is
+# still only messaged about once every 2 days, not once every day this
+# cron fires). See reengage-users.js for why a daily cron + in-function
+# gating is used instead of trying to express "every 2 days" directly in
+# cron syntax — same pattern WoodPayVTU already uses successfully.
+[functions."reengage-users"]
+  schedule = "0 9 * * *"
+
 # The bundled Firebase SDK is the single largest download on every page
 # (see scripts/bundle-firebase.js) but its content only changes on a new
 # deploy — each filename stays the same across deploys, so a long

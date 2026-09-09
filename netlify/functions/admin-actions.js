@@ -130,12 +130,33 @@ async function setUserDisabled(adminUid, { targetUid, disabled }) {
   return { targetUid, disabled };
 }
 
+async function sendUserNotification(adminUid, { targetUid, title, body }) {
+  if (!targetUid || !title || !body) {
+    throw Object.assign(new Error("targetUid, title, and body are required."), { statusCode: 400 });
+  }
+  const userRef = db.collection("users").doc(targetUid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw Object.assign(new Error("User not found."), { statusCode: 404 });
+  }
+  await userRef.collection("notifications").add({
+    type: "admin_message",
+    title,
+    body,
+    sent_by: adminUid,
+    read: false,
+    created_at: FieldValue.serverTimestamp(),
+  });
+  return { targetUid, sent: true };
+}
+
 const ACTIONS = {
   adjustWallet,
   updateOrderStatus,
   toggleService,
   updateSettings,
   setUserDisabled,
+  sendUserNotification,
 };
 
 exports.handler = async (event) => {

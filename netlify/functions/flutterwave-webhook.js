@@ -160,7 +160,10 @@ exports.handler = async (event) => {
       const referralEligible = !!(referrerRef && referrerSnap && referrerSnap.exists);
 
       // ---- WRITES (no more reads past this point) ----
-      const userUpdate = { wallet_balance: FieldValue.increment(netCredit) };
+      const userUpdate = {
+        wallet_balance: FieldValue.increment(netCredit),
+        last_activity_at: FieldValue.serverTimestamp(), // used by reengage-users.js to find inactive users
+      };
       if (isFirstFunding) {
         userUpdate.has_funded = true;
         if (referralEligible) userUpdate.referral_paid = true;

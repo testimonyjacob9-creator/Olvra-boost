@@ -247,6 +247,13 @@
       <div class="section-title" style="padding-top:14px;">Announcement banner</div>
       <textarea class="search-input" id="setting-announcement" placeholder="Optional message shown at the top of the app, e.g. a promo or a scheduled downtime notice. Leave blank to hide."></textarea>
       <button class="pill-btn" id="save-settings-btn" style="width:100%; margin-top:6px;">Save Settings</button>
+
+      <div class="section-title" style="padding-top:22px;">Email All Users</div>
+      <div class="s" style="margin-bottom:10px;">Sends a branded email to every user (except anyone who's unsubscribed). Just type — the design is already handled.</div>
+      <input type="text" class="search-input" id="broadcast-subject" placeholder="Subject line" style="margin-bottom:8px;">
+      <textarea class="search-input" id="broadcast-message" placeholder="Your message — each new line becomes its own paragraph in the email." rows="5"></textarea>
+      <button class="pill-btn" id="send-broadcast-btn" style="width:100%; margin-top:6px;">Send to All Users</button>
+      <div class="s" id="broadcast-status" style="margin-top:6px;"></div>
     </div>
   </div>
 
@@ -460,6 +467,15 @@
             <button class="pill-btn ghost" data-wallet-apply="${u.uid}">Adjust Wallet</button>
             <button class="pill-btn ${suspended ? "" : "danger"}" data-suspend-toggle="${u.uid}" data-suspended="${suspended}">${suspended ? "Unsuspend" : "Suspend"}</button>
           </div>
+          <div class="row-actions">
+            <input type="text" placeholder="Notification title" data-msg-title="${u.uid}" style="flex:1; min-width:150px;">
+          </div>
+          <div class="row-actions">
+            <textarea placeholder="Message to send this user (shows as an in-app notification)" data-msg-body="${u.uid}" rows="2" style="flex:1; min-width:150px; font-family:inherit; padding:8px; border-radius:8px; border:1px solid var(--line);"></textarea>
+          </div>
+          <div class="row-actions">
+            <button class="pill-btn ghost" data-msg-send="${u.uid}">Send Notification</button>
+          </div>
         </div>
       </div>`;
     }
@@ -509,6 +525,26 @@
           } catch (err) {
             showToast(err.message || "Action failed");
             btn.disabled = false;
+          }
+        };
+      });
+      container.querySelectorAll("[data-msg-send]").forEach((btn) => {
+        btn.onclick = async () => {
+          const uid = btn.dataset.msgSend;
+          const titleEl = container.querySelector(`[data-msg-title="${uid}"]`);
+          const bodyEl = container.querySelector(`[data-msg-body="${uid}"]`);
+          const title = titleEl.value.trim();
+          const body = bodyEl.value.trim();
+          if (!title || !body) { showToast("Enter both a title and a message"); return; }
+          btn.disabled = true; btn.textContent = "…";
+          try {
+            await callFunction("admin-actions", { action: "sendUserNotification", targetUid: uid, title, body });
+            showToast("Notification sent");
+            titleEl.value = ""; bodyEl.value = "";
+          } catch (err) {
+            showToast(err.message || "Send failed");
+          } finally {
+            btn.disabled = false; btn.textContent = "Send Notification";
           }
         };
       });
@@ -674,6 +710,29 @@
         showToast(err.message || "Save failed");
       }
       btn.disabled = false; btn.textContent = "Save Settings";
+    };
+
+    document.getElementById("send-broadcast-btn").onclick = async () => {
+      const btn = document.getElementById("send-broadcast-btn");
+      const statusEl = document.getElementById("broadcast-status");
+      const subject = document.getElementById("broadcast-subject").value.trim();
+      const message = document.getElementById("broadcast-message").value.trim();
+      if (!subject || !message) { showToast("Enter both a subject and a message"); return; }
+      if (!confirm(`Send this email to every user? This can't be undone.`)) return;
+      btn.disabled = true; btn.textContent = "Sending…";
+      statusEl.textContent = "";
+      try {
+        const result = await callFunction("admin-broadcast-email", { subject, message });
+        statusEl.textContent = `Sent to ${result.sent} of ${result.recipientCount} recipients${result.failed ? ` (${result.failed} failed)` : ""}.`;
+        showToast("Broadcast sent");
+        document.getElementById("broadcast-subject").value = "";
+        document.getElementById("broadcast-message").value = "";
+      } catch (err) {
+        statusEl.textContent = err.message || "Send failed";
+        showToast(err.message || "Send failed");
+      } finally {
+        btn.disabled = false; btn.textContent = "Send to All Users";
+      }
     };
 
     // ===== Sync =====

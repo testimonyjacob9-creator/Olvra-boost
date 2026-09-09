@@ -111,6 +111,7 @@ exports.handler = async (event) => {
       tx.update(userRef, {
         wallet_balance: FieldValue.increment(walletDelta),
         ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(-olivesUsed) } : {}),
+        last_activity_at: FieldValue.serverTimestamp(), // used by reengage-users.js to find inactive users
       });
 
       return { totalCost, service: svc, olivesUsed };

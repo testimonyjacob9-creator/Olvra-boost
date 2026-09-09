@@ -15,8 +15,12 @@ const BG = "#F4F7FE";
  * @param {string} bodyHtml    - inner content, plain inline-styled HTML
  * @param {string} [ctaText]   - optional button label
  * @param {string} [ctaUrl]    - optional button link
+ * @param {string} [unsubscribeUrl] - if set, adds an unsubscribe line to the
+ *   footer instead of the default "ignore this" line. Required for bulk/
+ *   marketing sends (admin broadcast, Olives re-engagement) — not needed
+ *   for one-off transactional emails (verification, order confirmation).
  */
-function renderEmail({ title, bodyHtml, ctaText, ctaUrl }) {
+function renderEmail({ title, bodyHtml, ctaText, ctaUrl, unsubscribeUrl }) {
   const button = ctaText && ctaUrl
     ? `
       <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0 8px">
@@ -29,6 +33,10 @@ function renderEmail({ title, bodyHtml, ctaText, ctaUrl }) {
         </tr>
       </table>`
     : "";
+
+  const footerLine = unsubscribeUrl
+    ? `Olvra Boost — social media growth, delivered.<br><a href="${unsubscribeUrl}" style="color:${MUTED};">Unsubscribe from these emails</a>`
+    : `Olvra Boost — social media growth, delivered.<br>If you didn't expect this email, you can safely ignore it.`;
 
   return `
   <div style="background:${BG};padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
@@ -51,8 +59,7 @@ function renderEmail({ title, bodyHtml, ctaText, ctaUrl }) {
       </tr>
       <tr>
         <td style="padding-top:22px;text-align:center;font-size:12px;color:${MUTED};line-height:1.6;">
-          Olvra Boost — social media growth, delivered.<br>
-          If you didn't expect this email, you can safely ignore it.
+          ${footerLine}
         </td>
       </tr>
     </table>

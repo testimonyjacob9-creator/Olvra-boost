@@ -40,7 +40,8 @@ service cloud.firestore {
                     && request.auth.uid == userId
                     && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
                          "wallet_balance", "permanent_account",
-                         "olive_balance", "has_funded", "referral_paid", "referred_by"
+                         "olive_balance", "has_funded", "referral_paid", "referred_by",
+                         "last_activity_at", "last_reengagement_sent_at", "suspended"
                        ]);
 
       // Notifications: a user can read/update (mark-read) only their own
