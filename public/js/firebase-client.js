@@ -49,6 +49,25 @@ export async function callFunction(name, body) {
 }
 
 /**
+ * Calls a GET Netlify Function with the signed-in user's Firebase ID token
+ * attached, and throws with a readable message on any non-2xx response.
+ * Mirrors callFunction() above but for read-style endpoints (numbers-prices,
+ * check-number) that take query params instead of a JSON body.
+ */
+export async function callFunctionGet(name, params) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("You must be signed in.");
+  const idToken = await user.getIdToken();
+  const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+  const res = await fetch(`/.netlify/functions/${name}${qs}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request to ${name} failed.`);
+  return data;
+}
+
+/**
  * Firebase's SDK doesn't retry network failures on its own — a short
  * automatic retry helps meaningfully on weak mobile connections (this app
  * has real users on very slow/flaky Nigerian mobile data, seen as low as

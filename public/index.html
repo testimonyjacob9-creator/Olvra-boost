@@ -150,6 +150,31 @@
   .empty-state{ text-align:center; padding:30px 20px; color:var(--muted-2); font-size:13px; }
   .hidden{ display:none !important; }
 
+  /* ===== Rent Number screen ===== */
+  .operator-list{ padding:0 16px 14px; display:flex; flex-direction:column; gap:10px; }
+  .operator-row{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:14px; display:flex; justify-content:space-between; align-items:center;
+    box-shadow:var(--shadow); transition:transform 0.12s ease;
+  }
+  .operator-row:active{ transform:scale(0.98); }
+  .operator-row .op-name{ font-weight:700; font-size:13.5px; text-transform:capitalize; }
+  .operator-row .op-count{ font-size:11.5px; color:var(--muted-2); margin-top:2px; }
+  .operator-row .op-price{ font-weight:700; color:var(--blue-deep); font-size:14.5px; white-space:nowrap; }
+  .active-number-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:24px 20px; margin:6px 16px 18px; box-shadow:var(--shadow); text-align:center;
+  }
+  .active-number-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
+  .active-number-phone{ font-family:'Space Grotesk',sans-serif; font-size:23px; font-weight:700; letter-spacing:0.02em; margin:10px 0 12px; word-break:break-all; }
+  .active-number-timer{ font-size:12px; color:var(--muted); margin-top:10px; }
+  .sms-list{ margin-top:16px; text-align:left; display:flex; flex-direction:column; gap:8px; }
+  .sms-item{ background:var(--surface-2); border-radius:12px; padding:10px 12px; font-size:12.5px; }
+  .sms-item .code{ font-weight:700; color:var(--blue-deep); font-family:monospace; font-size:16px; letter-spacing:0.03em; display:block; margin-top:2px; }
+  .active-number-actions{ display:flex; gap:10px; margin-top:18px; }
+  .active-number-actions .btn{ flex:1; padding:12px; font-size:13px; }
+  .history-row-tap{ cursor:pointer; }
+
   /* ===== Motion system ===== */
   @keyframes screenIn{ from{ opacity:0; transform:translateY(18px) scale(0.99); } to{ opacity:1; transform:translateY(0) scale(1); } }
   @keyframes fieldIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
@@ -900,6 +925,75 @@
     <div class="platform-grid" id="platform-grid" style="padding-bottom:24px;"></div>
   </div>
 
+  <!-- ===================== RENT NUMBER SCREEN ===================== -->
+  <div id="numbers-screen" class="hidden">
+    <div class="page-header">
+      <button class="icon-btn" id="numbers-back">←</button>
+      <div class="page-title" id="numbers-title">Rent Number</div>
+      <div style="width:40px"></div>
+    </div>
+
+    <!-- Step 1: product -->
+    <div id="numbers-step-product">
+      <div class="section-title" style="padding-top:6px;">Choose a service</div>
+      <div class="category-grid" id="numbers-product-grid">
+        <div class="empty-state">Loading services…</div>
+      </div>
+    </div>
+
+    <!-- Step 2: country -->
+    <div id="numbers-step-country" class="hidden">
+      <div class="section-title" style="padding-top:6px;">Choose a country</div>
+      <div class="category-grid" id="numbers-country-grid"></div>
+    </div>
+
+    <!-- Step 3: operator / price -->
+    <div id="numbers-step-operators" class="hidden">
+      <div class="section-title" style="padding-top:6px;">Choose a price</div>
+      <div class="operator-list" id="numbers-operator-list"></div>
+      <div class="empty-state hidden" id="numbers-operator-empty">No numbers available for this right now — try another country.</div>
+    </div>
+
+    <!-- Step 4: active/waiting number -->
+    <div id="numbers-step-active" class="hidden">
+      <div class="active-number-card">
+        <div class="active-number-label" id="active-number-product">—</div>
+        <div class="active-number-phone" id="active-number-phone">—</div>
+        <button class="copy-btn" id="active-number-copy">Copy Number</button>
+        <div>
+          <span class="order-status status-processing" id="active-number-status-badge" style="margin-top:12px; display:inline-block;">Waiting for code…</span>
+        </div>
+        <div class="active-number-timer" id="active-number-timer"></div>
+        <div class="sms-list" id="active-number-sms"></div>
+        <div class="active-number-actions">
+          <button class="btn btn-ghost" id="active-number-cancel">Cancel &amp; Refund</button>
+          <button class="btn btn-primary" id="active-number-finish">Done</button>
+        </div>
+        <div class="msg" id="active-number-msg"></div>
+      </div>
+    </div>
+
+    <div class="section-title" id="numbers-history-title">Recent Numbers</div>
+    <div class="order-list" id="numbers-history-list" style="padding-bottom:24px;">
+      <div class="empty-state">No numbers rented yet.</div>
+    </div>
+  </div>
+
+  <!-- Buy-number confirm sheet -->
+  <div class="sheet-overlay" id="numbers-buy-overlay">
+    <div class="sheet">
+      <h2 id="numbers-buy-title"></h2>
+      <div class="price-row" id="numbers-buy-subtitle"></div>
+      <div class="cost-box">
+        <div class="row"><span>Price</span><span id="numbers-buy-price">₦0</span></div>
+        <div class="row total"><span>Charged to</span><span>Wallet</span></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; margin-top:14px;" id="numbers-buy-confirm-btn">Rent This Number</button>
+      <button class="btn btn-ghost" style="width:100%; margin-top:8px;" id="numbers-buy-cancel-btn">Cancel</button>
+      <div class="msg" id="numbers-buy-msg"></div>
+    </div>
+  </div>
+
   <!-- ===================== PROFILE SCREEN ===================== -->
   <div id="profile-screen" class="hidden">
     <div class="page-header">
@@ -1051,7 +1145,7 @@
       updateProfile, signOut,
       doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, getCountFromServer, serverTimestamp
     } from "./js/firebase-sdk.bundle.js";
-    import { auth, db, callFunction, withNetworkRetry } from "./js/firebase-client.js";
+    import { auth, db, callFunction, callFunctionGet, withNetworkRetry } from "./js/firebase-client.js";
     import { ensureOnboardingAccepted } from "./js/onboarding.js";
 
     const SUPPORT_EMAIL = "olvraboost@outlook.com";
@@ -1086,6 +1180,7 @@
       category: document.getElementById("category-screen"),
       autoServices: document.getElementById("auto-services-screen"),
       boost: document.getElementById("boost-screen"),
+      numbers: document.getElementById("numbers-screen"),
     };
     function showScreen(name) {
       Object.values(screens).forEach((el) => el.classList.add("hidden"));
@@ -1640,7 +1735,7 @@
 
     // ---- Home service grid ----
     document.getElementById("tile-boost").onclick = () => showScreen("boost");
-    document.getElementById("tile-numbers").onclick = () => showToast("Rent Number — coming soon 📱");
+    document.getElementById("tile-numbers").onclick = () => openNumbersScreen();
     document.getElementById("boost-back").onclick = () => showScreen("app");
     document.querySelectorAll(".service-tile.soon").forEach((tile) => {
       tile.onclick = () => showToast("Coming soon");
@@ -2057,6 +2152,336 @@
         btn.textContent = "Start Auto Service";
       }
     };
+
+    // =========================================================
+    // Rent Number ("Rent Number" tile — 5sim virtual numbers)
+    // =========================================================
+    const PRODUCT_ICONS = {
+      whatsapp: "💬", telegram: "✈️", google: "🔍", facebook: "📘", instagram: "📷",
+      tiktok: "🎵", twitter: "🐦", discord: "🎮", amazon: "🛒", openai: "🤖", other: "🔢",
+    };
+
+    let numbersOptions = null;       // { countries, products } from numbers-prices (no query)
+    let numbersProduct = null;       // { product, label }
+    let numbersCountry = null;       // { country, label }
+    let numbersPendingBuy = null;    // { operator, priceNgn } — set right before the confirm sheet opens
+    let numbersActiveOrderId = null;
+    let numbersPollTimer = null;
+    let numbersCountdownTimer = null;
+
+    function showNumbersStep(step) {
+      ["product", "country", "operators", "active"].forEach((s) => {
+        document.getElementById(`numbers-step-${s}`).classList.toggle("hidden", s !== step);
+      });
+      const onProduct = step === "product";
+      document.getElementById("numbers-history-title").classList.toggle("hidden", !onProduct);
+      document.getElementById("numbers-history-list").classList.toggle("hidden", !onProduct);
+      document.getElementById("numbers-title").textContent =
+        step === "product" ? "Rent Number" :
+        step === "country" ? numbersProduct?.label || "Choose a Country" :
+        step === "operators" ? "Choose a Price" : "Your Number";
+      if (step !== "active") stopNumbersPolling();
+    }
+
+    async function openNumbersScreen() {
+      showScreen("numbers");
+      showNumbersStep("product");
+      loadNumbersHistory();
+      if (numbersOptions) { renderNumbersProductGrid(); return; }
+      try {
+        numbersOptions = await callFunctionGet("numbers-prices");
+        renderNumbersProductGrid();
+      } catch (err) {
+        document.getElementById("numbers-product-grid").innerHTML = "";
+        showToast(err.message || "Couldn't load Rent Number options.");
+      }
+    }
+
+    function renderNumbersProductGrid() {
+      const grid = document.getElementById("numbers-product-grid");
+      grid.innerHTML = numbersOptions.products.map((p) => `
+        <div class="cat-card" data-product="${p.product}">
+          <div class="cat-icon">${PRODUCT_ICONS[p.product] || "🔢"}</div>
+          <div class="cat-name">${p.label}</div>
+        </div>`).join("");
+      grid.querySelectorAll(".cat-card").forEach((card) => {
+        card.onclick = () => {
+          numbersProduct = numbersOptions.products.find((p) => p.product === card.dataset.product);
+          renderNumbersCountryGrid();
+          showNumbersStep("country");
+        };
+      });
+    }
+
+    function renderNumbersCountryGrid() {
+      const grid = document.getElementById("numbers-country-grid");
+      grid.innerHTML = numbersOptions.countries.map((c) => `
+        <div class="cat-card" data-country="${c.country}">
+          <div class="cat-icon">🌍</div>
+          <div class="cat-name">${c.label}</div>
+        </div>`).join("");
+      grid.querySelectorAll(".cat-card").forEach((card) => {
+        card.onclick = () => {
+          numbersCountry = numbersOptions.countries.find((c) => c.country === card.dataset.country);
+          showNumbersStep("operators");
+          loadNumbersOperators();
+        };
+      });
+    }
+
+    async function loadNumbersOperators() {
+      const list = document.getElementById("numbers-operator-list");
+      const empty = document.getElementById("numbers-operator-empty");
+      list.innerHTML = `<div class="empty-state">Checking live prices…</div>`;
+      empty.classList.add("hidden");
+      try {
+        const data = await callFunctionGet("numbers-prices", { country: numbersCountry.country, product: numbersProduct.product });
+        if (!data.operators || data.operators.length === 0) {
+          list.innerHTML = "";
+          empty.classList.remove("hidden");
+          return;
+        }
+        list.innerHTML = data.operators.map((o) => `
+          <div class="operator-row" data-operator="${o.operator}" data-price="${o.priceNgn}">
+            <div>
+              <div class="op-name">${o.operator}</div>
+              <div class="op-count">${o.count} available</div>
+            </div>
+            <div class="op-price">₦${o.priceNgn.toLocaleString()}</div>
+          </div>`).join("");
+        list.querySelectorAll(".operator-row").forEach((row) => {
+          row.onclick = () => openNumbersBuySheet(row.dataset.operator, Number(row.dataset.price));
+        });
+      } catch (err) {
+        list.innerHTML = "";
+        empty.textContent = err.message || "Couldn't load prices — try again.";
+        empty.classList.remove("hidden");
+      }
+    }
+
+    document.getElementById("numbers-back").onclick = () => {
+      const activeStep = ["product", "country", "operators", "active"].find(
+        (s) => !document.getElementById(`numbers-step-${s}`).classList.contains("hidden")
+      );
+      if (activeStep === "country") { showNumbersStep("product"); }
+      else if (activeStep === "operators") { showNumbersStep("country"); }
+      else if (activeStep === "active") { showNumbersStep("product"); loadNumbersHistory(); }
+      else { showScreen("app"); }
+    };
+
+    // ---- Buy confirm sheet ----
+    const numbersBuyOverlay = document.getElementById("numbers-buy-overlay");
+    function openNumbersBuySheet(operator, priceNgn) {
+      numbersPendingBuy = { operator, priceNgn };
+      document.getElementById("numbers-buy-title").textContent = `${numbersProduct.label} — ${operator}`;
+      document.getElementById("numbers-buy-subtitle").textContent = `${numbersCountry.label} · number valid for a limited time`;
+      document.getElementById("numbers-buy-price").textContent = `₦${priceNgn.toLocaleString()}`;
+      document.getElementById("numbers-buy-msg").textContent = "";
+      numbersBuyOverlay.classList.add("show");
+    }
+    document.getElementById("numbers-buy-cancel-btn").onclick = () => numbersBuyOverlay.classList.remove("show");
+    numbersBuyOverlay.onclick = (e) => { if (e.target === numbersBuyOverlay) numbersBuyOverlay.classList.remove("show"); };
+
+    document.getElementById("numbers-buy-confirm-btn").onclick = async () => {
+      if (!numbersPendingBuy) return;
+      const msgEl = document.getElementById("numbers-buy-msg");
+      const btn = document.getElementById("numbers-buy-confirm-btn");
+      msgEl.textContent = "";
+      btn.disabled = true;
+      btn.textContent = "Renting…";
+      try {
+        await ensureOnboardingAccepted(db, currentUser);
+        const result = await callFunction("buy-number", {
+          country: numbersCountry.country,
+          product: numbersProduct.product,
+          operator: numbersPendingBuy.operator,
+        });
+        numbersBuyOverlay.classList.remove("show");
+        openActiveNumber({
+          orderId: result.orderId,
+          phone: result.phone,
+          status: result.status,
+          expires: result.expires,
+          sms: [],
+        });
+      } catch (err) {
+        msgEl.textContent = err.message || "Couldn't rent this number.";
+        msgEl.className = "msg error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Rent This Number";
+      }
+    };
+
+    // ---- Active number: waiting for the code, polling, finish/cancel ----
+    function openActiveNumber(order) {
+      numbersActiveOrderId = order.orderId;
+      document.getElementById("active-number-product").textContent = `${numbersProduct?.label || order.product || ""} · ${numbersCountry?.label || ""}`;
+      document.getElementById("active-number-phone").textContent = order.phone;
+      document.getElementById("active-number-msg").textContent = "";
+      renderActiveNumberStatus(order.status, order.sms || []);
+      startNumbersCountdown(order.expires);
+      showNumbersStep("active");
+      startNumbersPolling(order.orderId);
+    }
+
+    const NUMBERS_CLOSED_STATUSES = new Set(["FINISHED", "CANCELED", "TIMEOUT", "BANNED"]);
+    function renderActiveNumberStatus(status, sms) {
+      const badge = document.getElementById("active-number-status-badge");
+      const label = { PENDING: "Waiting for code…", RECEIVED: "Code received", FINISHED: "Closed", CANCELED: "Cancelled", TIMEOUT: "Timed out", BANNED: "Number banned" }[status] || status;
+      badge.textContent = label;
+      badge.className = "order-status " + (
+        status === "PENDING" ? "status-processing" :
+        NUMBERS_CLOSED_STATUSES.has(status) && status !== "FINISHED" ? "status-failed" : "status-completed"
+      );
+      const smsList = document.getElementById("active-number-sms");
+      smsList.innerHTML = sms.map((s) => `
+        <div class="sms-item">
+          ${s.sender ? `<div style="color:var(--muted-2); font-size:11px;">${s.sender}</div>` : ""}
+          <span class="code">${s.code || s.text || ""}</span>
+        </div>`).join("");
+      const cancelBtn = document.getElementById("active-number-cancel");
+      cancelBtn.classList.toggle("hidden", sms.length > 0 || NUMBERS_CLOSED_STATUSES.has(status));
+      const finishBtn = document.getElementById("active-number-finish");
+      finishBtn.textContent = NUMBERS_CLOSED_STATUSES.has(status) ? "Close" : "Done — I've used the code";
+    }
+
+    function startNumbersCountdown(expiresAt) {
+      clearInterval(numbersCountdownTimer);
+      const timerEl = document.getElementById("active-number-timer");
+      if (!expiresAt) { timerEl.textContent = ""; return; }
+      const expiresMs = new Date(expiresAt).getTime();
+      const tick = () => {
+        const remainMs = expiresMs - Date.now();
+        if (remainMs <= 0) { timerEl.textContent = "Expired"; clearInterval(numbersCountdownTimer); return; }
+        const mins = Math.floor(remainMs / 60000);
+        const secs = Math.floor((remainMs % 60000) / 1000);
+        timerEl.textContent = `Expires in ${mins}:${String(secs).padStart(2, "0")}`;
+      };
+      tick();
+      numbersCountdownTimer = setInterval(tick, 1000);
+    }
+
+    function startNumbersPolling(orderId) {
+      stopNumbersPolling();
+      numbersPollTimer = setInterval(async () => {
+        try {
+          const fresh = await callFunctionGet("check-number", { orderId });
+          renderActiveNumberStatus(fresh.status, fresh.sms || []);
+          if (NUMBERS_CLOSED_STATUSES.has(fresh.status)) stopNumbersPolling();
+        } catch (err) {
+          console.error("check-number poll failed:", err);
+        }
+      }, 4000);
+    }
+    function stopNumbersPolling() {
+      if (numbersPollTimer) clearInterval(numbersPollTimer);
+      numbersPollTimer = null;
+      if (numbersCountdownTimer) clearInterval(numbersCountdownTimer);
+      numbersCountdownTimer = null;
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (!numbersActiveOrderId) return;
+      const onActiveStep = !document.getElementById("numbers-step-active").classList.contains("hidden");
+      if (!onActiveStep) return;
+      if (document.hidden) { clearInterval(numbersPollTimer); numbersPollTimer = null; }
+      else startNumbersPolling(numbersActiveOrderId);
+    });
+
+    document.getElementById("active-number-copy").onclick = () => {
+      const phone = document.getElementById("active-number-phone").textContent;
+      navigator.clipboard?.writeText(phone).then(() => showToast("Number copied"));
+    };
+
+    document.getElementById("active-number-finish").onclick = async () => {
+      if (!numbersActiveOrderId) return;
+      const btn = document.getElementById("active-number-finish");
+      const msgEl = document.getElementById("active-number-msg");
+      btn.disabled = true;
+      try {
+        await callFunction("finish-number", { orderId: numbersActiveOrderId });
+        stopNumbersPolling();
+        showToast("Number closed");
+        showNumbersStep("product");
+        loadNumbersHistory();
+      } catch (err) {
+        msgEl.textContent = err.message || "Couldn't close this order.";
+        msgEl.className = "msg error";
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    document.getElementById("active-number-cancel").onclick = async () => {
+      if (!numbersActiveOrderId) return;
+      const btn = document.getElementById("active-number-cancel");
+      const msgEl = document.getElementById("active-number-msg");
+      btn.disabled = true;
+      btn.textContent = "Cancelling…";
+      try {
+        const result = await callFunction("cancel-number", { orderId: numbersActiveOrderId });
+        stopNumbersPolling();
+        showToast(`Cancelled — ₦${(result.refunded || 0).toLocaleString()} refunded`);
+        showNumbersStep("product");
+        loadNumbersHistory();
+      } catch (err) {
+        msgEl.textContent = err.message || "Couldn't cancel this order.";
+        msgEl.className = "msg error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Cancel & Refund";
+      }
+    };
+
+    // ---- Recent Numbers history (reads number_orders directly — same
+    // "read your own" rule firestore.rules already grants) ----
+    async function loadNumbersHistory() {
+      const list = document.getElementById("numbers-history-list");
+      if (!currentUser) return;
+      try {
+        const q = query(
+          collection(db, "number_orders"),
+          where("uid", "==", currentUser.uid),
+          orderBy("created_at", "desc"),
+          limit(10)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          list.innerHTML = `<div class="empty-state">No numbers rented yet.</div>`;
+          return;
+        }
+        list.innerHTML = snap.docs.map((d) => {
+          const o = d.data();
+          const label = PRODUCT_ICONS[o.product] ? `${PRODUCT_ICONS[o.product]} ${o.product}` : o.product;
+          const statusClass = o.status === "FINISHED" ? "status-completed" :
+            NUMBERS_CLOSED_STATUSES.has(o.status) ? "status-failed" : "status-processing";
+          return `
+            <div class="order-row history-row-tap" data-id="${d.id}">
+              <div>
+                <div style="font-weight:600; text-transform:capitalize;">${label}</div>
+                <div style="color:var(--muted-2); font-size:11.5px; margin-top:2px;">${o.phone || ""} · ₦${(o.price_ngn || 0).toLocaleString()}</div>
+              </div>
+              <span class="order-status ${statusClass}">${o.status || "PENDING"}</span>
+            </div>`;
+        }).join("");
+        list.querySelectorAll(".history-row-tap").forEach((row) => {
+          row.onclick = () => {
+            const order = snap.docs.find((d) => d.id === row.dataset.id)?.data();
+            if (!order) return;
+            if (NUMBERS_CLOSED_STATUSES.has(order.status)) {
+              showToast(`${order.phone} — ${order.status.toLowerCase()}`);
+              return;
+            }
+            numbersProduct = { product: order.product, label: order.product };
+            numbersCountry = { country: order.country, label: order.country };
+            openActiveNumber({ orderId: row.dataset.id, phone: order.phone, status: order.status, expires: order.expires_at, sms: order.sms || [] });
+          };
+        });
+      } catch (err) {
+        console.error("Couldn't load number history:", err);
+        list.innerHTML = `<div class="empty-state">Couldn't load your recent numbers.</div>`;
+      }
+    }
 
     // =========================================================
     // Info carousel — optional "Learn how this works" content
