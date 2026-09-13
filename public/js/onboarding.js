@@ -17,6 +17,9 @@ import { doc, getDoc, setDoc, serverTimestamp } from "./firebase-sdk.bundle.js";
 const ONBOARDING_VERSION = "v1";
 const LOCAL_KEY = `olvra_onboarding_accepted_${ONBOARDING_VERSION}`;
 
+const NUMBERS_ONBOARDING_VERSION = "numbers_v1";
+const NUMBERS_LOCAL_KEY = `olvra_numbers_onboarding_accepted_${NUMBERS_ONBOARDING_VERSION}`;
+
 const STEPS = [
   {
     icon: "🛒",
@@ -67,6 +70,45 @@ const STEPS = [
   },
 ];
 
+const NUMBERS_STEPS = [
+  {
+    icon: "📱",
+    title: "How Rent Number works",
+    body: `
+      <ol class="ob-list">
+        <li>Pick a service (WhatsApp, Telegram, Google, etc.) and a country.</li>
+        <li>Pick a price — you're shown a live list of numbers actually available right now.</li>
+        <li>The price is deducted from your wallet and you get a real phone number instantly.</li>
+        <li>Use that number to sign up or verify on the service you picked, then wait for the code here.</li>
+      </ol>
+    `,
+  },
+  {
+    icon: "⏳",
+    title: "Time limit — read this",
+    body: `
+      <ul class="ob-list">
+        <li>Every number has a countdown. If <b>no code arrives before it expires</b>, the order closes automatically and you're refunded in full — you don't need to contact support.</li>
+        <li>Once a code <b>does</b> arrive, the number can no longer be cancelled for a refund — you're expected to actually use it at that point.</li>
+        <li>A number can occasionally come back <b>"banned"</b> (already flagged by the service you're verifying on) — this also refunds automatically, same as a timeout.</li>
+      </ul>
+    `,
+  },
+  {
+    icon: "📄",
+    title: "Before you rent your first number",
+    isTerms: true,
+    body: `
+      <ul class="ob-list">
+        <li>Numbers are provided by a third-party SMS-verification provider, not by Olvra Boost directly — availability and delivery speed can vary by country and service.</li>
+        <li>Only use rented numbers for lawful sign-ups and verifications. Olvra Boost does not support sending outgoing messages or calls from rented numbers.</li>
+        <li>A number is single-use for the service you picked it for — it is not a personal phone line and shouldn't be shared publicly as one.</li>
+        <li>Refunds are automatic for timed-out, cancelled, or banned orders with no code received. Once a code has been delivered, the order is considered fulfilled.</li>
+      </ul>
+    `,
+  },
+];
+
 function injectStylesOnce() {
   if (document.getElementById("ob-styles")) return;
   const style = document.createElement("style");
@@ -104,14 +146,14 @@ function injectStylesOnce() {
   document.head.appendChild(style);
 }
 
-function renderStep(modal, index, onDone) {
-  const step = STEPS[index];
+function renderStep(modal, steps, checkboxLabel, index, onDone) {
+  const step = steps[index];
   const isFirst = index === 0;
-  const isLast = index === STEPS.length - 1;
+  const isLast = index === steps.length - 1;
 
   modal.innerHTML = `
     <div class="ob-dots">
-      ${STEPS.map((_, i) => `<div class="ob-dot ${i === index ? "active" : ""}"></div>`).join("")}
+      ${steps.map((_, i) => `<div class="ob-dot ${i === index ? "active" : ""}"></div>`).join("")}
     </div>
     <div class="ob-icon">${step.icon}</div>
     <h2 class="ob-title">${step.title}</h2>
@@ -120,7 +162,7 @@ function renderStep(modal, index, onDone) {
       step.isTerms
         ? `<label class="ob-check-row">
              <input type="checkbox" id="ob-accept-checkbox">
-             <span>I've read this and understand how ordering, delivery, and refunds work on Olvra Boost.</span>
+             <span>${checkboxLabel}</span>
            </label>`
         : ""
     }
@@ -139,15 +181,15 @@ function renderStep(modal, index, onDone) {
   }
 
   const backBtn = modal.querySelector("#ob-back");
-  if (backBtn) backBtn.onclick = () => renderStep(modal, index - 1, onDone);
+  if (backBtn) backBtn.onclick = () => renderStep(modal, steps, checkboxLabel, index - 1, onDone);
 
   modal.querySelector("#ob-next").onclick = () => {
     if (isLast) onDone();
-    else renderStep(modal, index + 1, onDone);
+    else renderStep(modal, steps, checkboxLabel, index + 1, onDone);
   };
 }
 
-function showOnboardingModal() {
+function showOnboardingModal(steps, checkboxLabel) {
   injectStylesOnce();
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -157,7 +199,7 @@ function showOnboardingModal() {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    renderStep(modal, 0, () => {
+    renderStep(modal, steps, checkboxLabel, 0, () => {
       document.body.removeChild(overlay);
       resolve();
     });
@@ -183,7 +225,7 @@ export async function ensureOnboardingAccepted(db, user) {
     console.error("Onboarding check failed, will show flow to be safe:", err);
   }
 
-  await showOnboardingModal();
+  await showOnboardingModal(STEPS, "I've read this and understand how ordering, delivery, and refunds work on Olvra Boost.");
 
   localStorage.setItem(LOCAL_KEY, "1");
   try {
@@ -195,6 +237,41 @@ export async function ensureOnboardingAccepted(db, user) {
   } catch (err) {
     // Non-fatal — localStorage already has the flag for this device/browser.
     console.error("Failed to persist onboarding acceptance to Firestore:", err);
+  }
+  return true;
+}
+
+/**
+ * Same gate as ensureOnboardingAccepted, but for the Rent Number flow —
+ * separate content (numbers/timeouts/refunds instead of boost
+ * ordering/delivery), separate acceptance flag, so accepting one never
+ * silently counts as accepting the other.
+ */
+export async function ensureNumbersOnboardingAccepted(db, user) {
+  if (localStorage.getItem(NUMBERS_LOCAL_KEY) === "1") return true;
+
+  const userRef = doc(db, "users", user.uid);
+  try {
+    const snap = await getDoc(userRef);
+    if (snap.exists() && snap.data().numbers_onboarding_accepted_version === NUMBERS_ONBOARDING_VERSION) {
+      localStorage.setItem(NUMBERS_LOCAL_KEY, "1");
+      return true;
+    }
+  } catch (err) {
+    console.error("Numbers onboarding check failed, will show flow to be safe:", err);
+  }
+
+  await showOnboardingModal(NUMBERS_STEPS, "I've read this and understand how Rent Number's timeouts and refunds work.");
+
+  localStorage.setItem(NUMBERS_LOCAL_KEY, "1");
+  try {
+    await setDoc(
+      userRef,
+      { numbers_onboarding_accepted_version: NUMBERS_ONBOARDING_VERSION, numbers_onboarding_accepted_at: serverTimestamp() },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error("Failed to persist numbers onboarding acceptance to Firestore:", err);
   }
   return true;
 }

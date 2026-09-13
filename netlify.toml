@@ -11,6 +11,14 @@
 
 # BigiSub's sync used to run every 6 hours; now once daily to reduce
 # Firestore read cost from the diff-check comparison (2026-09-07).
+# Rent Number safety net — 5sim itself times an activation order out
+# after 5 minutes with no SMS. check-number.js already refunds instantly
+# for anyone still on the active-number screen when that happens; this
+# cron only catches orders left behind by someone who closed the app
+# first. Every 5 min matches 5sim's own timeout window — no faster.
+[functions."refund-expired-numbers"]
+  schedule = "*/5 * * * *"
+
 [functions."sync-services"]
   schedule = "0 2 * * *"
 

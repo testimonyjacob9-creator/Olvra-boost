@@ -50,6 +50,47 @@ exports.handler = async (event) => {
     const fresh = await fivesim.checkOrder(apiKey, order.fivesim_order_id);
     const prevSmsCount = (order.sms || []).length;
     const newSms = fresh.sms || [];
+    const CLOSED_NO_SMS = new Set(["CANCELED", "TIMEOUT", "BANNED"]);
+
+    if (CLOSED_NO_SMS.has(fresh.status) && newSms.length === 0) {
+      // Timed out / cancelled / banned with no code ever delivered —
+      // refund now instead of waiting for the next refund-expired-numbers
+      // cron tick. Transaction re-checks the order's current status so a
+      // race with that cron (or a concurrent poll) can never double-pay.
+      const olivesUsed = order.olives_used || 0;
+      const walletRefund = order.price_ngn - (olivesUsed > 0 ? olivesUsed * 2 : 0);
+      const userRef = db.collection("users").doc(uid);
+      await db.runTransaction(async (tx) => {
+        const orderSnap = await tx.get(orderRef);
+        if (CLOSED_STATUSES.has(orderSnap.data().status)) return; // already closed/refunded elsewhere
+        const userSnap = await tx.get(userRef);
+        const walletBefore = userSnap.exists ? (userSnap.data().wallet_balance || 0) : 0;
+        tx.update(userRef, {
+          wallet_balance: FieldValue.increment(walletRefund),
+          ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
+        });
+        tx.set(db.collection("wallet_transactions").doc(), {
+          uid,
+          type: "number_rental_refund",
+          amount: walletRefund,
+          balance_after: walletBefore + walletRefund,
+          note: `Rent Number ${fresh.status.toLowerCase()} — ${order.product} (${order.country}/${order.operator}), no code received${olivesUsed > 0 ? ` (+${olivesUsed} olives)` : ""}`,
+          created_at: FieldValue.serverTimestamp(),
+        });
+        tx.update(orderRef, { status: fresh.status, sms: newSms, updated_at: FieldValue.serverTimestamp() });
+      });
+      try {
+        await db.collection("users").doc(uid).collection("notifications").add({
+          type: "number_timeout_refunded",
+          title: fresh.status === "TIMEOUT" ? "No code received — refunded" : "Number closed — refunded",
+          body: `${order.phone} didn't receive a code in time. ₦${walletRefund.toLocaleString()} was refunded to your wallet.`,
+          order_id: orderId,
+          read: false,
+          created_at: FieldValue.serverTimestamp(),
+        });
+      } catch {}
+      return ok({ status: fresh.status, phone: order.phone, sms: newSms, refunded: walletRefund });
+    }
 
     if (fresh.status !== order.status || newSms.length !== prevSmsCount) {
       await orderRef.update({
