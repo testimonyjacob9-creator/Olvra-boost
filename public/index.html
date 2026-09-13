@@ -422,6 +422,76 @@
   .olive-chip .olive-value{ font-weight:500; opacity:0.8; }
   .olive-chip.hidden{ display:none; }
 
+  /* ===== Hero v2 (purple wallet card + service grid, fleexa-style) ===== */
+  .hero-wrap{ padding:0 0 4px; }
+  .hero-card{
+    position:relative; overflow:hidden; padding:22px 20px 56px;
+    background: radial-gradient(120% 140% at 15% -10%, #9B6BFF 0%, #7B3FF2 42%, #5B21D6 100%);
+    color:#fff;
+  }
+  .hero-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .hero-user{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .hero-avatar{
+    flex-shrink:0; width:44px; height:44px; border-radius:50%;
+    background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; color:#fff;
+  }
+  .hero-greet{ font-size:11px; letter-spacing:0.08em; text-transform:uppercase; opacity:0.75; font-weight:600; }
+  .hero-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15.5px; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hero-icon-btns{ display:flex; gap:8px; flex-shrink:0; }
+  .hero-icon-btn{
+    width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.14);
+    border:1px solid rgba(255,255,255,0.22); display:flex; align-items:center; justify-content:center;
+    font-size:15px; color:#fff; cursor:pointer;
+  }
+  .hero-chip{
+    margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.24); border-radius:14px;
+    padding:10px 14px; backdrop-filter:blur(6px);
+  }
+  .hero-chip .bank{ font-size:12.5px; font-weight:700; opacity:0.9; }
+  .hero-chip .num{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; }
+  .hero-chip .copy-btn{ background:rgba(255,255,255,0.2); color:#fff; }
+  .hero-bal-label{ margin-top:22px; font-size:11.5px; letter-spacing:0.1em; text-transform:uppercase; opacity:0.75; font-weight:600; }
+  .hero-bal-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:6px; }
+  .hero-balance{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:32px; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; }
+  .hero-fund-btn{
+    flex-shrink:0; display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.94); color:#5B21D6;
+    border:none; padding:11px 16px; border-radius:13px; font-weight:700; font-size:13px; cursor:pointer;
+    box-shadow:0 8px 18px rgba(0,0,0,0.14);
+  }
+  .hero-card::before{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:0.5;
+    background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.35) 45%,transparent 60%);
+    background-size:220% 100%; background-position:120% 0; transition:background-position 1.4s ease;
+  }
+  .hero-card.shine::before{ background-position:-20% 0; }
+
+  .service-panel{
+    position:relative; margin:-38px 14px 0; background:var(--surface); border-radius:22px;
+    box-shadow:0 16px 34px rgba(23,43,133,0.10); padding:8px 4px; z-index:2;
+  }
+  .service-grid{ display:grid; grid-template-columns:repeat(3,1fr); }
+  .service-tile{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    padding:16px 6px; cursor:pointer; text-align:center; border-right:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  .service-grid .service-tile:nth-child(3n){ border-right:none; }
+  .service-grid .service-tile:nth-child(n+4){ border-bottom:none; }
+  .service-tile .si{
+    width:42px; height:42px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:19px;
+    background:var(--surface-2); color:var(--blue-deep);
+  }
+  .service-tile span{ font-size:10.5px; font-weight:700; color:var(--text); letter-spacing:0.01em; }
+  .service-tile.soon{ opacity:0.4; cursor:default; }
+  .service-tile.soon .si{ background:var(--surface-3); color:var(--muted-2); }
+  .service-tile:active:not(.soon){ transform:scale(0.95); }
+
+  .activity-card{
+    margin:0 16px; border:1.5px dashed var(--line); border-radius:16px; padding:0;
+  }
+
   /* ===== Quick actions ===== */
   .quick-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:16px 16px 0; }
   .quick-tile{
@@ -716,22 +786,6 @@
 
   <!-- ===================== APP SHELL ===================== -->
   <div id="app-screen" class="hidden">
-    <div class="header fade-up">
-      <div class="header-left">
-        <div class="avatar" id="avatar-initials">U</div>
-        <div class="header-text">
-          <div class="greet">Welcome back</div>
-          <div class="name" id="user-name">—</div>
-        </div>
-      </div>
-      <div style="display:flex; gap:8px;">
-        <button class="bell-btn" id="app-help-btn" title="How this works" style="border:1px solid var(--line);">❔</button>
-        <button class="bell-btn" id="notif-bell-btn" style="border:1px solid var(--line); position:relative;">
-          🔔<span class="nav-badge" id="home-notif-badge" style="top:-4px; right:-4px;"></span>
-        </button>
-      </div>
-    </div>
-
     <div class="install-banner hidden" id="install-banner">
       <span style="font-size:20px;">📲</span>
       <div style="flex:1; min-width:0;">
@@ -742,57 +796,108 @@
       <button class="pill-install-dismiss" id="install-banner-dismiss">✕</button>
     </div>
 
-    <div class="wallet-wrap fade-up fade-up-1">
-      <div class="wallet-card" id="wallet-card">
-        <div class="wallet-label-row">
-          <div class="wallet-label">Wallet Balance</div>
-          <button class="eye-toggle" id="balance-eye" title="Show/hide balance">👁️</button>
+    <div class="hero-wrap fade-up fade-up-1">
+      <div class="hero-card" id="wallet-card">
+        <div class="hero-top">
+          <div class="hero-user">
+            <div class="hero-avatar" id="avatar-initials">U</div>
+            <div>
+              <div class="hero-greet">Good to see you</div>
+              <div class="hero-name" id="user-name">—</div>
+            </div>
+          </div>
+          <div class="hero-icon-btns">
+            <button class="hero-icon-btn" id="app-help-btn" title="How this works">❔</button>
+            <button class="hero-icon-btn" id="notif-bell-btn" style="position:relative;">
+              🔔<span class="nav-badge" id="home-notif-badge" style="top:-3px; right:-3px;"></span>
+            </button>
+          </div>
         </div>
-        <div class="wallet-row">
-          <div class="wallet-balance" id="wallet-balance-wrap">₦<span id="wallet-balance">0.00</span></div>
-        </div>
-        <div class="wallet-sub" id="wallet-sub"></div>
-        <div class="olive-chip hidden" id="olive-chip">🫒 <span id="olive-count">0</span> Olives <span class="olive-value" id="olive-value"></span></div>
-        <div class="wallet-actions">
-          <button class="btn btn-primary" id="fund-wallet-btn">+ Fund Wallet</button>
-          <button class="btn btn-ghost" id="history-btn">History</button>
-        </div>
-        <div class="account-chip hidden" id="account-chip">
+
+        <div class="hero-chip hidden" id="account-chip">
           <div>
-            <div class="num" id="chip-account-number">—</div>
             <div class="bank" id="chip-bank-name">—</div>
+            <div class="num" id="chip-account-number">—</div>
           </div>
           <button class="copy-btn" id="chip-copy">Copy</button>
+        </div>
+
+        <div class="wallet-label-row" style="margin-top:20px;">
+          <div class="hero-bal-label">Available Balance</div>
+          <button class="eye-toggle" id="balance-eye" title="Show/hide balance" style="color:#fff; opacity:0.8;">👁️</button>
+        </div>
+        <div class="hero-bal-row">
+          <div class="hero-balance" id="wallet-balance-wrap">₦<span id="wallet-balance">0.00</span></div>
+          <button class="hero-fund-btn" id="fund-wallet-btn">💳 Fund Wallet</button>
+        </div>
+        <div class="wallet-sub" id="wallet-sub" style="color:#D9F9E8;"></div>
+        <div class="olive-chip hidden" id="olive-chip">🫒 <span id="olive-count">0</span> Olives <span class="olive-value" id="olive-value"></span></div>
+        <button class="btn btn-ghost hidden" id="history-btn" style="display:none;">History</button>
+      </div>
+
+      <div class="service-panel fade-up fade-up-2">
+        <div class="service-grid">
+          <div class="service-tile" id="tile-boost">
+            <div class="si" style="background:#EEF3FF; color:#2C5CF6;">📈</div>
+            <span>Boost Account</span>
+          </div>
+          <div class="service-tile" id="tile-numbers">
+            <div class="si" style="background:#E7F9F1; color:#12B76A;">📱</div>
+            <span>Rent Number</span>
+          </div>
+          <div class="service-tile soon">
+            <div class="si">✉️</div>
+            <span>Email OTP</span>
+          </div>
+          <div class="service-tile soon">
+            <div class="si">🛡️</div>
+            <span>Proxies</span>
+          </div>
+          <div class="service-tile soon">
+            <div class="si">📶</div>
+            <span>eSIMs</span>
+          </div>
+          <div class="service-tile soon">
+            <div class="si">💳</div>
+            <span>Cards</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="section-title fade-up fade-up-2">Quick Boost</div>
-    <div class="quick-grid fade-up fade-up-2">
+    <div class="section-title fade-up fade-up-4" id="running-title" style="display:none;">Running Boosts</div>
+    <div id="running-boosts"></div>
+
+    <div class="section-title fade-up fade-up-4">Recent Activity</div>
+    <div class="order-list activity-card fade-up fade-up-4" id="order-list">
+      <div class="empty-state">No recent activations — pick a service above to get started.</div>
+    </div>
+
+    <div class="bottom-nav">
+      <button class="nav-item active" data-nav="home"><span class="nav-ic">🏠</span>Home<span class="nav-dot"></span></button>
+      <button class="nav-item" data-nav="notif"><span class="nav-ic">🔔</span>Alerts<span class="nav-badge" id="nav-notif-badge"></span><span class="nav-dot"></span></button>
+      <button class="nav-item" data-nav="orders"><span class="nav-ic">🧾</span>Orders<span class="nav-dot"></span></button>
+      <button class="nav-item" data-nav="profile"><span class="nav-ic">⚙️</span>Settings<span class="nav-dot"></span></button>
+    </div>
+  </div>
+
+  <!-- ===================== BOOST ACCOUNT SCREEN ===================== -->
+  <div id="boost-screen" class="hidden">
+    <div class="page-header">
+      <button class="icon-btn" id="boost-back">←</button>
+      <div class="page-title">Boost Account</div>
+    </div>
+
+    <div class="section-title" style="padding-top:6px;">Quick Boost</div>
+    <div class="quick-grid">
       <div class="quick-tile" data-quick="followers"><div class="quick-icon" style="background:#EEF3FF; color:#2C5CF6;">👥</div><span>Followers</span></div>
       <div class="quick-tile" data-quick="likes"><div class="quick-icon" style="background:#FDECEC; color:#E5484D;">❤️</div><span>Likes</span></div>
       <div class="quick-tile" data-quick="views"><div class="quick-icon" style="background:#FFF4E5; color:#B7791F;">▶️</div><span>Views</span></div>
       <div class="quick-tile" data-quick="comments"><div class="quick-icon" style="background:#E7F9F1; color:#12B76A;">💬</div><span>Comments</span></div>
     </div>
 
-    <div class="section-title fade-up fade-up-3">Select Platform</div>
-    <div class="platform-grid fade-up fade-up-3" id="platform-grid"></div>
-
-    <div class="section-title fade-up fade-up-4" id="running-title" style="display:none;">Running Boosts</div>
-    <div id="running-boosts"></div>
-
-    <div class="section-title fade-up fade-up-4">Recent Orders</div>
-    <div class="order-list fade-up fade-up-4" id="order-list">
-      <div class="empty-state">No orders yet — pick a platform above to get started.</div>
-    </div>
-
-    <div class="bottom-nav">
-      <button class="nav-item active" data-nav="home"><span class="nav-ic">🏠</span>Home<span class="nav-dot"></span></button>
-      <button class="nav-item" data-nav="services"><span class="nav-ic">🧩</span>Services<span class="nav-dot"></span></button>
-      <button class="nav-item" data-nav="orders"><span class="nav-ic">🧾</span>Orders<span class="nav-dot"></span></button>
-      <button class="nav-item" data-nav="notif"><span class="nav-ic">🔔</span>Alerts<span class="nav-badge" id="nav-notif-badge"></span><span class="nav-dot"></span></button>
-      <button class="nav-item" data-nav="profile"><span class="nav-ic">👤</span>Profile<span class="nav-dot"></span></button>
-    </div>
+    <div class="section-title">Select Platform</div>
+    <div class="platform-grid" id="platform-grid" style="padding-bottom:24px;"></div>
   </div>
 
   <!-- ===================== PROFILE SCREEN ===================== -->
@@ -828,10 +933,9 @@
 
     <div class="bottom-nav">
       <button class="nav-item" data-nav="home"><span class="nav-ic">🏠</span>Home<span class="nav-dot"></span></button>
-      <button class="nav-item" data-nav="services"><span class="nav-ic">🧩</span>Services<span class="nav-dot"></span></button>
-      <button class="nav-item" data-nav="orders"><span class="nav-ic">🧾</span>Orders<span class="nav-dot"></span></button>
       <button class="nav-item" data-nav="notif"><span class="nav-ic">🔔</span>Alerts<span class="nav-dot"></span></button>
-      <button class="nav-item active" data-nav="profile"><span class="nav-ic">👤</span>Profile<span class="nav-dot"></span></button>
+      <button class="nav-item" data-nav="orders"><span class="nav-ic">🧾</span>Orders<span class="nav-dot"></span></button>
+      <button class="nav-item active" data-nav="profile"><span class="nav-ic">⚙️</span>Settings<span class="nav-dot"></span></button>
     </div>
   </div>
 
@@ -981,6 +1085,7 @@
       profile: document.getElementById("profile-screen"),
       category: document.getElementById("category-screen"),
       autoServices: document.getElementById("auto-services-screen"),
+      boost: document.getElementById("boost-screen"),
     };
     function showScreen(name) {
       Object.values(screens).forEach((el) => el.classList.add("hidden"));
@@ -1532,6 +1637,14 @@
     });
     document.getElementById("notif-bell-btn").onclick = () => { window.location.href = "/notifications.html"; };
     document.getElementById("profile-back").onclick = () => showScreen("app");
+
+    // ---- Home service grid ----
+    document.getElementById("tile-boost").onclick = () => showScreen("boost");
+    document.getElementById("tile-numbers").onclick = () => showToast("Rent Number — coming soon 📱");
+    document.getElementById("boost-back").onclick = () => showScreen("app");
+    document.querySelectorAll(".service-tile.soon").forEach((tile) => {
+      tile.onclick = () => showToast("Coming soon");
+    });
     document.getElementById("menu-services").onclick = () => { window.location.href = "/all-services.html"; };
     document.getElementById("menu-fund").onclick = () => { window.location.href = "/fund.html"; };
     document.getElementById("menu-refer").onclick = () => { window.location.href = "/refer.html"; };
