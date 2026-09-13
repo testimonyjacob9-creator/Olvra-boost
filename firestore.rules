@@ -63,6 +63,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Number rentals ("Rent Number" — 5sim): same pattern as orders above.
+    // Only ever created/updated by buy-number.js, check-number.js,
+    // cancel-number.js, finish-number.js (Admin SDK) — never the client.
+    match /number_orders/{orderId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin());
+      allow write: if false;
+    }
+
     // Wallet top-ups: a user can read their own funding history; admins can
     // read all top-ups. Records are only ever created by
     // flutterwave-webhook.js (Admin SDK).

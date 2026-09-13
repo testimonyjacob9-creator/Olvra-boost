@@ -61,4 +61,50 @@ module.exports = {
 
   // How many services to fetch per page from BigiSub (their API is paginated).
   PAGE_SIZE: 100,
+
+  // ===================== 5sim (virtual numbers — "Rent Number") =====================
+  FIVESIM_BASE_URL: "https://5sim.net",
+
+  // Markup applied on top of 5sim's USD price before converting to Naira.
+  // 0.6 = 60% — numbers are cheap in absolute terms (often $0.05-$0.20), so a
+  // flat-percentage markup alone can round to ₦0 profit; FIVESIM_MIN_MARGIN_NGN
+  // below is the floor that actually protects margin on the cheapest numbers.
+  FIVESIM_MARKUP: 0.6,
+  FIVESIM_MIN_MARGIN_NGN: 150,
+
+  // 5sim settles in USD with no NGN-native top-up, so unlike everything else
+  // in this app there's no live provider exchange rate to read — this is set
+  // by hand (parallel-market rate, not CBN official) and only ever changes
+  // when Testimony updates it here after topping up the 5sim balance.
+  // Last set 2026-09-13.
+  FIVESIM_USD_TO_NGN: 1650,
+
+  // Curated product list shown in the "Rent Number" picker — 5sim supports
+  // 1000+ products, most irrelevant to this app's users. Add to this list as
+  // demand shows up; `label` is what the UI shows, `product` is 5sim's slug.
+  FIVESIM_PRODUCTS: [
+    { product: "whatsapp", label: "WhatsApp" },
+    { product: "telegram", label: "Telegram" },
+    { product: "google", label: "Google / Gmail" },
+    { product: "facebook", label: "Facebook" },
+    { product: "instagram", label: "Instagram" },
+    { product: "tiktok", label: "TikTok" },
+    { product: "twitter", label: "Twitter / X" },
+    { product: "discord", label: "Discord" },
+    { product: "amazon", label: "Amazon" },
+    { product: "openai", label: "OpenAI / ChatGPT" },
+    { product: "other", label: "Other" },
+  ],
+
+  // Curated country list. "any"/"america"/etc. use 5sim's own aggregate
+  // country slugs where useful — see 5sim.net/docs for the full list.
+  FIVESIM_COUNTRIES: [
+    { country: "nigeria", label: "Nigeria" },
+    { country: "usa", label: "USA" },
+    { country: "england", label: "UK" },
+    { country: "russia", label: "Russia" },
+    { country: "indonesia", label: "Indonesia" },
+    { country: "ghana", label: "Ghana" },
+    { country: "kenya", label: "Kenya" },
+  ],
 };
