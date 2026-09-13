@@ -180,6 +180,7 @@
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="overview">Overview</button>
       <button class="tab-btn" data-tab="orders">Orders</button>
+      <button class="tab-btn" data-tab="numbers">Numbers</button>
       <button class="tab-btn" data-tab="users">Users</button>
       <button class="tab-btn" data-tab="services">Services</button>
       <button class="tab-btn" data-tab="topups">Top-ups</button>
@@ -205,6 +206,12 @@
     <div class="tab-panel" id="panel-orders">
       <div class="section-title">Manage Orders<span style="font-size:11px; color:var(--muted); font-weight:500;">Latest 30</span></div>
       <div class="list" id="orders-list"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- ===== NUMBERS (Rent Number / 5sim) ===== -->
+    <div class="tab-panel" id="panel-numbers">
+      <div class="section-title">Rent Number Orders<span style="font-size:11px; color:var(--muted); font-weight:500;">Latest 30</span></div>
+      <div class="list" id="numbers-list"><div class="empty-state">Loading…</div></div>
     </div>
 
     <!-- ===== USERS ===== -->
@@ -296,6 +303,7 @@
         btn.classList.add("active");
         document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
         if (btn.dataset.tab === "users") loadUsersTabIfNeeded();
+        if (btn.dataset.tab === "numbers") loadNumbersTabIfNeeded();
         if (btn.dataset.tab === "topups") loadTopupsIfNeeded();
         if (btn.dataset.tab === "support") loadSupportIfNeeded();
         if (btn.dataset.tab === "settings") loadSettingsIfNeeded();
@@ -447,6 +455,77 @@
         console.error(err);
         overviewContainer.innerHTML = `<div class="empty-state">Couldn't load orders.</div>`;
         ordersContainer.innerHTML = `<div class="empty-state">Couldn't load orders.</div>`;
+      }
+    }
+
+    // ===== Numbers (Rent Number / 5sim) =====
+    let numbersTabLoaded = false;
+    function numberRowHtml(o, i) {
+      const badgeClass = { PENDING: "b-processing", RECEIVED: "b-processing", FINISHED: "b-completed", CANCELED: "b-cancelled", TIMEOUT: "b-failed", BANNED: "b-failed" }[o.status] || "b-processing";
+      const closed = ["FINISHED", "CANCELED", "TIMEOUT", "BANNED"].includes(o.status);
+      const hasSms = (o.sms || []).length > 0;
+      const orderUser = allUsers.find((u) => u.uid === o.uid);
+      const userLabel = orderUser ? (orderUser.full_name || orderUser.email || o.uid) : (o.uid ? o.uid.slice(0, 10) + "…" : "Unknown user");
+      // Manual refund only makes sense for an order that's still open, or
+      // closed WITHOUT ever having refunded (a code-received FINISHED
+      // order was fulfilled — refunding that would be a freebie, not a
+      // fix, so it's hidden there).
+      const canManualRefund = !o.refunded_manually && (!closed || (closed && !hasSms && o.status !== "FINISHED"));
+      return `<div class="row" style="animation-delay:${Math.min(i * 0.02, 0.3)}s">
+        <div class="row-top">
+          <div><div class="name">${escapeHtml(o.product || "Number")} — ${escapeHtml(o.country || "")}</div>
+          <div class="meta">${escapeHtml(o.phone || "")} · ₦${Number(o.price_ngn || 0).toLocaleString()} · ${timeAgo(o.created_at)}</div></div>
+          <span class="badge ${badgeClass}">${escapeHtml((o.status || "PENDING").toLowerCase())}</span>
+        </div>
+        <div class="meta" style="margin-top:2px;">👤 <a href="#" data-jump-to-user="${o.uid || ""}" style="color:inherit;text-decoration:underline;">${escapeHtml(userLabel)}</a>${hasSms ? ` · 📩 code received` : ""}${o.refunded_manually ? ` · ↩️ manually refunded` : ""}</div>
+        ${canManualRefund ? `<div class="row-actions"><button class="pill-btn ghost" data-number-refund="${o.id}">Refund to wallet</button></div>` : ""}
+      </div>`;
+    }
+
+    async function loadNumbersTabIfNeeded() {
+      if (numbersTabLoaded) return;
+      numbersTabLoaded = true;
+      const container = document.getElementById("numbers-list");
+      try {
+        const q = query(collection(db, "number_orders"), orderBy("created_at", "desc"), limit(30));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          container.innerHTML = `<div class="empty-state">No number rentals yet.</div>`;
+          return;
+        }
+        const orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        const knownUids = new Set(allUsers.map((u) => u.uid));
+        const neededUids = [...new Set(orders.map((o) => o.uid).filter((uid) => uid && !knownUids.has(uid)))];
+        for (let i = 0; i < neededUids.length; i += 30) {
+          const batch = neededUids.slice(i, i + 30);
+          try {
+            const usersSnap = await getDocs(query(collection(db, "users"), where(documentId(), "in", batch)));
+            usersSnap.forEach((d) => allUsers.push({ uid: d.id, ...d.data() }));
+          } catch (err) { console.error("Targeted user lookup failed:", err); }
+        }
+
+        container.innerHTML = orders.map((o, i) => numberRowHtml(o, i)).join("");
+        container.querySelectorAll("[data-number-refund]").forEach((btn) => {
+          btn.onclick = async () => {
+            const orderId = btn.dataset.numberRefund;
+            if (!confirm("Refund this number order to the user's wallet? This can't be undone.")) return;
+            btn.disabled = true; btn.textContent = "…";
+            try {
+              const res = await callFunction("admin-actions", { action: "refundNumberOrder", orderId });
+              showToast(`Refunded ₦${(res.refunded || 0).toLocaleString()}`);
+              numbersTabLoaded = false;
+              loadNumbersTabIfNeeded();
+            } catch (err) {
+              showToast(err.message || "Refund failed");
+              btn.disabled = false; btn.textContent = "Refund to wallet";
+            }
+          };
+        });
+      } catch (err) {
+        console.error(err);
+        numbersTabLoaded = false;
+        container.innerHTML = `<div class="empty-state">Couldn't load number orders.</div>`;
       }
     }
 

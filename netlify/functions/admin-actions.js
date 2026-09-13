@@ -117,6 +117,59 @@ async function updateOrderStatus(adminUid, { orderId, status, refund }) {
   return { refunded };
 }
 
+async function refundNumberOrder(adminUid, { orderId }) {
+  if (!orderId) {
+    throw Object.assign(new Error("orderId is required."), { statusCode: 400 });
+  }
+  const orderRef = db.collection("number_orders").doc(orderId);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) throw Object.assign(new Error("Order not found."), { statusCode: 404 });
+  const order = orderSnap.data();
+  if (order.refunded_manually) {
+    throw Object.assign(new Error("This order was already manually refunded."), { statusCode: 409 });
+  }
+
+  const olivesUsed = order.olives_used || 0;
+  const walletRefund = order.price_ngn - (olivesUsed > 0 ? olivesUsed * 2 : 0);
+  const userRef = db.collection("users").doc(order.uid);
+
+  await db.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) throw Object.assign(new Error("User not found."), { statusCode: 404 });
+    const current = userSnap.data().wallet_balance || 0;
+    const updated = current + walletRefund;
+    tx.update(userRef, {
+      wallet_balance: updated,
+      ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
+    });
+    logWalletTxn(tx, {
+      uid: order.uid,
+      type: "number_rental_refund",
+      amount: walletRefund,
+      balance_after: updated,
+      note: `Manual admin refund — Rent Number order ${orderId}`,
+      ref_id: orderId,
+    });
+    tx.update(orderRef, {
+      status: "CANCELED",
+      refunded_manually: true,
+      refunded_by: adminUid,
+      refunded_at: FieldValue.serverTimestamp(),
+    });
+  });
+
+  await db.collection("users").doc(order.uid).collection("notifications").add({
+    type: "number_timeout_refunded",
+    title: "Number refunded",
+    body: `${order.phone || "Your number"} was refunded — ₦${walletRefund.toLocaleString()} credited to your wallet.`,
+    order_id: orderId,
+    read: false,
+    created_at: FieldValue.serverTimestamp(),
+  }).catch(() => {});
+
+  return { refunded: walletRefund };
+}
+
 async function toggleService(adminUid, { serviceId, isActive }) {
   if (!serviceId || typeof isActive !== "boolean") {
     throw Object.assign(new Error("serviceId and isActive are required."), { statusCode: 400 });
@@ -171,6 +224,7 @@ async function sendUserNotification(adminUid, { targetUid, title, body }) {
 const ACTIONS = {
   adjustWallet,
   updateOrderStatus,
+  refundNumberOrder,
   toggleService,
   updateSettings,
   setUserDisabled,
