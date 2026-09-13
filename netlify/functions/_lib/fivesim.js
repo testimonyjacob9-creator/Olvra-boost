@@ -81,4 +81,16 @@ function sellPriceNgn(usdCost) {
   return Math.round(Math.max(markedUp, floor));
 }
 
-module.exports = { getPrices, buyActivation, checkOrder, finishOrder, cancelOrder, sellPriceNgn };
+/**
+ * Every product 5sim has for activation, across all countries/operators
+ * (guest endpoint — country/operator "any" gives the broadest catalog).
+ * Used only by numbers-search-products.js so users can find a service
+ * outside the curated FIVESIM_PRODUCTS list in config.js.
+ */
+async function getProducts(apiKey) {
+  const api = client(apiKey);
+  const res = await api.get("/v1/guest/products/any/any");
+  return res.data; // { [productSlug]: { Category, Qty, Price } }
+}
+
+module.exports = { getPrices, getProducts, buyActivation, checkOrder, finishOrder, cancelOrder, sellPriceNgn };

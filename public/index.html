@@ -946,7 +946,12 @@
 
     <!-- Step 1: product -->
     <div id="numbers-step-product">
-      <div class="section-title" style="padding-top:6px;">Choose a service</div>
+      <div class="section-title" style="padding-top:6px;">Search any service</div>
+      <div style="padding:0 16px 4px;">
+        <input type="text" id="numbers-product-search" class="input" placeholder="e.g. Netflix, PayPal, Uber, any website…" autocomplete="off">
+      </div>
+      <div class="operator-list hidden" id="numbers-search-results"></div>
+      <div class="section-title" id="numbers-curated-title" style="padding-top:14px;">Popular services</div>
       <div class="category-grid" id="numbers-product-grid">
         <div class="empty-state">Loading services…</div>
       </div>
@@ -2193,6 +2198,14 @@
         step === "country" ? numbersProduct?.label || "Choose a Country" :
         step === "operators" ? "Choose a Price" : "Your Number";
       if (step !== "active") stopNumbersPolling();
+      if (onProduct) {
+        const searchInput = document.getElementById("numbers-product-search");
+        const searchResults = document.getElementById("numbers-search-results");
+        if (searchInput) searchInput.value = "";
+        if (searchResults) searchResults.classList.add("hidden");
+        document.getElementById("numbers-curated-title")?.classList.remove("hidden");
+        document.getElementById("numbers-product-grid")?.classList.remove("hidden");
+      }
     }
 
     async function openNumbersScreen() {
@@ -2209,6 +2222,12 @@
       }
     }
 
+    function selectNumbersProduct(product, label) {
+      numbersProduct = { product, label };
+      renderNumbersCountryGrid();
+      showNumbersStep("country");
+    }
+
     function renderNumbersProductGrid() {
       const grid = document.getElementById("numbers-product-grid");
       grid.innerHTML = numbersOptions.products.map((p) => `
@@ -2218,12 +2237,51 @@
         </div>`).join("");
       grid.querySelectorAll(".cat-card").forEach((card) => {
         card.onclick = () => {
-          numbersProduct = numbersOptions.products.find((p) => p.product === card.dataset.product);
-          renderNumbersCountryGrid();
-          showNumbersStep("country");
+          const match = numbersOptions.products.find((p) => p.product === card.dataset.product);
+          selectNumbersProduct(match.product, match.label);
         };
       });
     }
+
+    let numbersSearchDebounce = null;
+    const numbersSearchInput = document.getElementById("numbers-product-search");
+    const numbersSearchResults = document.getElementById("numbers-search-results");
+    const numbersCuratedTitle = document.getElementById("numbers-curated-title");
+    const numbersCuratedGrid = document.getElementById("numbers-product-grid");
+
+    numbersSearchInput.addEventListener("input", () => {
+      const q = numbersSearchInput.value.trim();
+      clearTimeout(numbersSearchDebounce);
+      if (q.length < 2) {
+        numbersSearchResults.classList.add("hidden");
+        numbersCuratedTitle.classList.remove("hidden");
+        numbersCuratedGrid.classList.remove("hidden");
+        return;
+      }
+      numbersCuratedTitle.classList.add("hidden");
+      numbersCuratedGrid.classList.add("hidden");
+      numbersSearchResults.classList.remove("hidden");
+      numbersSearchResults.innerHTML = `<div class="empty-state">Searching…</div>`;
+      numbersSearchDebounce = setTimeout(async () => {
+        try {
+          const data = await callFunctionGet("numbers-search-products", { q });
+          if (!data.results || data.results.length === 0) {
+            numbersSearchResults.innerHTML = `<div class="empty-state">No service found for "${q}" — try a different spelling.</div>`;
+            return;
+          }
+          numbersSearchResults.innerHTML = data.results.map((r) => `
+            <div class="operator-row" data-product="${r.product}" data-label="${r.label}">
+              <div><div class="op-name">${r.label}</div></div>
+              <div class="op-price">→</div>
+            </div>`).join("");
+          numbersSearchResults.querySelectorAll(".operator-row").forEach((row) => {
+            row.onclick = () => selectNumbersProduct(row.dataset.product, row.dataset.label);
+          });
+        } catch (err) {
+          numbersSearchResults.innerHTML = `<div class="empty-state">${err.message || "Search failed — try again."}</div>`;
+        }
+      }, 400);
+    });
 
     function renderNumbersCountryGrid() {
       const grid = document.getElementById("numbers-country-grid");

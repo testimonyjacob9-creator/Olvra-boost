@@ -42,9 +42,11 @@ exports.handler = async (event) => {
     if (!FIVESIM_COUNTRIES.some((c) => c.country === country)) {
       throw Object.assign(new Error("Unsupported country."), { statusCode: 400 });
     }
-    if (!FIVESIM_PRODUCTS.some((p) => p.product === product)) {
-      throw Object.assign(new Error("Unsupported service."), { statusCode: 400 });
-    }
+    // No FIVESIM_PRODUCTS check here on purpose — Rent Number now also
+    // accepts any product found via numbers-search-products.js (5sim's
+    // full 700+ catalog), not just the curated grid. An invalid/unknown
+    // product slug naturally falls through to the "no numbers available"
+    // error a few lines down, since getPrices() would return nothing for it.
 
     const apiKey = FIVESIM_API_KEY;
     if (!apiKey) {
