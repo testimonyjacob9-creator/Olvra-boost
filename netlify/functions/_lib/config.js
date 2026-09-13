@@ -107,4 +107,15 @@ module.exports = {
     { country: "ghana", label: "Ghana" },
     { country: "kenya", label: "Kenya" },
   ],
+
+  // Hardcoded rather than a Netlify env var — combined with
+  // FIREBASE_SERVICE_ACCOUNT_BASE64 (a full base64-encoded service
+  // account JSON, ~3KB by itself) and the site's other env vars, total
+  // env-var payload was landing right at AWS Lambda's 4096-byte ceiling,
+  // breaking every function's cold start. This repo must stay PRIVATE —
+  // unlike an env var, anything here is visible to any GitHub collaborator
+  // and stays in git history even if later removed. Rotate this value at
+  // 5sim.net/settings/security periodically and update it here (a normal
+  // commit, not a Netlify redeploy-env-var change) if that ever changes.
+  FIVESIM_API_KEY: "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4MjA4Mzg1ODYsImlhdCI6MTc4OTMwMjU4NiwicmF5IjoiNjlhNzc1MWM2YWQ0ZGFjMjkyNDhiN2Q1YzQxZmQwNjYiLCJzdWIiOjQ1MzA1MDN9.reHp_7yIZ99YBgB7WJ-ETESn_rxRQY4WYFFHwr6GqjEw3dM_zP-9RhZMqc1mFq4q3YIx4NIdmykoXuJVGHjQEC-AaGtusCmbtADk2d1o1tE1RiSr93H5RBS-FKNMasAONRMvcsOyiUCVNn_QNL1CsjNZnYl2jMhr8LtG7rKQbDVnsdS22NTusLwXwxLkJ2qYBDnqc9uLCCFe8wrYDAH3MdOYI1oEPmztbkvweF13mffEaZdgBEW1NxowFlQ0MN5p3pmwYJT1r-TY-TQKsOCG9x2zKggGnHc0vGdF8Bxs4SHJzVIGlmAud9E6RolwwtlujGiRtDzbdwodjE486i-wSQ",
 };

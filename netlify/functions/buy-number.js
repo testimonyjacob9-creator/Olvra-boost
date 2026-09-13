@@ -17,7 +17,7 @@ const { db, FieldValue } = require("./_lib/firebase-admin");
 const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 const fivesim = require("./_lib/fivesim");
-const { FIVESIM_COUNTRIES, FIVESIM_PRODUCTS } = require("./_lib/config");
+const { FIVESIM_COUNTRIES, FIVESIM_PRODUCTS, FIVESIM_API_KEY } = require("./_lib/config");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -46,7 +46,7 @@ exports.handler = async (event) => {
       throw Object.assign(new Error("Unsupported service."), { statusCode: 400 });
     }
 
-    const apiKey = process.env.FIVESIM_API_KEY;
+    const apiKey = FIVESIM_API_KEY;
     if (!apiKey) {
       throw Object.assign(new Error("Number rental isn't configured yet."), { statusCode: 503 });
     }
