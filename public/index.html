@@ -885,17 +885,13 @@
             <div class="si" style="background:#E7F9F1; color:#12B76A;">📱</div>
             <span>Rent Number</span>
           </div>
+          <div class="service-tile" id="tile-website">
+            <div class="si" style="background:#FFF3E0; color:#E88A1A;">🌐</div>
+            <span>Website OTP</span>
+          </div>
           <div class="service-tile soon">
             <div class="si">✉️</div>
             <span>Email OTP</span>
-          </div>
-          <div class="service-tile soon">
-            <div class="si">📶</div>
-            <span>eSIMs</span>
-          </div>
-          <div class="service-tile soon">
-            <div class="si">💳</div>
-            <span>Cards</span>
           </div>
         </div>
       </div>
@@ -1753,6 +1749,7 @@
     // ---- Home service grid ----
     document.getElementById("tile-boost").onclick = () => showScreen("boost");
     document.getElementById("tile-numbers").onclick = () => openNumbersScreen();
+    document.getElementById("tile-website").onclick = () => openNumbersScreenForWebsite();
     document.getElementById("boost-back").onclick = () => showScreen("app");
     document.querySelectorAll(".service-tile.soon").forEach((tile) => {
       tile.onclick = () => showToast("Coming soon");
@@ -2220,6 +2217,26 @@
         document.getElementById("numbers-product-grid").innerHTML = "";
         showToast(err.message || "Couldn't load Rent Number options.");
       }
+    }
+
+    // Dashboard's "Website OTP" tile — same flow as Rent Number, but
+    // skips straight past the service picker into country selection with
+    // the generic "other" (any website) product already chosen.
+    async function openNumbersScreenForWebsite() {
+      showScreen("numbers");
+      loadNumbersHistory();
+      if (!numbersOptions) {
+        try {
+          numbersOptions = await callFunctionGet("numbers-prices");
+        } catch (err) {
+          showNumbersStep("product");
+          showToast(err.message || "Couldn't load Rent Number options.");
+          return;
+        }
+      }
+      const websiteProduct = numbersOptions.products.find((p) => p.product === "other");
+      if (!websiteProduct) { showNumbersStep("product"); return; }
+      selectNumbersProduct(websiteProduct.product, websiteProduct.label);
     }
 
     function selectNumbersProduct(product, label) {
