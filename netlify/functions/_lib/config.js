@@ -93,7 +93,7 @@ module.exports = {
     { product: "discord", label: "Discord" },
     { product: "amazon", label: "Amazon" },
     { product: "openai", label: "OpenAI / ChatGPT" },
-    { product: "other", label: "Other" },
+    { product: "other", label: "Website (Any Other Site)" },
   ],
 
   // Curated country list. "any"/"america"/etc. use 5sim's own aggregate
