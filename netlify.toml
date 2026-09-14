@@ -15,14 +15,15 @@
 # after 5 minutes with no SMS. check-number.js already refunds instantly
 # for anyone still on the active-number screen when that happens; this
 # cron only catches orders left behind by someone who closed the app
-# first. Every 5 min matches 5sim's own timeout window — no faster.
+# first. Every 10 min — a wider window than 5sim's own 5-min timeout,
+# traded deliberately for fewer scheduled Firestore reads per day.
 [functions."refund-expired-numbers"]
-  schedule = "*/5 * * * *"
+  schedule = "*/10 * * * *"
 
 # Email OTP (Mail.tm) — deletes accounts past their expiry that the user
 # never revisited, so we stay a good citizen of Mail.tm's free/fair-use API.
 [functions."cleanup-expired-emails"]
-  schedule = "*/15 * * * *"
+  schedule = "*/30 * * * *"
 
 [functions."sync-services"]
   schedule = "0 2 * * *"

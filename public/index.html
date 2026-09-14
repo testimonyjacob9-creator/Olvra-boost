@@ -2491,7 +2491,7 @@
         } catch (err) {
           console.error("check-number poll failed:", err);
         }
-      }, 7000);
+      }, 10000);
     }
     function stopNumbersPolling() {
       if (numbersPollTimer) clearInterval(numbersPollTimer);
@@ -2677,7 +2677,7 @@
         } catch (err) {
           console.error("check-temp-email poll failed:", err);
         }
-      }, 7000);
+      }, 10000);
     }
     function stopEmailPolling() {
       if (emailPollTimer) clearInterval(emailPollTimer);
@@ -2685,6 +2685,13 @@
       if (emailCountdownTimer) clearInterval(emailCountdownTimer);
       emailCountdownTimer = null;
     }
+    document.addEventListener("visibilitychange", () => {
+      if (!emailOrderId) return;
+      const onEmailScreen = !document.getElementById("email-screen").classList.contains("hidden");
+      if (!onEmailScreen) return;
+      if (document.hidden) { clearInterval(emailPollTimer); emailPollTimer = null; }
+      else startEmailPolling(emailOrderId);
+    });
 
     document.getElementById("email-back").onclick = () => {
       stopEmailPolling();

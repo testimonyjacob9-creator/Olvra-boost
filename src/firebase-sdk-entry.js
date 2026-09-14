@@ -33,6 +33,8 @@ export {
   documentId,
   getDocs,
   getCountFromServer,
+  getAggregateFromServer,
+  sum,
   onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";

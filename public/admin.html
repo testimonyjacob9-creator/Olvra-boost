@@ -267,7 +267,7 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { collection, query, orderBy, limit, getDocs, getCountFromServer, doc, getDoc, setDoc, signOut, documentId, where } from "./js/firebase-sdk.bundle.js";
+    import { collection, query, orderBy, limit, getDocs, getCountFromServer, getAggregateFromServer, sum, doc, getDoc, setDoc, signOut, documentId, where } from "./js/firebase-sdk.bundle.js";
     import { db, auth, callFunction } from "./js/firebase-client.js";
 
     function requireSignedInAdmin() {
@@ -321,7 +321,7 @@
       document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
       document.querySelector('.tab-btn[data-tab="users"]').classList.add("active");
       document.getElementById("panel-users").classList.add("active");
-      loadUsersTabIfNeeded().then(() => {
+      loadUsersTabIfNeeded().then(() => refreshOneUser(uid)).then(() => {
         const row = document.getElementById("expand-" + uid);
         if (!row) return;
         row.classList.add("show");
@@ -366,10 +366,11 @@
         if (!snap.exists()) return;
         const fresh = { uid, ...snap.data() };
         const idx = allUsers.findIndex((u) => u.uid === uid);
-        if (idx >= 0) allUsers[idx] = fresh; else allUsers.push(fresh);
-        let totalWallet = 0;
-        allUsers.forEach((u) => { totalWallet += (u.wallet_balance || 0); });
-        document.getElementById("stat-wallets").textContent = `₦${totalWallet.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+        if (idx >= 0) allUsers[idx] = fresh; else allUsers.unshift(fresh);
+        try {
+          const totalSnap = await getAggregateFromServer(collection(db, "users"), { total: sum("wallet_balance") });
+          document.getElementById("stat-wallets").textContent = `₦${(totalSnap.data().total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+        } catch (err) { console.error("Wallet total refresh failed:", err); }
         if (usersTabLoaded) renderUsers(allUsers);
       } catch (err) {
         console.error("refreshOneUser failed:", err);
@@ -380,11 +381,20 @@
       if (usersTabLoaded) return;
       usersTabLoaded = true;
       try {
-        const usersSnap = await getDocs(collection(db, "users"));
+        // Wallet total costs 1 read no matter how many users exist —
+        // was previously computed by reading every single user document
+        // (fixed 2026-09-15, alongside the cap below).
+        const totalSnap = await getAggregateFromServer(collection(db, "users"), { total: sum("wallet_balance") });
+        document.getElementById("stat-wallets").textContent = `₦${(totalSnap.data().total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+        // The list itself is capped — showing every user isn't worth an
+        // unbounded read on a large base. Use the search box (if present)
+        // or "jump to user" from an order/number row for anyone specific;
+        // that path always does a direct 1-document lookup regardless of
+        // this cap (see the click handler above).
+        const usersQuery = query(collection(db, "users"), orderBy("last_activity_at", "desc"), limit(300));
+        const usersSnap = await getDocs(usersQuery);
         allUsers = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
-        let totalWallet = 0;
-        allUsers.forEach((u) => { totalWallet += (u.wallet_balance || 0); });
-        document.getElementById("stat-wallets").textContent = `₦${totalWallet.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
         renderUsers(allUsers);
       } catch (err) {
         console.error(err);
