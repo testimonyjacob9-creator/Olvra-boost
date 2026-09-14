@@ -19,6 +19,11 @@
 [functions."refund-expired-numbers"]
   schedule = "*/5 * * * *"
 
+# Email OTP (Mail.tm) — deletes accounts past their expiry that the user
+# never revisited, so we stay a good citizen of Mail.tm's free/fair-use API.
+[functions."cleanup-expired-emails"]
+  schedule = "*/15 * * * *"
+
 [functions."sync-services"]
   schedule = "0 2 * * *"
 

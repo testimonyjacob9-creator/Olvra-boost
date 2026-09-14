@@ -889,8 +889,8 @@
             <div class="si" style="background:#FFF3E0; color:#E88A1A;">🌐</div>
             <span>Website OTP</span>
           </div>
-          <div class="service-tile soon">
-            <div class="si">✉️</div>
+          <div class="service-tile" id="tile-email">
+            <div class="si" style="background:#F3EEFF; color:#7C4DFF;">✉️</div>
             <span>Email OTP</span>
           </div>
         </div>
@@ -1003,6 +1003,36 @@
       <button class="btn btn-primary" style="width:100%; margin-top:14px;" id="numbers-buy-confirm-btn">Rent This Number</button>
       <button class="btn btn-ghost" style="width:100%; margin-top:8px;" id="numbers-buy-cancel-btn">Cancel</button>
       <div class="msg" id="numbers-buy-msg"></div>
+    </div>
+  </div>
+
+  <!-- ===================== EMAIL OTP SCREEN (free — Mail.tm) ===================== -->
+  <div id="email-screen" class="hidden">
+    <div class="page-header">
+      <button class="icon-btn" id="email-back">←</button>
+      <div class="page-title">Email OTP</div>
+      <div style="width:40px"></div>
+    </div>
+
+    <div class="active-number-card" id="email-card">
+      <div class="active-number-label">Your temporary inbox</div>
+      <div class="active-number-phone" id="email-address" style="font-size:16px; word-break:break-all;">Creating inbox…</div>
+      <button class="copy-btn" id="email-copy">Copy Address</button>
+      <div class="active-number-timer" id="email-timer"></div>
+      <div class="sms-list" id="email-messages"></div>
+      <div class="empty-state" id="email-empty" style="padding:16px 0 0;">Waiting for an email to arrive…</div>
+      <div class="active-number-actions">
+        <button class="btn btn-ghost" id="email-new">New Inbox</button>
+        <button class="btn btn-primary" id="email-done">Done</button>
+      </div>
+      <div class="msg" id="email-msg"></div>
+    </div>
+
+    <div style="padding:0 20px 24px; text-align:center;">
+      <p style="color:var(--muted-2); font-size:11.5px; line-height:1.6;">
+        Free — this inbox is temporary and self-deletes when it expires. Don't use it for anything you need to keep long-term (banking, primary accounts).
+        <br>Powered by <a href="https://mail.tm" target="_blank" rel="noopener" style="color:var(--blue);">Mail.tm</a>.
+      </p>
     </div>
   </div>
 
@@ -1194,6 +1224,7 @@
       autoServices: document.getElementById("auto-services-screen"),
       boost: document.getElementById("boost-screen"),
       numbers: document.getElementById("numbers-screen"),
+      email: document.getElementById("email-screen"),
     };
     function showScreen(name) {
       Object.values(screens).forEach((el) => el.classList.add("hidden"));
@@ -1750,6 +1781,7 @@
     document.getElementById("tile-boost").onclick = () => showScreen("boost");
     document.getElementById("tile-numbers").onclick = () => openNumbersScreen();
     document.getElementById("tile-website").onclick = () => openNumbersScreenForWebsite();
+    document.getElementById("tile-email").onclick = () => openEmailScreen();
     document.getElementById("boost-back").onclick = () => showScreen("app");
     document.querySelectorAll(".service-tile.soon").forEach((tile) => {
       tile.onclick = () => showToast("Coming soon");
@@ -2570,6 +2602,106 @@
         list.innerHTML = `<div class="empty-state">Couldn't load your recent numbers.</div>`;
       }
     }
+
+    // =========================================================
+    // Email OTP (free — Mail.tm temp inbox, no wallet charge)
+    // =========================================================
+    let emailOrderId = null;
+    let emailPollTimer = null;
+    let emailCountdownTimer = null;
+
+    async function openEmailScreen() {
+      showScreen("email");
+      document.getElementById("email-address").textContent = "Creating inbox…";
+      document.getElementById("email-messages").innerHTML = "";
+      document.getElementById("email-empty").classList.remove("hidden");
+      document.getElementById("email-msg").textContent = "";
+      document.getElementById("email-new").classList.add("hidden");
+      stopEmailPolling();
+      try {
+        const result = await callFunction("create-temp-email", {});
+        emailOrderId = result.orderId;
+        document.getElementById("email-address").textContent = result.address;
+        startEmailCountdown(result.expires);
+        startEmailPolling(result.orderId);
+      } catch (err) {
+        document.getElementById("email-address").textContent = "Couldn't create an inbox";
+        document.getElementById("email-msg").textContent = err.message || "Try again in a moment.";
+        document.getElementById("email-msg").className = "msg error";
+      }
+    }
+
+    function renderEmailMessages(messages) {
+      const list = document.getElementById("email-messages");
+      const empty = document.getElementById("email-empty");
+      if (!messages || messages.length === 0) {
+        list.innerHTML = "";
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+      list.innerHTML = messages.map((m) => `
+        <div class="sms-item">
+          <div style="color:var(--muted-2); font-size:11px;">${(m.from || "").replace(/</g, "&lt;")} — ${(m.subject || "").replace(/</g, "&lt;")}</div>
+          <span class="code" style="font-size:13.5px; font-family:'Inter',sans-serif; font-weight:500; letter-spacing:0;">${(m.text || "").replace(/</g, "&lt;").slice(0, 400)}</span>
+        </div>`).reverse().join("");
+    }
+
+    function startEmailCountdown(expiresAt) {
+      clearInterval(emailCountdownTimer);
+      const timerEl = document.getElementById("email-timer");
+      if (!expiresAt) { timerEl.textContent = ""; return; }
+      const expiresMs = new Date(expiresAt).getTime();
+      const tick = () => {
+        const remainMs = expiresMs - Date.now();
+        if (remainMs <= 0) { timerEl.textContent = "Expired"; clearInterval(emailCountdownTimer); return; }
+        const mins = Math.floor(remainMs / 60000);
+        const secs = Math.floor((remainMs % 60000) / 1000);
+        timerEl.textContent = `Expires in ${mins}:${String(secs).padStart(2, "0")}`;
+      };
+      tick();
+      emailCountdownTimer = setInterval(tick, 1000);
+    }
+
+    function startEmailPolling(orderId) {
+      stopEmailPolling();
+      emailPollTimer = setInterval(async () => {
+        try {
+          const fresh = await callFunctionGet("check-temp-email", { orderId });
+          renderEmailMessages(fresh.messages);
+          if (fresh.status !== "ACTIVE") {
+            stopEmailPolling();
+            document.getElementById("email-new").classList.remove("hidden");
+            if (fresh.status === "EXPIRED") document.getElementById("email-timer").textContent = "Expired";
+          }
+        } catch (err) {
+          console.error("check-temp-email poll failed:", err);
+        }
+      }, 4000);
+    }
+    function stopEmailPolling() {
+      if (emailPollTimer) clearInterval(emailPollTimer);
+      emailPollTimer = null;
+      if (emailCountdownTimer) clearInterval(emailCountdownTimer);
+      emailCountdownTimer = null;
+    }
+
+    document.getElementById("email-back").onclick = () => {
+      stopEmailPolling();
+      showScreen("app");
+    };
+    document.getElementById("email-copy").onclick = () => {
+      const addr = document.getElementById("email-address").textContent;
+      navigator.clipboard?.writeText(addr).then(() => showToast("Address copied"));
+    };
+    document.getElementById("email-new").onclick = () => openEmailScreen();
+    document.getElementById("email-done").onclick = async () => {
+      stopEmailPolling();
+      if (emailOrderId) {
+        try { await callFunction("finish-temp-email", { orderId: emailOrderId }); } catch {}
+      }
+      showScreen("app");
+    };
 
     // =========================================================
     // Info carousel — optional "Learn how this works" content

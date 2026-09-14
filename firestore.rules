@@ -71,6 +71,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Email OTP (Mail.tm) — same pattern as number_orders above. Free
+    // feature (no price_ngn field, no wallet writes) — only ever
+    // created/updated by create-temp-email.js, check-temp-email.js,
+    // finish-temp-email.js, cleanup-expired-emails.js (Admin SDK).
+    match /email_orders/{orderId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin());
+      allow write: if false;
+    }
+
     // Wallet top-ups: a user can read their own funding history; admins can
     // read all top-ups. Records are only ever created by
     // flutterwave-webhook.js (Admin SDK).
