@@ -2109,36 +2109,50 @@
     async function openAutoServicesScreen(platformId) {
       showScreen("autoServices");
       const list = document.getElementById("auto-service-list");
-      list.innerHTML = `<div class="empty-state">Loading auto services…</div>`;
+      const cacheKey = `auto_cache_${platformId || "all"}`;
+      const cached = readServiceCache(cacheKey);
+      if (cached) {
+        autoServicesForPlatform = cached.filter((s) => resolveVariant(s) === "subscription");
+        renderAutoServiceList();
+      } else {
+        list.innerHTML = `<div class="empty-state">Loading auto services…</div>`;
+      }
+      if (isCacheFresh(cacheKey)) return;
       try {
         const q = platformId
           ? query(collection(db, "services"), where("platform", "==", platformId), where("is_active", "==", true))
           : query(collection(db, "services"), where("is_active", "==", true));
         const snap = await getDocs(q);
-        autoServicesForPlatform = snap.docs.map((d) => ({ ...d.data(), _docId: d.id })).filter((s) => resolveVariant(s) === "subscription");
-
-        if (autoServicesForPlatform.length === 0) {
-          list.innerHTML = `<div class="empty-state">No auto services available right now.</div>`;
-          return;
-        }
-
-        list.innerHTML = autoServicesForPlatform.map((s) => `
-          <div class="service-card" data-id="${s._docId}">
-            <div class="name">${s.name}</div>
-            <div class="meta">
-              <span>${s.min_quantity.toLocaleString()} – ${s.max_quantity.toLocaleString()} units</span>
-              <span class="price">₦${s.sell_price}/unit</span>
-            </div>
-            <span class="badge">Runs on every new post</span>
-          </div>`).join("");
-
-        list.querySelectorAll(".service-card").forEach((card) => {
-          card.onclick = () => openAutoModal(card.dataset.id);
-        });
+        const allServices = snap.docs.map((d) => ({ ...d.data(), _docId: d.id }));
+        writeServiceCache(cacheKey, allServices);
+        autoServicesForPlatform = allServices.filter((s) => resolveVariant(s) === "subscription");
+        renderAutoServiceList();
       } catch (err) {
-        console.error(err);
-        list.innerHTML = `<div class="empty-state">Couldn't load auto services — try again shortly.</div>`;
+        if (!cached) list.innerHTML = `<div class="empty-state">Couldn't load auto services.</div>`;
+        console.error("openAutoServicesScreen failed:", err);
       }
+    }
+
+    function renderAutoServiceList() {
+      const list = document.getElementById("auto-service-list");
+      if (autoServicesForPlatform.length === 0) {
+        list.innerHTML = `<div class="empty-state">No auto services available right now.</div>`;
+        return;
+      }
+
+      list.innerHTML = autoServicesForPlatform.map((s) => `
+        <div class="service-card" data-id="${s._docId}">
+          <div class="name">${s.name}</div>
+          <div class="meta">
+            <span>${s.min_quantity.toLocaleString()} – ${s.max_quantity.toLocaleString()} units</span>
+            <span class="price">₦${s.sell_price}/unit</span>
+          </div>
+          <span class="badge">Runs on every new post</span>
+        </div>`).join("");
+
+      list.querySelectorAll(".service-card").forEach((card) => {
+        card.onclick = () => openAutoModal(card.dataset.id);
+      });
     }
 
     document.getElementById("auto-back").onclick = () => showScreen("category");
