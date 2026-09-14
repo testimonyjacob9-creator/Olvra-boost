@@ -71,9 +71,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Email OTP (Mail.tm) — same pattern as number_orders above. Free
-    // feature (no price_ngn field, no wallet writes) — only ever
-    // created/updated by create-temp-email.js, check-temp-email.js,
+    // Email OTP (Mail.tm) — same pattern as number_orders above. ₦10 flat
+    // activation fee per inbox (see create-temp-email.js) — Mail.tm itself
+    // is still free/no-API-key; the fee is Olvra Boost's own charge on top.
+    // Only ever created/updated by create-temp-email.js, check-temp-email.js,
     // finish-temp-email.js, cleanup-expired-emails.js (Admin SDK).
     match /email_orders/{orderId} {
       allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin());
