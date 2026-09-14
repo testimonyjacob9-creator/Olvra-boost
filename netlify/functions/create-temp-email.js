@@ -4,11 +4,16 @@
 //
 // Charges a flat ₦10 activation fee per inbox from the wallet. Mail.tm
 // itself is still free/no-API-key — this fee is Olvra Boost's own charge
-// on top, not anything Mail.tm bills. NOTE: Mail.tm's terms say not to
-// build a paid product that just wraps their API, so this is a
-// deliberate risk accepted for now, pending their reply to a direct
-// email about it — if they say no, swap the backend to a provider whose
-// terms actually allow it (OpenInbox was already scoped for that).
+// on top, not anything Mail.tm bills.
+//
+// IMPORTANT ordering: the Mail.tm account is created FIRST, wallet is
+// charged ONLY after that succeeds. This function makes two sequential
+// external calls (domains, then account creation) before ever touching
+// money — doing the charge first and refunding on failure is the wrong
+// shape here, because a serverless function timeout kills execution
+// mid-flight with no guarantee the refund code ever runs, which would
+// charge someone for nothing. Charging last means the worst case of a
+// timeout is "nothing happened", not "charged with no inbox".
 
 const crypto = require("crypto");
 const { db, FieldValue } = require("./_lib/firebase-admin");
@@ -29,14 +34,35 @@ exports.handler = async (event) => {
     const uid = decoded.uid;
     const userRef = db.collection("users").doc(uid);
 
-    // Charge first — no point creating a Mail.tm account for someone who
-    // can't pay the activation fee.
+    // Balance CHECK (read-only, no charge yet) so we don't waste a
+    // Mail.tm account on someone who can't pay for it.
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+      throw Object.assign(new Error("User wallet not found."), { statusCode: 404 });
+    }
+    const walletBefore = userSnap.data().wallet_balance || 0;
+    if (walletBefore < ACTIVATION_FEE_NGN) {
+      throw Object.assign(new Error(`Insufficient wallet balance — Email OTP costs ₦${ACTIVATION_FEE_NGN} per inbox.`), { statusCode: 402 });
+    }
+
+    // Create the inbox BEFORE charging anything.
+    const domains = await mailtm.getDomains();
+    if (!domains.length) {
+      throw Object.assign(new Error("No temp-email domains available right now — try again shortly."), { statusCode: 503 });
+    }
+    const domain = domains[0].domain;
+    const local = `olvra${crypto.randomBytes(5).toString("hex")}`;
+    const address = `${local}@${domain}`;
+    const password = crypto.randomBytes(16).toString("hex");
+    const account = await mailtm.createAccount({ address, password });
+
+    // Inbox exists — now charge, and record the inbox in the same
+    // transaction so a charge can never exist without its email_orders row.
+    const expiresAt = new Date(Date.now() + INBOX_LIFETIME_MS).toISOString();
+    const orderRef = db.collection("email_orders").doc();
     await db.runTransaction(async (tx) => {
-      const userSnap = await tx.get(userRef);
-      if (!userSnap.exists) {
-        throw Object.assign(new Error("User wallet not found."), { statusCode: 404 });
-      }
-      const wallet = userSnap.data().wallet_balance || 0;
+      const freshUserSnap = await tx.get(userRef);
+      const wallet = freshUserSnap.exists ? (freshUserSnap.data().wallet_balance || 0) : 0;
       if (wallet < ACTIVATION_FEE_NGN) {
         throw Object.assign(new Error(`Insufficient wallet balance — Email OTP costs ₦${ACTIVATION_FEE_NGN} per inbox.`), { statusCode: 402 });
       }
@@ -52,44 +78,17 @@ exports.handler = async (event) => {
         note: "Email OTP — temp inbox activation fee",
         created_at: FieldValue.serverTimestamp(),
       });
-    });
-
-    let account, address, password, domain;
-    try {
-      const domains = await mailtm.getDomains();
-      if (!domains.length) {
-        throw Object.assign(new Error("No temp-email domains available right now — try again shortly."), { statusCode: 503 });
-      }
-      domain = domains[0].domain;
-      const local = `olvra${crypto.randomBytes(5).toString("hex")}`;
-      address = `${local}@${domain}`;
-      password = crypto.randomBytes(16).toString("hex");
-      account = await mailtm.createAccount({ address, password });
-    } catch (err) {
-      // Inbox creation failed after the fee was charged — refund it.
-      await userRef.update({ wallet_balance: FieldValue.increment(ACTIVATION_FEE_NGN) });
-      await db.collection("wallet_transactions").add({
+      tx.set(orderRef, {
         uid,
-        type: "email_otp_activation_refund",
-        amount: ACTIVATION_FEE_NGN,
-        note: "Email OTP — inbox creation failed, fee refunded",
+        address,
+        password,
+        account_id: account.id,
+        status: "ACTIVE",
+        price_ngn: ACTIVATION_FEE_NGN,
+        messages: [],
         created_at: FieldValue.serverTimestamp(),
+        expires_at: expiresAt,
       });
-      throw Object.assign(new Error("Couldn't create an inbox — you weren't charged. Try again."), { statusCode: 502 });
-    }
-
-    const expiresAt = new Date(Date.now() + INBOX_LIFETIME_MS).toISOString();
-
-    const orderRef = await db.collection("email_orders").add({
-      uid,
-      address,
-      password,
-      account_id: account.id,
-      status: "ACTIVE",
-      price_ngn: ACTIVATION_FEE_NGN,
-      messages: [],
-      created_at: FieldValue.serverTimestamp(),
-      expires_at: expiresAt,
     });
 
     return ok({ orderId: orderRef.id, address, expires: expiresAt });

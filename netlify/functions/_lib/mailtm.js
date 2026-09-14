@@ -19,7 +19,7 @@ function client(token) {
       Accept: "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    timeout: 15000,
+    timeout: 8000,
   });
 }
 

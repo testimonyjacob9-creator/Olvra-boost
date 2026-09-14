@@ -354,6 +354,28 @@
       } catch (err) { console.error(err); }
     }
 
+    // Refreshes a single user's row after an admin edit — reads ONE
+    // document instead of the whole collection. The old approach reset
+    // usersTabLoaded and called loadUsersTabIfNeeded() again, which
+    // re-read every user document just to reflect one balance/status
+    // change; that was a real contributor to blowing through the
+    // Firestore free-tier daily read quota (fixed 2026-09-15).
+    async function refreshOneUser(uid) {
+      try {
+        const snap = await getDoc(doc(db, "users", uid));
+        if (!snap.exists()) return;
+        const fresh = { uid, ...snap.data() };
+        const idx = allUsers.findIndex((u) => u.uid === uid);
+        if (idx >= 0) allUsers[idx] = fresh; else allUsers.push(fresh);
+        let totalWallet = 0;
+        allUsers.forEach((u) => { totalWallet += (u.wallet_balance || 0); });
+        document.getElementById("stat-wallets").textContent = `₦${totalWallet.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+        if (usersTabLoaded) renderUsers(allUsers);
+      } catch (err) {
+        console.error("refreshOneUser failed:", err);
+      }
+    }
+
     async function loadUsersTabIfNeeded() {
       if (usersTabLoaded) return;
       usersTabLoaded = true;
@@ -585,7 +607,7 @@
             showToast("Wallet updated");
             amountEl.value = ""; reasonEl.value = "";
             loadStats();
-            usersTabLoaded = false; loadUsersTabIfNeeded(); // refresh the list — this user's balance just changed
+            refreshOneUser(uid); // one doc read instead of the whole collection
           } catch (err) {
             showToast(err.message || "Adjustment failed");
           }
@@ -601,7 +623,7 @@
             await callFunction("admin-actions", { action: "setUserDisabled", targetUid: uid, disabled: !currentlySuspended });
             showToast(currentlySuspended ? "User unsuspended" : "User suspended");
             loadStats();
-            usersTabLoaded = false; loadUsersTabIfNeeded(); // refresh the list — this user's status just changed
+            refreshOneUser(uid); // one doc read instead of the whole collection
           } catch (err) {
             showToast(err.message || "Action failed");
             btn.disabled = false;

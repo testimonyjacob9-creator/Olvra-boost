@@ -1031,7 +1031,6 @@
     <div style="padding:0 20px 24px; text-align:center;">
       <p style="color:var(--muted-2); font-size:11.5px; line-height:1.6;">
         ₦10 per inbox — this inbox is temporary and self-deletes when it expires. Don't use it for anything you need to keep long-term (banking, primary accounts).
-        <br>Powered by <a href="https://mail.tm" target="_blank" rel="noopener" style="color:var(--blue);">Mail.tm</a>.
       </p>
     </div>
   </div>
@@ -2492,7 +2491,7 @@
         } catch (err) {
           console.error("check-number poll failed:", err);
         }
-      }, 4000);
+      }, 7000);
     }
     function stopNumbersPolling() {
       if (numbersPollTimer) clearInterval(numbersPollTimer);
@@ -2678,7 +2677,7 @@
         } catch (err) {
           console.error("check-temp-email poll failed:", err);
         }
-      }, 4000);
+      }, 7000);
     }
     function stopEmailPolling() {
       if (emailPollTimer) clearInterval(emailPollTimer);
