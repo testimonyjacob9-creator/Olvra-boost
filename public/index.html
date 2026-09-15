@@ -977,6 +977,7 @@
         </div>
         <div class="active-number-timer" id="active-number-timer"></div>
         <div class="sms-list" id="active-number-sms"></div>
+        <div class="s hidden" id="active-number-cancel-wait" style="text-align:center; margin-top:8px; color:var(--muted-2); font-size:11.5px;"></div>
         <div class="active-number-actions">
           <button class="btn btn-ghost" id="active-number-cancel">Cancel &amp; Refund</button>
           <button class="btn btn-primary" id="active-number-finish">Done</button>
@@ -2238,7 +2239,13 @@
     // =========================================================
     const PRODUCT_ICONS = {
       whatsapp: "💬", telegram: "✈️", google: "🔍", facebook: "📘", instagram: "📷",
-      tiktok: "🎵", twitter: "🐦", discord: "🎮", amazon: "🛒", openai: "🤖", other: "🌐",
+      tiktok: "🎵", twitter: "🐦", discord: "🎮", amazon: "🛒", openai: "🤖",
+      paypal: "💰", netflix: "🎬", microsoft: "🪟", apple: "🍎", linkedin: "💼",
+      spotify: "🎧", snapchat: "👻", steam: "🕹️", reddit: "👽", roblox: "🧱",
+      ebay: "🏷️", uber: "🚗", airbnb: "🏠", aliexpress: "📦", shopee: "🛍️",
+      skype: "📞", tinder: "🔥", twitch: "🎥", coinbase: "🪙", doordash: "🍔",
+      venmo: "💵", viber: "💜", wechat: "💚", nintendo: "🎮", paytm: "💳",
+      alibaba: "🧧", grab: "🚕", line: "💚", imo: "📱", other: "🌐",
     };
 
     let numbersOptions = null;       // { countries, products } from numbers-prices (no query)
@@ -2456,6 +2463,7 @@
           status: result.status,
           expires: result.expires,
           sms: [],
+          createdAtMs: Date.now(),
         });
       } catch (err) {
         msgEl.textContent = err.message || "Couldn't rent this number.";
@@ -2469,13 +2477,45 @@
     // ---- Active number: waiting for the code, polling, finish/cancel ----
     function openActiveNumber(order) {
       numbersActiveOrderId = order.orderId;
+      numbersActiveCreatedAtMs = order.createdAtMs || null;
       document.getElementById("active-number-product").textContent = `${numbersProduct?.label || order.product || ""} · ${numbersCountry?.label || ""}`;
       document.getElementById("active-number-phone").textContent = order.phone;
       document.getElementById("active-number-msg").textContent = "";
       renderActiveNumberStatus(order.status, order.sms || []);
       startNumbersCountdown(order.expires);
+      startCancelEligibilityCountdown();
       showNumbersStep("active");
       startNumbersPolling(order.orderId);
+    }
+
+    // Cancel & Refund is disabled for the first 3 minutes (matches the
+    // same rule cancel-number.js enforces server-side) — shows a
+    // "Cancel available in M:SS" label instead of a button the user could
+    // tap and watch fail.
+    let numbersActiveCreatedAtMs = null;
+    let cancelEligibilityTimer = null;
+    const CANCEL_MIN_HOLD_MS = 3 * 60 * 1000;
+    function startCancelEligibilityCountdown() {
+      clearInterval(cancelEligibilityTimer);
+      const cancelBtn = document.getElementById("active-number-cancel");
+      const cancelWait = document.getElementById("active-number-cancel-wait");
+      if (!numbersActiveCreatedAtMs) { cancelWait.classList.add("hidden"); return; }
+      const tick = () => {
+        const remainMs = CANCEL_MIN_HOLD_MS - (Date.now() - numbersActiveCreatedAtMs);
+        if (remainMs <= 0) {
+          clearInterval(cancelEligibilityTimer);
+          cancelWait.classList.add("hidden");
+          if (!cancelBtn.dataset.forceHidden) cancelBtn.classList.remove("hidden");
+          return;
+        }
+        cancelBtn.classList.add("hidden");
+        cancelWait.classList.remove("hidden");
+        const mins = Math.floor(remainMs / 60000);
+        const secs = Math.floor((remainMs % 60000) / 1000);
+        cancelWait.textContent = `Cancel available in ${mins}:${String(secs).padStart(2, "0")}`;
+      };
+      tick();
+      cancelEligibilityTimer = setInterval(tick, 1000);
     }
 
     const NUMBERS_CLOSED_STATUSES = new Set(["FINISHED", "CANCELED", "TIMEOUT", "BANNED"]);
@@ -2488,13 +2528,30 @@
         NUMBERS_CLOSED_STATUSES.has(status) && status !== "FINISHED" ? "status-failed" : "status-completed"
       );
       const smsList = document.getElementById("active-number-sms");
-      smsList.innerHTML = sms.map((s) => `
-        <div class="sms-item">
-          ${s.sender ? `<div style="color:var(--muted-2); font-size:11px;">${s.sender}</div>` : ""}
-          <span class="code">${s.code || s.text || ""}</span>
-        </div>`).join("");
+      if (sms.length > 0) {
+        smsList.innerHTML = sms.map((s) => `
+          <div class="sms-item">
+            ${s.sender ? `<div style="color:var(--muted-2); font-size:11px;">${s.sender}</div>` : ""}
+            <span class="code">${s.code || s.text || "(see full message below)"}</span>
+            ${s.code && s.text && s.text !== s.code ? `<div style="color:var(--muted); font-size:11.5px; margin-top:4px;">${s.text}</div>` : ""}
+          </div>`).join("");
+      } else if (status === "RECEIVED") {
+        // Status says a code arrived but we don't have its content yet —
+        // show something honest instead of a blank space, and let the
+        // next poll (or a manual check) fill it in rather than looking broken.
+        smsList.innerHTML = `<div class="sms-item"><span style="color:var(--muted);">Code received — fetching the message…</span></div>`;
+      } else {
+        smsList.innerHTML = "";
+      }
       const cancelBtn = document.getElementById("active-number-cancel");
-      cancelBtn.classList.toggle("hidden", sms.length > 0 || NUMBERS_CLOSED_STATUSES.has(status));
+      const cancelWait = document.getElementById("active-number-cancel-wait");
+      const shouldForceHide = sms.length > 0 || NUMBERS_CLOSED_STATUSES.has(status);
+      cancelBtn.dataset.forceHidden = shouldForceHide ? "1" : "";
+      if (shouldForceHide) {
+        cancelBtn.classList.add("hidden");
+        cancelWait.classList.add("hidden");
+        clearInterval(cancelEligibilityTimer);
+      }
       const finishBtn = document.getElementById("active-number-finish");
       finishBtn.textContent = NUMBERS_CLOSED_STATUSES.has(status) ? "Close" : "Done — I've used the code";
     }
@@ -2533,6 +2590,8 @@
       numbersPollTimer = null;
       if (numbersCountdownTimer) clearInterval(numbersCountdownTimer);
       numbersCountdownTimer = null;
+      if (cancelEligibilityTimer) clearInterval(cancelEligibilityTimer);
+      cancelEligibilityTimer = null;
     }
     document.addEventListener("visibilitychange", () => {
       if (!numbersActiveOrderId) return;
@@ -2628,7 +2687,7 @@
             }
             numbersProduct = { product: order.product, label: order.product };
             numbersCountry = { country: order.country, label: order.country };
-            openActiveNumber({ orderId: row.dataset.id, phone: order.phone, status: order.status, expires: order.expires_at, sms: order.sms || [] });
+            openActiveNumber({ orderId: row.dataset.id, phone: order.phone, status: order.status, expires: order.expires_at, sms: order.sms || [], createdAtMs: order.created_at?.toDate ? order.created_at.toDate().getTime() : null });
           };
         });
       } catch (err) {

@@ -53,6 +53,16 @@ exports.handler = async (event) => {
     if ((order.sms || []).length > 0) {
       throw Object.assign(new Error("A code has already been received — this number can no longer be cancelled."), { statusCode: 409 });
     }
+    // Minimum 3-minute hold before a cancel is allowed — gives 5sim's own
+    // delivery a real chance to land before the user can bail on it, and
+    // sidesteps a narrow race where a code arrives right as a cancel is
+    // submitted (5sim would reject that with a raw "order has sms" 400).
+    const createdMs = order.created_at?.toDate ? order.created_at.toDate().getTime() : null;
+    const MIN_HOLD_MS = 3 * 60 * 1000;
+    if (createdMs && Date.now() - createdMs < MIN_HOLD_MS) {
+      const waitSec = Math.ceil((MIN_HOLD_MS - (Date.now() - createdMs)) / 1000);
+      throw Object.assign(new Error(`You can cancel this in ${waitSec}s — numbers can't be cancelled in the first 3 minutes.`), { statusCode: 429 });
+    }
 
     const apiKey = FIVESIM_API_KEY;
     if (!apiKey) {
@@ -63,8 +73,18 @@ exports.handler = async (event) => {
     try {
       result = await fivesim.cancelOrder(apiKey, order.fivesim_order_id);
     } catch (err) {
-      const providerReason = err.response?.data?.message || err.message || "unknown error";
-      throw Object.assign(new Error(`Couldn't cancel this order — ${providerReason}`), { statusCode: 409 });
+      // 5sim's 400 error bodies are often a bare string ("order has sms"),
+      // not JSON with a .message field — axios's own generic "Request
+      // failed with status code 400" was leaking through when that JSON
+      // path came up empty. Try the raw response body text too.
+      const rawBody = typeof err.response?.data === "string" ? err.response.data : null;
+      const providerReason = err.response?.data?.message || rawBody || err.message || "unknown error";
+      const friendly = {
+        "order has sms": "A code already arrived for this number — it can no longer be cancelled.",
+        "order expired": "This number already expired.",
+        "order not found": "This order wasn't found on the provider's side.",
+      }[String(providerReason).trim().toLowerCase()] || `Couldn't cancel this order — ${providerReason}`;
+      throw Object.assign(new Error(friendly), { statusCode: 409 });
     }
 
     // Refund exactly what was charged at purchase time — wallet portion in

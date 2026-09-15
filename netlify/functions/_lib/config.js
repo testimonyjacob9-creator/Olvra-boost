@@ -82,6 +82,13 @@ module.exports = {
   // Curated product list shown in the "Rent Number" picker — 5sim supports
   // 1000+ products, most irrelevant to this app's users. Add to this list as
   // demand shows up; `label` is what the UI shows, `product` is 5sim's slug.
+  // Expanded 2026-09-15 with the well-known names from 5sim's own "Smart
+  // Buy" list. A handful of slugs here are best-effort guesses at 5sim's
+  // naming convention (not all individually confirmed against the live
+  // catalog) — a wrong guess just shows "no numbers available" for that
+  // one tile, nothing breaks. The search box on this screen queries
+  // 5sim's real catalog directly and is the reliable fallback for
+  // anything missing or mislabeled here.
   FIVESIM_PRODUCTS: [
     { product: "whatsapp", label: "WhatsApp" },
     { product: "telegram", label: "Telegram" },
@@ -93,6 +100,35 @@ module.exports = {
     { product: "discord", label: "Discord" },
     { product: "amazon", label: "Amazon" },
     { product: "openai", label: "OpenAI / ChatGPT" },
+    { product: "paypal", label: "PayPal" },
+    { product: "netflix", label: "Netflix" },
+    { product: "microsoft", label: "Microsoft" },
+    { product: "apple", label: "Apple" },
+    { product: "linkedin", label: "LinkedIn" },
+    { product: "spotify", label: "Spotify" },
+    { product: "snapchat", label: "Snapchat" },
+    { product: "steam", label: "Steam" },
+    { product: "reddit", label: "Reddit" },
+    { product: "roblox", label: "Roblox" },
+    { product: "ebay", label: "eBay" },
+    { product: "uber", label: "Uber" },
+    { product: "airbnb", label: "Airbnb" },
+    { product: "aliexpress", label: "AliExpress" },
+    { product: "shopee", label: "Shopee" },
+    { product: "skype", label: "Skype" },
+    { product: "tinder", label: "Tinder" },
+    { product: "twitch", label: "Twitch" },
+    { product: "coinbase", label: "Coinbase" },
+    { product: "doordash", label: "DoorDash" },
+    { product: "venmo", label: "Venmo" },
+    { product: "viber", label: "Viber" },
+    { product: "wechat", label: "WeChat" },
+    { product: "nintendo", label: "Nintendo" },
+    { product: "paytm", label: "Paytm" },
+    { product: "alibaba", label: "Alibaba" },
+    { product: "grab", label: "Grab" },
+    { product: "line", label: "Line" },
+    { product: "imo", label: "imo" },
     { product: "other", label: "Website (Any Other Site)" },
   ],
 
