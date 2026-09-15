@@ -223,9 +223,10 @@
 
     <!-- ===== SERVICES ===== -->
     <div class="tab-panel" id="panel-services">
-      <div class="section-title">Services Catalog</div>
+      <div class="section-title">Services Catalog<button class="pill-btn" id="browse-services-toggle">📋 Browse All</button></div>
       <input class="search-input" id="service-search" placeholder="Search service name or ID, then press Enter…">
-      <div class="list" id="services-list"><div class="empty-state">Search above to look up and enable/disable services — the catalog is too large to list all at once.</div></div>
+      <div class="list" id="services-list"><div class="empty-state">Search above, or tap "Browse All" to page through the whole catalog 40 at a time.</div></div>
+      <button class="pill-btn ghost hidden" id="browse-services-btn" style="width:100%; margin-top:10px;">Load 40 more</button>
     </div>
 
     <!-- ===== TOP-UPS ===== -->
@@ -255,6 +256,30 @@
       <textarea class="search-input" id="setting-announcement" placeholder="Optional message shown at the top of the app, e.g. a promo or a scheduled downtime notice. Leave blank to hide."></textarea>
       <button class="pill-btn" id="save-settings-btn" style="width:100%; margin-top:6px;">Save Settings</button>
 
+      <div class="section-title" style="padding-top:22px;">Rent Number Pricing</div>
+      <div class="s" style="margin-bottom:10px;">Changes apply to every rental within ~2 minutes — no redeploy needed. Bounds: markup 0–500%, min margin ₦0–₦5,000, rate 500–5000.</div>
+      <div class="setting-row">
+        <div><div class="t">Markup (%)</div><div class="s">On top of 5sim's USD cost — 60 means 60%.</div></div>
+        <input type="number" class="search-input" id="setting-fivesim-markup" style="width:90px; text-align:right;" step="1">
+      </div>
+      <div class="setting-row">
+        <div><div class="t">Min margin (₦)</div><div class="s">Floor kept on the cheapest numbers, even after markup.</div></div>
+        <input type="number" class="search-input" id="setting-fivesim-min-margin" style="width:90px; text-align:right;" step="10">
+      </div>
+      <div class="setting-row">
+        <div><div class="t">USD → NGN rate</div><div class="s">Hand-set — update after topping up 5sim's USD balance.</div></div>
+        <input type="number" class="search-input" id="setting-fivesim-rate" style="width:90px; text-align:right;" step="10">
+      </div>
+      <button class="pill-btn" id="save-pricing-btn" style="width:100%; margin-top:6px;">Save Pricing</button>
+      <div class="s" id="pricing-status" style="margin-top:6px;"></div>
+
+      <div class="section-title" style="padding-top:22px;">App Notification — All Users</div>
+      <div class="s" style="margin-bottom:10px;">Shows up in every user's in-app notification bell — not email, shows instantly next time they open the app.</div>
+      <input type="text" class="search-input" id="notif-broadcast-title" placeholder="Title" style="margin-bottom:8px;">
+      <textarea class="search-input" id="notif-broadcast-body" placeholder="Message" rows="3"></textarea>
+      <button class="pill-btn" id="send-notif-broadcast-btn" style="width:100%; margin-top:6px;">Send to All Users</button>
+      <div class="s" id="notif-broadcast-status" style="margin-top:6px;"></div>
+
       <div class="section-title" style="padding-top:22px;">Email All Users</div>
       <div class="s" style="margin-bottom:10px;">Sends a branded email to every user (except anyone who's unsubscribed). Just type — the design is already handled.</div>
       <input type="text" class="search-input" id="broadcast-subject" placeholder="Subject line" style="margin-bottom:8px;">
@@ -267,7 +292,7 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { collection, query, orderBy, limit, getDocs, getCountFromServer, getAggregateFromServer, sum, doc, getDoc, setDoc, signOut, documentId, where } from "./js/firebase-sdk.bundle.js";
+    import { collection, query, orderBy, limit, startAfter, getDocs, getCountFromServer, getAggregateFromServer, sum, doc, getDoc, setDoc, signOut, documentId, where } from "./js/firebase-sdk.bundle.js";
     import { db, auth, callFunction } from "./js/firebase-client.js";
 
     function requireSignedInAdmin() {
@@ -671,6 +696,37 @@
     });
 
     // ===== Services =====
+    function serviceRowHtml(s, i) {
+      return `
+        <div class="row" style="animation-delay:${Math.min(i * 0.03, 0.4)}s">
+          <div class="row-top">
+            <div><div class="name">${escapeHtml(s.name || "Service")}</div><div class="meta">ID ${escapeHtml(s.id)} · ${escapeHtml(s.platform || "")} · ₦${s.sell_price || s.price || "—"}/unit</div></div>
+            <span class="badge ${s.is_active ? "b-active" : "b-inactive"}">${s.is_active ? "active" : "inactive"}</span>
+          </div>
+          <div class="row-actions">
+            <button class="pill-btn ${s.is_active ? "danger" : "ghost"}" data-service-toggle="${s.id}" data-active="${!!s.is_active}">${s.is_active ? "Disable" : "Enable"}</button>
+          </div>
+        </div>
+      `;
+    }
+    function wireServiceToggleButtons(container, onDone) {
+      container.querySelectorAll("[data-service-toggle]").forEach((btn) => {
+        btn.onclick = async () => {
+          const serviceId = btn.dataset.serviceToggle;
+          const currentlyActive = btn.dataset.active === "true";
+          btn.disabled = true;
+          try {
+            await callFunction("admin-actions", { action: "toggleService", serviceId, isActive: !currentlyActive });
+            showToast(currentlyActive ? "Service disabled" : "Service enabled");
+            onDone();
+          } catch (err) {
+            showToast(err.message || "Action failed");
+            btn.disabled = false;
+          }
+        };
+      });
+    }
+
     async function searchServices() {
       const term = document.getElementById("service-search").value.trim();
       const container = document.getElementById("services-list");
@@ -698,32 +754,8 @@
           container.innerHTML = `<div class="empty-state">No matching services found. Try the exact service ID, or a shorter keyword.</div>`;
           return;
         }
-        container.innerHTML = results.map((s, i) => `
-          <div class="row" style="animation-delay:${i * 0.03}s">
-            <div class="row-top">
-              <div><div class="name">${escapeHtml(s.name || "Service")}</div><div class="meta">ID ${escapeHtml(s.id)} · ${escapeHtml(s.platform || "")} · ₦${s.sell_price || s.price || "—"}/unit</div></div>
-              <span class="badge ${s.is_active ? "b-active" : "b-inactive"}">${s.is_active ? "active" : "inactive"}</span>
-            </div>
-            <div class="row-actions">
-              <button class="pill-btn ${s.is_active ? "danger" : "ghost"}" data-service-toggle="${s.id}" data-active="${!!s.is_active}">${s.is_active ? "Disable" : "Enable"}</button>
-            </div>
-          </div>
-        `).join("");
-        container.querySelectorAll("[data-service-toggle]").forEach((btn) => {
-          btn.onclick = async () => {
-            const serviceId = btn.dataset.serviceToggle;
-            const currentlyActive = btn.dataset.active === "true";
-            btn.disabled = true;
-            try {
-              await callFunction("admin-actions", { action: "toggleService", serviceId, isActive: !currentlyActive });
-              showToast(currentlyActive ? "Service disabled" : "Service enabled");
-              searchServices();
-            } catch (err) {
-              showToast(err.message || "Action failed");
-              btn.disabled = false;
-            }
-          };
-        });
+        container.innerHTML = results.map((s, i) => serviceRowHtml(s, i)).join("");
+        wireServiceToggleButtons(container, searchServices);
       } catch (err) {
         console.error(err);
         container.innerHTML = `<div class="empty-state">Search failed — try again.</div>`;
@@ -732,6 +764,51 @@
     document.getElementById("service-search").addEventListener("keydown", (e) => {
       if (e.key === "Enter") searchServices();
     });
+
+    // Paginated "browse everything" — 40 at a time via a cursor, so
+    // looking through the whole ~5,900-service catalog never costs more
+    // than one bounded read per page tapped, instead of one huge read.
+    let browseLastDoc = null;
+    let browseRows = [];
+    async function browseAllServices(loadMore) {
+      const container = document.getElementById("services-list");
+      const btn = document.getElementById("browse-services-btn");
+      if (!loadMore) {
+        browseLastDoc = null;
+        browseRows = [];
+        container.innerHTML = `<div class="empty-state">Loading…</div>`;
+      }
+      btn.disabled = true;
+      btn.textContent = "Loading…";
+      try {
+        let q = query(collection(db, "services"), orderBy("name"), limit(40));
+        if (browseLastDoc) q = query(collection(db, "services"), orderBy("name"), startAfter(browseLastDoc), limit(40));
+        const snap = await getDocs(q);
+        if (snap.empty && !loadMore) {
+          container.innerHTML = `<div class="empty-state">No services in the catalog yet — try Sync now on Overview.</div>`;
+          btn.classList.add("hidden");
+          return;
+        }
+        browseLastDoc = snap.docs[snap.docs.length - 1] || browseLastDoc;
+        browseRows = browseRows.concat(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        container.innerHTML = browseRows.map((s, i) => serviceRowHtml(s, i)).join("") +
+          (snap.docs.length === 40 ? "" : `<div class="empty-state">— end of catalog —</div>`);
+        wireServiceToggleButtons(container, () => browseAllServices(false));
+        btn.classList.toggle("hidden", snap.docs.length < 40);
+        btn.textContent = "Load 40 more";
+      } catch (err) {
+        console.error(err);
+        if (!loadMore) container.innerHTML = `<div class="empty-state">Couldn't load the catalog — try again.</div>`;
+        else showToast("Couldn't load more — try again");
+      }
+      btn.disabled = false;
+    }
+    document.getElementById("browse-services-toggle").onclick = () => {
+      document.getElementById("service-search").value = "";
+      document.getElementById("browse-services-btn").classList.remove("hidden");
+      browseAllServices(false);
+    };
+    document.getElementById("browse-services-btn").onclick = () => browseAllServices(true);
 
     // ===== Top-ups =====
     let topupsLoaded = false;
@@ -805,6 +882,12 @@
         document.getElementById("setting-maintenance").checked = !!data.maintenance_mode;
         document.getElementById("setting-signup-lock").checked = !!data.signup_locked;
         document.getElementById("setting-announcement").value = data.announcement || "";
+        // Same defaults as config.js (FIVESIM_MARKUP 0.6, FIVESIM_MIN_MARGIN_NGN
+        // 150, FIVESIM_USD_TO_NGN 1650) — shown here so the field starts at
+        // what's actually in effect, not blank/zero, when no override is set yet.
+        document.getElementById("setting-fivesim-markup").value = Math.round((data.fivesim_markup ?? 0.6) * 100);
+        document.getElementById("setting-fivesim-min-margin").value = data.fivesim_min_margin_ngn ?? 150;
+        document.getElementById("setting-fivesim-rate").value = data.fivesim_usd_to_ngn ?? 1650;
       } catch (err) { console.error(err); }
     }
     document.getElementById("save-settings-btn").onclick = async () => {
@@ -822,6 +905,57 @@
         showToast(err.message || "Save failed");
       }
       btn.disabled = false; btn.textContent = "Save Settings";
+    };
+
+    document.getElementById("save-pricing-btn").onclick = async () => {
+      const btn = document.getElementById("save-pricing-btn");
+      const statusEl = document.getElementById("pricing-status");
+      const markupPct = Number(document.getElementById("setting-fivesim-markup").value);
+      const minMargin = Number(document.getElementById("setting-fivesim-min-margin").value);
+      const rate = Number(document.getElementById("setting-fivesim-rate").value);
+      if (!Number.isFinite(markupPct) || !Number.isFinite(minMargin) || !Number.isFinite(rate)) {
+        statusEl.textContent = "Enter valid numbers in all three fields.";
+        return;
+      }
+      btn.disabled = true; btn.textContent = "Saving…";
+      statusEl.textContent = "";
+      try {
+        await callFunction("admin-actions", {
+          action: "updateSettings",
+          fivesim_markup: markupPct / 100,
+          fivesim_min_margin_ngn: minMargin,
+          fivesim_usd_to_ngn: rate,
+        });
+        statusEl.textContent = "Saved — takes effect within ~2 minutes.";
+        showToast("Pricing saved");
+      } catch (err) {
+        statusEl.textContent = err.message || "Save failed";
+        showToast(err.message || "Save failed");
+      }
+      btn.disabled = false; btn.textContent = "Save Pricing";
+    };
+
+    document.getElementById("send-notif-broadcast-btn").onclick = async () => {
+      const btn = document.getElementById("send-notif-broadcast-btn");
+      const statusEl = document.getElementById("notif-broadcast-status");
+      const title = document.getElementById("notif-broadcast-title").value.trim();
+      const bodyText = document.getElementById("notif-broadcast-body").value.trim();
+      if (!title || !bodyText) { showToast("Enter both a title and a message"); return; }
+      if (!confirm(`Send this notification to every user? This can't be undone.`)) return;
+      btn.disabled = true; btn.textContent = "Sending…";
+      statusEl.textContent = "";
+      try {
+        const result = await callFunction("admin-actions", { action: "broadcastNotification", title, body: bodyText });
+        statusEl.textContent = `Sent to ${result.sent} of ${result.recipientCount} users${result.failed ? ` (${result.failed} failed)` : ""}.`;
+        showToast("Notification sent");
+        document.getElementById("notif-broadcast-title").value = "";
+        document.getElementById("notif-broadcast-body").value = "";
+      } catch (err) {
+        statusEl.textContent = err.message || "Send failed";
+        showToast(err.message || "Send failed");
+      } finally {
+        btn.disabled = false; btn.textContent = "Send to All Users";
+      }
     };
 
     document.getElementById("send-broadcast-btn").onclick = async () => {

@@ -30,6 +30,7 @@ export {
   where,
   orderBy,
   limit,
+  startAfter,
   documentId,
   getDocs,
   getCountFromServer,

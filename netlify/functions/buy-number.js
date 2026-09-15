@@ -18,6 +18,7 @@ const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 const fivesim = require("./_lib/fivesim");
 const { FIVESIM_COUNTRIES, FIVESIM_PRODUCTS, FIVESIM_API_KEY } = require("./_lib/config");
+const { getRentNumberPricing } = require("./_lib/rent-number-pricing");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -76,7 +77,8 @@ exports.handler = async (event) => {
       costUsd = cheapest[1].cost;
     }
 
-    const sellPriceNgn = fivesim.sellPriceNgn(costUsd);
+    const pricing = await getRentNumberPricing();
+    const sellPriceNgn = fivesim.sellPriceNgn(costUsd, pricing);
     const userRef = db.collection("users").doc(uid);
 
     // Same wallet-then-olives spend + ledger pattern as place-order.js.

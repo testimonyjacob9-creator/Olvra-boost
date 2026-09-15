@@ -170,6 +170,41 @@ async function refundNumberOrder(adminUid, { orderId }) {
   return { refunded: walletRefund };
 }
 
+async function broadcastNotification(adminUid, { title, body }) {
+  if (!title || !body) {
+    throw Object.assign(new Error("title and body are required."), { statusCode: 400 });
+  }
+  // listDocuments() returns references only, not document data — this
+  // costs zero Firestore reads, unlike a real .get() on the collection.
+  const userRefs = await db.collection("users").listDocuments();
+  let sent = 0;
+  let failed = 0;
+  // Batched writes, 400 at a time (comfortably under Firestore's 500-op
+  // limit per batch) — fine at 28 users today, still correct if it grows.
+  for (let i = 0; i < userRefs.length; i += 400) {
+    const batch = db.batch();
+    const chunk = userRefs.slice(i, i + 400);
+    chunk.forEach((ref) => {
+      batch.set(ref.collection("notifications").doc(), {
+        type: "admin_broadcast",
+        title,
+        body,
+        sent_by: adminUid,
+        read: false,
+        created_at: FieldValue.serverTimestamp(),
+      });
+    });
+    try {
+      await batch.commit();
+      sent += chunk.length;
+    } catch (err) {
+      console.error("broadcastNotification: batch failed:", err.message);
+      failed += chunk.length;
+    }
+  }
+  return { sent, failed, recipientCount: userRefs.length };
+}
+
 async function toggleService(adminUid, { serviceId, isActive }) {
   if (!serviceId || typeof isActive !== "boolean") {
     throw Object.assign(new Error("serviceId and isActive are required."), { statusCode: 400 });
@@ -179,11 +214,31 @@ async function toggleService(adminUid, { serviceId, isActive }) {
 }
 
 async function updateSettings(adminUid, body) {
-  const { maintenance_mode, signup_locked, announcement } = body;
+  const { maintenance_mode, signup_locked, announcement, fivesim_markup, fivesim_min_margin_ngn, fivesim_usd_to_ngn } = body;
   const patch = { updated_by: adminUid, updated_at: FieldValue.serverTimestamp() };
   if (typeof maintenance_mode === "boolean") patch.maintenance_mode = maintenance_mode;
   if (typeof signup_locked === "boolean") patch.signup_locked = signup_locked;
   if (typeof announcement === "string") patch.announcement = announcement;
+  // Rent Number margin — bounded so a typo (e.g. "6" meant as 0.6, or a
+  // stray zero) can't accidentally give numbers away or price them absurdly.
+  if (typeof fivesim_markup === "number") {
+    if (fivesim_markup < 0 || fivesim_markup > 5) {
+      throw Object.assign(new Error("Markup must be between 0 and 5 (0%–500%)."), { statusCode: 400 });
+    }
+    patch.fivesim_markup = fivesim_markup;
+  }
+  if (typeof fivesim_min_margin_ngn === "number") {
+    if (fivesim_min_margin_ngn < 0 || fivesim_min_margin_ngn > 5000) {
+      throw Object.assign(new Error("Minimum margin must be between ₦0 and ₦5,000."), { statusCode: 400 });
+    }
+    patch.fivesim_min_margin_ngn = fivesim_min_margin_ngn;
+  }
+  if (typeof fivesim_usd_to_ngn === "number") {
+    if (fivesim_usd_to_ngn < 500 || fivesim_usd_to_ngn > 5000) {
+      throw Object.assign(new Error("USD→NGN rate looks wrong — expected roughly 500–5000."), { statusCode: 400 });
+    }
+    patch.fivesim_usd_to_ngn = fivesim_usd_to_ngn;
+  }
   await db.collection("settings").doc("global").set(patch, { merge: true });
   return { success: true };
 }
@@ -229,6 +284,7 @@ const ACTIONS = {
   updateSettings,
   setUserDisabled,
   sendUserNotification,
+  broadcastNotification,
 };
 
 exports.handler = async (event) => {

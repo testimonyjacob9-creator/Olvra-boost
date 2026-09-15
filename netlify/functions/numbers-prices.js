@@ -12,6 +12,7 @@ const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 const fivesim = require("./_lib/fivesim");
 const { FIVESIM_COUNTRIES, FIVESIM_PRODUCTS, FIVESIM_API_KEY } = require("./_lib/config");
+const { getRentNumberPricing } = require("./_lib/rent-number-pricing");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "GET") {
@@ -35,12 +36,13 @@ exports.handler = async (event) => {
     const raw = await fivesim.getPrices(apiKey, { country, product });
     // Shape: { [country]: { [product]: { [operator]: { cost, count } } } }
     const byOperator = raw?.[country]?.[product] || {};
+    const pricing = await getRentNumberPricing();
 
     const operators = Object.entries(byOperator)
       .map(([operator, info]) => ({
         operator,
         count: info.count || 0,
-        priceNgn: fivesim.sellPriceNgn(info.cost || 0),
+        priceNgn: fivesim.sellPriceNgn(info.cost || 0, pricing),
       }))
       .filter((o) => o.count > 0)
       .sort((a, b) => a.priceNgn - b.priceNgn);

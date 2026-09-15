@@ -73,11 +73,14 @@ async function cancelOrder(apiKey, orderId) {
  * numbers-prices.js (what the picker shows) and buy-number.js (what's
  * actually charged) so the two can never drift apart.
  */
-function sellPriceNgn(usdCost) {
+function sellPriceNgn(usdCost, overrides) {
   const { FIVESIM_USD_TO_NGN, FIVESIM_MARKUP, FIVESIM_MIN_MARGIN_NGN } = require("./config");
-  const costNgn = usdCost * FIVESIM_USD_TO_NGN;
-  const markedUp = costNgn * (1 + FIVESIM_MARKUP);
-  const floor = costNgn + FIVESIM_MIN_MARGIN_NGN;
+  const usdToNgn = overrides?.usdToNgn ?? FIVESIM_USD_TO_NGN;
+  const markup = overrides?.markup ?? FIVESIM_MARKUP;
+  const minMarginNgn = overrides?.minMarginNgn ?? FIVESIM_MIN_MARGIN_NGN;
+  const costNgn = usdCost * usdToNgn;
+  const markedUp = costNgn * (1 + markup);
+  const floor = costNgn + minMarginNgn;
   return Math.round(Math.max(markedUp, floor));
 }
 
