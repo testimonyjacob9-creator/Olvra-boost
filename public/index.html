@@ -1225,7 +1225,8 @@
       numbers: document.getElementById("numbers-screen"),
       email: document.getElementById("email-screen"),
     };
-    function showScreen(name) {
+    let suppressHistoryPush = false;
+    function showScreen(name, fromPopstate) {
       Object.values(screens).forEach((el) => el.classList.add("hidden"));
       const target = screens[name];
       target.classList.remove("hidden");
@@ -1238,7 +1239,24 @@
         target.classList.add("animate-in");
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
+
+      // History integration: every real (non-popstate) navigation to a
+      // main screen pushes a history entry, so the phone's hardware/
+      // gesture back button steps back through Boost/Rent Number/Email
+      // OTP/Profile instead of falling through to the browser's own
+      // back navigation (which was exiting or reloading the app —
+      // reported 2026-09-15). Skip pushing when we're the ones handling
+      // a popstate event, or history would grow forward again on every
+      // back-tap and the user could never actually leave.
+      if (!fromPopstate && !suppressHistoryPush) {
+        history.pushState({ screen: name }, "", "#" + name);
+      }
     }
+
+    window.addEventListener("popstate", (e) => {
+      const target = e.state?.screen && screens[e.state.screen] ? e.state.screen : "app";
+      showScreen(target, true);
+    });
 
     const toast = document.getElementById("toast");
     function showToast(msg) {
@@ -1520,7 +1538,10 @@
     let isAdminUser = false;
 
     function enterApp(user) {
+      suppressHistoryPush = true;
       showScreen("app");
+      history.replaceState({ screen: "app" }, "", "#app");
+      suppressHistoryPush = false;
       const label = user.displayName || (user.email || "").split("@")[0];
       document.getElementById("user-name").textContent = label;
       document.getElementById("avatar-initials").textContent = (label[0] || "U").toUpperCase();

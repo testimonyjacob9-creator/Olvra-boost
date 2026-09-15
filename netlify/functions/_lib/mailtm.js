@@ -26,7 +26,13 @@ function client(token) {
 /** Active domains Mail.tm currently issues addresses on. */
 async function getDomains() {
   const res = await client().get("/domains");
-  return (res.data["hydra:member"] || []).filter((d) => d.isActive);
+  const all = res.data["hydra:member"] || res.data.member || (Array.isArray(res.data) ? res.data : []);
+  const active = all.filter((d) => d.isActive !== false);
+  // Prefer the isActive-filtered list, but if that field isn't actually
+  // present/true on anything (API shape drift, or a stricter filter than
+  // intended), fall back to the raw list rather than reporting "no
+  // domains" when domains genuinely exist.
+  return active.length > 0 ? active : all;
 }
 
 /** Creates a new temp-email account. Caller picks address/password. */
