@@ -1,0 +1,23 @@
+{
+  "appId": "com.olvraboost.app",
+  "appName": "Olvra Boost",
+  "webDir": "public",
+  "server": {
+    "url": "https://olvraboost.netlify.app",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#2C5CF6",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}
