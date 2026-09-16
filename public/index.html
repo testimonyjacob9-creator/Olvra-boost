@@ -1110,6 +1110,35 @@
     </div>
   </div>
 
+  <!-- Transaction PIN prompt — reused by any wallet-spending action -->
+  <div class="sheet-overlay" id="pin-prompt-overlay">
+    <div class="sheet">
+      <h2>Enter your Transaction PIN</h2>
+      <div class="price-row">Required to confirm this purchase.</div>
+      <input type="password" inputmode="numeric" maxlength="6" class="input" id="pin-prompt-input" placeholder="••••" style="text-align:center; font-size:22px; letter-spacing:0.3em; margin-top:10px;">
+      <div class="msg" id="pin-prompt-msg"></div>
+      <button class="btn btn-primary" style="width:100%; margin-top:14px;" id="pin-prompt-submit">Confirm</button>
+      <button class="btn btn-ghost" style="width:100%; margin-top:8px;" id="pin-prompt-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Set/Change Transaction PIN -->
+  <div class="sheet-overlay" id="pin-manage-overlay">
+    <div class="sheet">
+      <h2 id="pin-manage-title">Set Transaction PIN</h2>
+      <div class="price-row">4-6 digits, required before any wallet spend.</div>
+      <div id="pin-manage-current-wrap" class="hidden">
+        <div style="font-size:12px; font-weight:600; color:var(--muted); margin-top:10px;">Current PIN</div>
+        <input type="password" inputmode="numeric" maxlength="6" class="input" id="pin-manage-current" placeholder="••••" style="text-align:center; font-size:20px; letter-spacing:0.3em; margin-top:6px;">
+      </div>
+      <div style="font-size:12px; font-weight:600; color:var(--muted); margin-top:10px;">New PIN</div>
+      <input type="password" inputmode="numeric" maxlength="6" class="input" id="pin-manage-new" placeholder="••••" style="text-align:center; font-size:20px; letter-spacing:0.3em; margin-top:6px;">
+      <div class="msg" id="pin-manage-msg"></div>
+      <button class="btn btn-primary" style="width:100%; margin-top:14px;" id="pin-manage-submit">Save PIN</button>
+      <button class="btn btn-ghost" style="width:100%; margin-top:8px;" id="pin-manage-cancel">Cancel</button>
+    </div>
+  </div>
+
   <!-- ===================== PROFILE SCREEN ===================== -->
   <div id="profile-screen" class="hidden">
     <div class="page-header">
@@ -1136,6 +1165,7 @@
       <div class="menu-row hidden" id="menu-install"><div class="mi">📲</div>Install App<div class="chev">›</div></div>
       <a class="menu-row" href="about.html" style="text-decoration:none; color:inherit;"><div class="mi">ℹ️</div>About Olvra Boost<div class="chev">›</div></a>
       <a class="menu-row" href="terms.html" style="text-decoration:none; color:inherit;"><div class="mi">📄</div>Terms &amp; Conditions<div class="chev">›</div></a>
+      <div class="menu-row" id="menu-transaction-pin" style="cursor:pointer;"><div class="mi">🔒</div><span id="pin-menu-label">Set Transaction PIN</span><div class="chev">›</div></div>
       <div class="menu-row admin hidden" id="menu-admin"><div class="mi">🛠️</div>Admin Dashboard<div class="chev">›</div></div>
       <div class="menu-row danger" id="menu-logout"><div class="mi">🚪</div>Log Out<div class="chev">›</div></div>
     </div>
@@ -2297,7 +2327,7 @@
           posts: Number(document.getElementById("auto-posts").value) || undefined,
           delay: Number(document.getElementById("auto-delay").value) || undefined,
         };
-        const result = await callFunction("place-order", body);
+        const result = await callFunctionWithPin("place-order", body);
         msgEl.textContent = `Auto service started! Tracking ID: ${result.trackingId}`;
         msgEl.className = "msg ok";
         setTimeout(() => { window.location.href = "/orders.html"; }, 1500);
@@ -2527,7 +2557,7 @@
       btn.textContent = "Renting…";
       try {
         await ensureNumbersOnboardingAccepted(db, currentUser);
-        const result = await callFunction("buy-number", {
+        const result = await callFunctionWithPin("buy-number", {
           country: numbersCountry.country,
           product: numbersProduct.product,
           operator: numbersPendingBuy.operator,
@@ -2788,7 +2818,7 @@
       document.getElementById("email-new").classList.add("hidden");
       stopEmailPolling();
       try {
-        const result = await callFunction("create-temp-email", {});
+        const result = await callFunctionWithPin("create-temp-email", {});
         emailOrderId = result.orderId;
         document.getElementById("email-address").textContent = result.address;
         startEmailCountdown(result.expires);
@@ -3014,7 +3044,7 @@
       btn.textContent = "Renting…";
       try {
         await ensureNumbersOnboardingAccepted(db, currentUser);
-        const result = await callFunction("buy-hosting", {
+        const result = await callFunctionWithPin("buy-hosting", {
           country: hostingCountry.country,
           product: hostingDuration.product,
           operator: hostingPendingBuy.operator,
@@ -3154,6 +3184,93 @@
         list.innerHTML = `<div class="empty-state">Couldn't load your recent numbers.</div>`;
       }
     }
+
+    // =========================================================
+    // Transaction PIN
+    // =========================================================
+    const pinPromptOverlay = document.getElementById("pin-prompt-overlay");
+    function promptForPin(msg) {
+      return new Promise((resolve) => {
+        const input = document.getElementById("pin-prompt-input");
+        const msgEl = document.getElementById("pin-prompt-msg");
+        input.value = "";
+        msgEl.textContent = msg || "";
+        msgEl.className = msg ? "msg error" : "msg";
+        pinPromptOverlay.classList.add("show");
+        setTimeout(() => input.focus(), 100);
+        const cleanup = (val) => { pinPromptOverlay.classList.remove("show"); resolve(val); };
+        document.getElementById("pin-prompt-submit").onclick = () => cleanup(input.value.trim() || null);
+        document.getElementById("pin-prompt-cancel").onclick = () => cleanup(null);
+        input.onkeydown = (e) => { if (e.key === "Enter") cleanup(input.value.trim() || null); };
+      });
+    }
+
+    // Wraps callFunction for any wallet-spending endpoint: attempts the
+    // call, and if the backend says a PIN is required/wrong, prompts for
+    // it and retries — instead of every buy-handler needing to know about
+    // PINs individually.
+    async function callFunctionWithPin(name, body) {
+      let pin;
+      let promptMsg;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          return await callFunction(name, { ...body, ...(pin ? { pin } : {}) });
+        } catch (err) {
+          if (err.code === "PIN_REQUIRED" || err.code === "PIN_INCORRECT") {
+            promptMsg = err.code === "PIN_INCORRECT" ? "Incorrect PIN — try again." : "";
+            pin = await promptForPin(promptMsg);
+            if (!pin) throw new Error("Cancelled — PIN required to complete this purchase.");
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw new Error("Too many attempts.");
+    }
+
+    const pinManageOverlay = document.getElementById("pin-manage-overlay");
+    document.getElementById("menu-transaction-pin").onclick = async () => {
+      let hasPin = false;
+      try {
+        const snap = await getDoc(doc(db, "users", currentUser.uid));
+        hasPin = !!snap.data()?.pin_hash;
+      } catch (err) { console.error(err); }
+      document.getElementById("pin-manage-title").textContent = hasPin ? "Change Transaction PIN" : "Set Transaction PIN";
+      document.getElementById("pin-manage-current-wrap").classList.toggle("hidden", !hasPin);
+      document.getElementById("pin-manage-current").value = "";
+      document.getElementById("pin-manage-new").value = "";
+      document.getElementById("pin-manage-msg").textContent = "";
+      pinManageOverlay.dataset.hasPin = hasPin ? "1" : "";
+      pinManageOverlay.classList.add("show");
+    };
+    document.getElementById("pin-manage-cancel").onclick = () => pinManageOverlay.classList.remove("show");
+    pinManageOverlay.onclick = (e) => { if (e.target === pinManageOverlay) pinManageOverlay.classList.remove("show"); };
+    document.getElementById("pin-manage-submit").onclick = async () => {
+      const btn = document.getElementById("pin-manage-submit");
+      const msgEl = document.getElementById("pin-manage-msg");
+      const newPin = document.getElementById("pin-manage-new").value.trim();
+      const currentPin = document.getElementById("pin-manage-current").value.trim();
+      if (!/^\d{4,6}$/.test(newPin)) {
+        msgEl.textContent = "PIN must be 4-6 digits.";
+        msgEl.className = "msg error";
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      msgEl.textContent = "";
+      try {
+        await callFunction("set-pin", { newPin, ...(pinManageOverlay.dataset.hasPin ? { currentPin } : {}) });
+        showToast("Transaction PIN saved");
+        pinManageOverlay.classList.remove("show");
+        document.getElementById("pin-menu-label").textContent = "Change Transaction PIN";
+      } catch (err) {
+        msgEl.textContent = err.message || "Couldn't save PIN.";
+        msgEl.className = "msg error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Save PIN";
+      }
+    };
 
     // =========================================================
     // Info carousel — optional "Learn how this works" content

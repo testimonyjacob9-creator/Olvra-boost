@@ -19,6 +19,7 @@ const { ok, fail } = require("./_lib/respond");
 const fivesim = require("./_lib/fivesim");
 const { FIVESIM_COUNTRIES, FIVESIM_PRODUCTS, FIVESIM_API_KEY } = require("./_lib/config");
 const { getRentNumberPricing } = require("./_lib/rent-number-pricing");
+const { requirePinIfSet } = require("./_lib/pin");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -36,7 +37,7 @@ exports.handler = async (event) => {
       throw Object.assign(new Error("Invalid JSON body."), { statusCode: 400 });
     }
 
-    const { country, product, operator: requestedOperator } = body;
+    const { country, product, operator: requestedOperator, pin } = body;
     if (!country || !product) {
       throw Object.assign(new Error("country and product are required."), { statusCode: 400 });
     }
@@ -87,6 +88,7 @@ exports.handler = async (event) => {
       if (!userSnap.exists) {
         throw Object.assign(new Error("User wallet not found."), { statusCode: 404 });
       }
+      requirePinIfSet(userSnap.data(), pin);
       const wallet = userSnap.data().wallet_balance || 0;
       const olives = userSnap.data().olive_balance || 0;
       const oliveValue = round2(olives * 2);

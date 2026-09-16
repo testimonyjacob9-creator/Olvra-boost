@@ -44,7 +44,11 @@ export async function callFunction(name, body) {
     body: JSON.stringify(body || {}),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request to ${name} failed.`);
+  if (!res.ok) {
+    const err = new Error(data.error || `Request to ${name} failed.`);
+    if (data.code) err.code = data.code;
+    throw err;
+  }
   return data;
 }
 
@@ -63,7 +67,11 @@ export async function callFunctionGet(name, params) {
     headers: { Authorization: `Bearer ${idToken}` },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request to ${name} failed.`);
+  if (!res.ok) {
+    const err = new Error(data.error || `Request to ${name} failed.`);
+    if (data.code) err.code = data.code;
+    throw err;
+  }
   return data;
 }
 

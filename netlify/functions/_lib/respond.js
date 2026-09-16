@@ -16,7 +16,7 @@ function ok(body) {
 function fail(err) {
   console.error(err);
   const statusCode = err.statusCode || 500;
-  return json(statusCode, { error: err.message || "Internal error" });
+  return json(statusCode, { error: err.message || "Internal error", ...(err.code ? { code: err.code } : {}) });
 }
 
 module.exports = { json, ok, fail };

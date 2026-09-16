@@ -20,6 +20,7 @@ const { db, FieldValue } = require("./_lib/firebase-admin");
 const { requireAuth } = require("./_lib/require-auth");
 const { ok, fail } = require("./_lib/respond");
 const mailtm = require("./_lib/mailtm");
+const { requirePinIfSet } = require("./_lib/pin");
 
 const INBOX_LIFETIME_MS = 20 * 60 * 1000; // 20 min — plenty for a signup/verification flow
 const ACTIVATION_FEE_NGN = 10;
@@ -32,6 +33,9 @@ exports.handler = async (event) => {
   try {
     const decoded = await requireAuth(event);
     const uid = decoded.uid;
+    let body;
+    try { body = JSON.parse(event.body || "{}"); } catch { body = {}; }
+    const { pin } = body;
     const userRef = db.collection("users").doc(uid);
 
     // Balance CHECK (read-only, no charge yet) so we don't waste a
@@ -40,6 +44,7 @@ exports.handler = async (event) => {
     if (!userSnap.exists) {
       throw Object.assign(new Error("User wallet not found."), { statusCode: 404 });
     }
+    requirePinIfSet(userSnap.data(), pin);
     const walletBefore = userSnap.data().wallet_balance || 0;
     if (walletBefore < ACTIVATION_FEE_NGN) {
       throw Object.assign(new Error(`Insufficient wallet balance — Email OTP costs ₦${ACTIVATION_FEE_NGN} per inbox.`), { statusCode: 402 });

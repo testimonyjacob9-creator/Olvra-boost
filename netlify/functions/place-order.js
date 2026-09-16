@@ -19,6 +19,7 @@ const { ok, fail } = require("./_lib/respond");
 const bigisub = require("./_lib/bigisub");
 const { sendEmail, orderConfirmationEmail } = require("./_lib/brevo");
 const { logWalletTxn, logWalletTxAsync } = require("./_lib/wallet-ledger");
+const { requirePinIfSet } = require("./_lib/pin");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -36,7 +37,7 @@ exports.handler = async (event) => {
       throw Object.assign(new Error("Invalid JSON body."), { statusCode: 400 });
     }
 
-    const { serviceId, link, quantity, username } = body;
+    const { serviceId, link, quantity, username, pin } = body;
 
     // Extra fields required by BigiSub's non-Default order-create variants
     // (see handoff doc gap #1). Only whitelisted keys are ever forwarded —
@@ -97,6 +98,7 @@ exports.handler = async (event) => {
       if (!userSnap.exists) {
         throw Object.assign(new Error("User wallet not found."), { statusCode: 404 });
       }
+      requirePinIfSet(userSnap.data(), pin);
       const wallet = userSnap.data().wallet_balance || 0;
       const olives = userSnap.data().olive_balance || 0;
       const oliveValue = round2(olives * 2); // 1 Olive = ₦2, referral-earned, not withdrawable
