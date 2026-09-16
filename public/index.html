@@ -893,6 +893,10 @@
             <div class="si" style="background:#F3EEFF; color:#7C4DFF;">✉️</div>
             <span>Email OTP</span>
           </div>
+          <div class="service-tile" id="tile-hosting">
+            <div class="si" style="background:#E6F7F5; color:#0D9488;">⏳</div>
+            <span>Long-Term Number</span>
+          </div>
         </div>
       </div>
     </div>
@@ -1033,6 +1037,76 @@
       <p style="color:var(--muted-2); font-size:11.5px; line-height:1.6;">
         ₦10 per inbox — this inbox is temporary and self-deletes when it expires. Don't use it for anything you need to keep long-term (banking, primary accounts).
       </p>
+    </div>
+  </div>
+
+  <!-- ===================== LONG-TERM NUMBER SCREEN (5sim hosting) ===================== -->
+  <div id="hosting-screen" class="hidden">
+    <div class="page-header">
+      <button class="icon-btn" id="hosting-back">←</button>
+      <div class="page-title" id="hosting-title">Long-Term Number</div>
+      <div style="width:40px"></div>
+    </div>
+
+    <!-- Step 1: country -->
+    <div id="hosting-step-country">
+      <div class="section-title" style="padding-top:6px;">Choose a country</div>
+      <div class="category-grid" id="hosting-country-grid">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Step 2: duration -->
+    <div id="hosting-step-duration" class="hidden">
+      <div class="section-title" style="padding-top:6px;">Choose how long you need it</div>
+      <div class="category-grid" id="hosting-duration-grid"></div>
+    </div>
+
+    <!-- Step 3: operator / price -->
+    <div id="hosting-step-operators" class="hidden">
+      <div class="section-title" style="padding-top:6px;">Choose a price</div>
+      <div class="operator-list" id="hosting-operator-list"></div>
+      <div class="empty-state hidden" id="hosting-operator-empty">No numbers available for this right now — try another country or duration.</div>
+    </div>
+
+    <!-- Step 4: active number -->
+    <div id="hosting-step-active" class="hidden">
+      <div class="active-number-card">
+        <div class="active-number-label" id="hosting-active-duration">—</div>
+        <div class="active-number-phone" id="hosting-active-phone">—</div>
+        <button class="copy-btn" id="hosting-active-copy">Copy Number</button>
+        <div>
+          <span class="order-status status-completed" id="hosting-active-badge" style="margin-top:12px; display:inline-block;">Active — receiving SMS</span>
+        </div>
+        <div class="active-number-timer" id="hosting-active-timer"></div>
+        <div class="sms-list" id="hosting-active-sms"></div>
+        <div class="empty-state" id="hosting-active-empty" style="padding:16px 0 0;">No messages yet — this number stays active and can receive SMS from anywhere until it expires.</div>
+        <div class="active-number-actions">
+          <button class="btn btn-primary" id="hosting-active-done" style="width:100%;">Done for now</button>
+        </div>
+        <div class="msg" id="hosting-active-msg"></div>
+      </div>
+    </div>
+
+    <div class="section-title" id="hosting-history-title">Recent Long-Term Numbers</div>
+    <div class="order-list" id="hosting-history-list" style="padding-bottom:24px;">
+      <div class="empty-state">None yet.</div>
+    </div>
+  </div>
+
+  <!-- Buy-hosting confirm sheet -->
+  <div class="sheet-overlay" id="hosting-buy-overlay">
+    <div class="sheet">
+      <h2 id="hosting-buy-title"></h2>
+      <div class="price-row" id="hosting-buy-subtitle"></div>
+      <div class="cost-box">
+        <div class="row"><span>Price</span><span id="hosting-buy-price">₦0</span></div>
+        <div class="row total"><span>Charged to</span><span>Wallet</span></div>
+      </div>
+      <div class="msg" style="margin-top:8px; color:var(--muted); font-size:12px;">Not refundable/cancellable once purchased — you're paying for the time slot, not a guaranteed code.</div>
+      <button class="btn btn-primary" style="width:100%; margin-top:14px;" id="hosting-buy-confirm-btn">Rent This Number</button>
+      <button class="btn btn-ghost" style="width:100%; margin-top:8px;" id="hosting-buy-cancel-btn">Cancel</button>
+      <div class="msg" id="hosting-buy-msg"></div>
     </div>
   </div>
 
@@ -1225,6 +1299,7 @@
       boost: document.getElementById("boost-screen"),
       numbers: document.getElementById("numbers-screen"),
       email: document.getElementById("email-screen"),
+      hosting: document.getElementById("hosting-screen"),
     };
     let suppressHistoryPush = false;
     function showScreen(name, fromPopstate) {
@@ -1803,6 +1878,7 @@
     document.getElementById("tile-numbers").onclick = () => openNumbersScreen();
     document.getElementById("tile-website").onclick = () => openNumbersScreenForWebsite();
     document.getElementById("tile-email").onclick = () => openEmailScreen();
+    document.getElementById("tile-hosting").onclick = () => openHostingScreen();
     document.getElementById("boost-back").onclick = () => showScreen("app");
     document.querySelectorAll(".service-tile.soon").forEach((tile) => {
       tile.onclick = () => showToast("Coming soon");
@@ -2803,6 +2879,281 @@
       }
       showScreen("app");
     };
+
+    // =========================================================
+    // Long-Term Number (5sim "hosting" — a number for a fixed duration,
+    // can receive SMS from anywhere the whole time. Different flow from
+    // Rent Number: no service picker, and not refundable/cancellable.)
+    // =========================================================
+    let hostingOptions = null;       // { countries, durations }
+    let hostingCountry = null;
+    let hostingDuration = null;
+    let hostingPendingBuy = null;
+    let hostingActiveOrderId = null;
+    let hostingPollTimer = null;
+    let hostingCountdownTimer = null;
+
+    async function openHostingScreen() {
+      showScreen("hosting");
+      showHostingStep("country");
+      loadHostingHistory();
+      if (hostingOptions) { renderHostingCountryGrid(); return; }
+      try {
+        hostingOptions = await callFunctionGet("hosting-prices");
+        renderHostingCountryGrid();
+      } catch (err) {
+        document.getElementById("hosting-country-grid").innerHTML = "";
+        showToast(err.message || "Couldn't load Long-Term Number options.");
+      }
+    }
+
+    function showHostingStep(step) {
+      ["country", "duration", "operators", "active"].forEach((s) => {
+        document.getElementById(`hosting-step-${s}`).classList.toggle("hidden", s !== step);
+      });
+      const onCountry = step === "country";
+      document.getElementById("hosting-history-title").classList.toggle("hidden", !onCountry);
+      document.getElementById("hosting-history-list").classList.toggle("hidden", !onCountry);
+      document.getElementById("hosting-title").textContent =
+        step === "country" ? "Long-Term Number" :
+        step === "duration" ? hostingCountry?.label || "Choose Duration" :
+        step === "operators" ? "Choose a Price" : "Your Number";
+      if (step !== "active") stopHostingPolling();
+    }
+
+    function renderHostingCountryGrid() {
+      const grid = document.getElementById("hosting-country-grid");
+      grid.innerHTML = hostingOptions.countries.map((c) => `
+        <div class="cat-card" data-country="${c.country}">
+          <div class="cat-icon">🌍</div>
+          <div class="cat-name">${c.label}</div>
+        </div>`).join("");
+      grid.querySelectorAll(".cat-card").forEach((card) => {
+        card.onclick = () => {
+          hostingCountry = hostingOptions.countries.find((c) => c.country === card.dataset.country);
+          renderHostingDurationGrid();
+          showHostingStep("duration");
+        };
+      });
+    }
+
+    function renderHostingDurationGrid() {
+      const grid = document.getElementById("hosting-duration-grid");
+      grid.innerHTML = hostingOptions.durations.map((d) => `
+        <div class="cat-card" data-product="${d.product}">
+          <div class="cat-icon">⏳</div>
+          <div class="cat-name">${d.label}</div>
+        </div>`).join("");
+      grid.querySelectorAll(".cat-card").forEach((card) => {
+        card.onclick = () => {
+          hostingDuration = hostingOptions.durations.find((d) => d.product === card.dataset.product);
+          showHostingStep("operators");
+          loadHostingOperators();
+        };
+      });
+    }
+
+    async function loadHostingOperators() {
+      const list = document.getElementById("hosting-operator-list");
+      const empty = document.getElementById("hosting-operator-empty");
+      list.innerHTML = `<div class="empty-state">Checking live prices…</div>`;
+      empty.classList.add("hidden");
+      try {
+        const data = await callFunctionGet("hosting-prices", { country: hostingCountry.country, product: hostingDuration.product });
+        if (!data.operators || data.operators.length === 0) {
+          list.innerHTML = "";
+          empty.classList.remove("hidden");
+          return;
+        }
+        list.innerHTML = data.operators.map((o) => `
+          <div class="operator-row" data-operator="${o.operator}" data-price="${o.priceNgn}">
+            <div>
+              <div class="op-name">${o.operator}</div>
+              <div class="op-count">${o.count} available</div>
+            </div>
+            <div class="op-price">₦${o.priceNgn.toLocaleString()}</div>
+          </div>`).join("");
+        list.querySelectorAll(".operator-row").forEach((row) => {
+          row.onclick = () => openHostingBuySheet(row.dataset.operator, Number(row.dataset.price));
+        });
+      } catch (err) {
+        list.innerHTML = "";
+        empty.textContent = err.message || "Couldn't load prices — try again.";
+        empty.classList.remove("hidden");
+      }
+    }
+
+    document.getElementById("hosting-back").onclick = () => {
+      const activeStep = ["country", "duration", "operators", "active"].find(
+        (s) => !document.getElementById(`hosting-step-${s}`).classList.contains("hidden")
+      );
+      if (activeStep === "duration") { showHostingStep("country"); }
+      else if (activeStep === "operators") { showHostingStep("duration"); }
+      else if (activeStep === "active") { showHostingStep("country"); loadHostingHistory(); }
+      else { showScreen("app"); }
+    };
+
+    const hostingBuyOverlay = document.getElementById("hosting-buy-overlay");
+    function openHostingBuySheet(operator, priceNgn) {
+      hostingPendingBuy = { operator, priceNgn };
+      document.getElementById("hosting-buy-title").textContent = `${hostingDuration.label} — ${operator}`;
+      document.getElementById("hosting-buy-subtitle").textContent = `${hostingCountry.label} · stays active for ${hostingDuration.label.toLowerCase()}`;
+      document.getElementById("hosting-buy-price").textContent = `₦${priceNgn.toLocaleString()}`;
+      document.getElementById("hosting-buy-msg").textContent = "";
+      hostingBuyOverlay.classList.add("show");
+    }
+    document.getElementById("hosting-buy-cancel-btn").onclick = () => hostingBuyOverlay.classList.remove("show");
+    hostingBuyOverlay.onclick = (e) => { if (e.target === hostingBuyOverlay) hostingBuyOverlay.classList.remove("show"); };
+
+    document.getElementById("hosting-buy-confirm-btn").onclick = async () => {
+      if (!hostingPendingBuy) return;
+      const msgEl = document.getElementById("hosting-buy-msg");
+      const btn = document.getElementById("hosting-buy-confirm-btn");
+      msgEl.textContent = "";
+      btn.disabled = true;
+      btn.textContent = "Renting…";
+      try {
+        await ensureNumbersOnboardingAccepted(db, currentUser);
+        const result = await callFunction("buy-hosting", {
+          country: hostingCountry.country,
+          product: hostingDuration.product,
+          operator: hostingPendingBuy.operator,
+        });
+        hostingBuyOverlay.classList.remove("show");
+        openHostingActive({ orderId: result.orderId, phone: result.phone, status: result.status, expires: result.expires, sms: [] });
+      } catch (err) {
+        msgEl.textContent = err.message || "Couldn't rent this number.";
+        msgEl.className = "msg error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Rent This Number";
+      }
+    };
+
+    function openHostingActive(order) {
+      hostingActiveOrderId = order.orderId;
+      document.getElementById("hosting-active-duration").textContent = `${hostingDuration?.label || ""} · ${hostingCountry?.label || ""}`;
+      document.getElementById("hosting-active-phone").textContent = order.phone;
+      document.getElementById("hosting-active-msg").textContent = "";
+      renderHostingSms(order.status, order.sms || []);
+      startHostingCountdown(order.expires);
+      showHostingStep("active");
+      startHostingPolling(order.orderId);
+    }
+
+    function renderHostingSms(status, sms) {
+      const badge = document.getElementById("hosting-active-badge");
+      const closed = ["FINISHED", "CANCELED", "TIMEOUT", "BANNED"].includes(status);
+      badge.textContent = closed ? "Expired / closed" : "Active — receiving SMS";
+      badge.className = "order-status " + (closed ? "status-failed" : "status-completed");
+      const list = document.getElementById("hosting-active-sms");
+      const empty = document.getElementById("hosting-active-empty");
+      if (sms.length > 0) {
+        empty.classList.add("hidden");
+        list.innerHTML = sms.map((s) => `
+          <div class="sms-item">
+            ${s.sender ? `<div style="color:var(--muted-2); font-size:11px;">${s.sender}</div>` : ""}
+            <span class="code">${s.code || s.text || ""}</span>
+          </div>`).reverse().join("");
+      } else {
+        list.innerHTML = "";
+        empty.classList.remove("hidden");
+      }
+    }
+
+    function startHostingCountdown(expiresAt) {
+      clearInterval(hostingCountdownTimer);
+      const timerEl = document.getElementById("hosting-active-timer");
+      if (!expiresAt) { timerEl.textContent = ""; return; }
+      const expiresMs = new Date(expiresAt).getTime();
+      const tick = () => {
+        const remainMs = expiresMs - Date.now();
+        if (remainMs <= 0) { timerEl.textContent = "Expired"; clearInterval(hostingCountdownTimer); return; }
+        const days = Math.floor(remainMs / 86400000);
+        const hrs = Math.floor((remainMs % 86400000) / 3600000);
+        const mins = Math.floor((remainMs % 3600000) / 60000);
+        timerEl.textContent = days > 0 ? `Expires in ${days}d ${hrs}h` : `Expires in ${hrs}h ${mins}m`;
+      };
+      tick();
+      hostingCountdownTimer = setInterval(tick, 30000);
+    }
+
+    function startHostingPolling(orderId) {
+      stopHostingPolling();
+      hostingPollTimer = setInterval(async () => {
+        try {
+          const fresh = await callFunctionGet("check-hosting", { orderId });
+          renderHostingSms(fresh.status, fresh.sms || []);
+        } catch (err) {
+          console.error("check-hosting poll failed:", err);
+        }
+      }, 15000);
+    }
+    function stopHostingPolling() {
+      if (hostingPollTimer) clearInterval(hostingPollTimer);
+      hostingPollTimer = null;
+      if (hostingCountdownTimer) clearInterval(hostingCountdownTimer);
+      hostingCountdownTimer = null;
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (!hostingActiveOrderId) return;
+      const onActiveStep = !document.getElementById("hosting-step-active").classList.contains("hidden");
+      if (!onActiveStep) return;
+      if (document.hidden) { clearInterval(hostingPollTimer); hostingPollTimer = null; }
+      else startHostingPolling(hostingActiveOrderId);
+    });
+
+    document.getElementById("hosting-active-copy").onclick = () => {
+      const phone = document.getElementById("hosting-active-phone").textContent;
+      navigator.clipboard?.writeText(phone).then(() => showToast("Number copied"));
+    };
+    document.getElementById("hosting-active-done").onclick = () => {
+      stopHostingPolling();
+      showHostingStep("country");
+      loadHostingHistory();
+    };
+
+    async function loadHostingHistory() {
+      const list = document.getElementById("hosting-history-list");
+      if (!currentUser) return;
+      try {
+        const q = query(
+          collection(db, "hosting_orders"),
+          where("uid", "==", currentUser.uid),
+          orderBy("created_at", "desc"),
+          limit(10)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          list.innerHTML = `<div class="empty-state">None yet.</div>`;
+          return;
+        }
+        list.innerHTML = snap.docs.map((d) => {
+          const o = d.data();
+          const closed = ["FINISHED", "CANCELED", "TIMEOUT", "BANNED"].includes(o.status);
+          return `
+            <div class="order-row history-row-tap" data-id="${d.id}">
+              <div>
+                <div style="font-weight:600;">${o.product || ""} · ${o.country || ""}</div>
+                <div style="color:var(--muted-2); font-size:11.5px; margin-top:2px;">${o.phone || ""} · ₦${(o.price_ngn || 0).toLocaleString()}</div>
+              </div>
+              <span class="order-status ${closed ? "status-failed" : "status-completed"}">${closed ? "closed" : "active"}</span>
+            </div>`;
+        }).join("");
+        list.querySelectorAll(".history-row-tap").forEach((row) => {
+          row.onclick = () => {
+            const order = snap.docs.find((d) => d.id === row.dataset.id)?.data();
+            if (!order) return;
+            hostingCountry = { country: order.country, label: order.country };
+            hostingDuration = { product: order.product, label: order.product };
+            openHostingActive({ orderId: row.dataset.id, phone: order.phone, status: order.status, expires: order.expires_at, sms: order.sms || [] });
+          };
+        });
+      } catch (err) {
+        console.error("Couldn't load hosting history:", err);
+        list.innerHTML = `<div class="empty-state">Couldn't load your recent numbers.</div>`;
+      }
+    }
 
     // =========================================================
     // Info carousel — optional "Learn how this works" content

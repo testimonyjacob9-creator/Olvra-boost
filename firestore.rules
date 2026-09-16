@@ -81,6 +81,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Hosting (long-term) numbers — same pattern as number_orders above.
+    // Not refundable/cancellable (5sim rejects cancelling a hosting order
+    // outright — you're paying for the time slot, not a guaranteed code).
+    // Only ever created/updated by buy-hosting.js, check-hosting.js,
+    // finish-hosting.js (Admin SDK).
+    match /hosting_orders/{orderId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin());
+      allow write: if false;
+    }
+
     // Wallet top-ups: a user can read their own funding history; admins can
     // read all top-ups. Records are only ever created by
     // flutterwave-webhook.js (Admin SDK).

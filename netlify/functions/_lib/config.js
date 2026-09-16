@@ -144,6 +144,21 @@ module.exports = {
     { country: "kenya", label: "Kenya" },
   ],
 
+  // Hosting (long-term) numbers — the "product" 5sim expects here is a
+  // DURATION slug, not a service name (see fivesim.js's buyHosting doc
+  // comment). These slug guesses follow 5sim's documented examples
+  // (3hours, 1day, 10days, 1month) — not all individually confirmed
+  // against the live catalog; a wrong one just returns no prices for
+  // that option, same fallback behavior as the activation product list.
+  HOSTING_DURATIONS: [
+    { product: "3hours", label: "3 Hours" },
+    { product: "1day", label: "1 Day" },
+    { product: "3days", label: "3 Days" },
+    { product: "7days", label: "7 Days" },
+    { product: "10days", label: "10 Days" },
+    { product: "1month", label: "1 Month" },
+  ],
+
   // Hardcoded rather than a Netlify env var — combined with
   // FIREBASE_SERVICE_ACCOUNT_BASE64 (a full base64-encoded service
   // account JSON, ~3KB by itself) and the site's other env vars, total

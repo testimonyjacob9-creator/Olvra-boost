@@ -96,4 +96,35 @@ async function getProducts(apiKey) {
   return res.data; // { [productSlug]: { Category, Qty, Price } }
 }
 
-module.exports = { getPrices, getProducts, buyActivation, checkOrder, finishOrder, cancelOrder, sellPriceNgn };
+/**
+ * Buy a hosting (long-term) number — same shape as activation, but the
+ * "product" here is a DURATION slug (e.g. "3hours", "1day", "10days",
+ * "1month"), not a service name. A hosting number stays assigned to the
+ * user for that whole period and can receive SMS from any sender, not
+ * just one service — see getInbox() below for reading everything it's
+ * received, and note hosting orders CANNOT be cancelled (5sim's own
+ * cancel/ban endpoints explicitly reject with "hosting order").
+ */
+async function buyHosting(apiKey, { country, product, operator = "any" }) {
+  const api = client(apiKey);
+  const res = await api.get(`/v1/user/buy/hosting/${country}/${operator}/${product}`);
+  if (!res.data || !res.data.id) {
+    throw new Error(`5sim hosting buy failed: ${JSON.stringify(res.data)}`);
+  }
+  return res.data; // { id, phone, product, price, status, expires, sms: [], created_at, country }
+}
+
+/**
+ * Full accumulated SMS inbox for a hosting number — /user/check/$id only
+ * ever shows the latest snapshot, but a hosting number can receive many
+ * messages from many senders over its rental period, so this dedicated
+ * endpoint (rented numbers only, per 5sim's docs) is what actually lists
+ * everything it's gotten.
+ */
+async function getInbox(apiKey, orderId) {
+  const api = client(apiKey);
+  const res = await api.get(`/v1/user/sms/inbox/${orderId}`);
+  return res.data;
+}
+
+module.exports = { getPrices, getProducts, buyActivation, buyHosting, checkOrder, getInbox, finishOrder, cancelOrder, sellPriceNgn };
