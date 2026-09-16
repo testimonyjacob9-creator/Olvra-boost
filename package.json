@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/generate-config.js && node scripts/bundle-firebase.js",
+    "build": "node scripts/generate-config.js && node scripts/bundle-firebase.js && node scripts/bump-sw-version.js",
     "cap:add:android": "cap add android",
     "cap:sync": "cap sync",
     "cap:open:android": "cap open android"

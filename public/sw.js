@@ -5,7 +5,7 @@
 // Firebase/Firestore traffic — wallet balances, orders and auth must
 // always be live, never served stale from a cache.
 
-const CACHE_VERSION = "olvra-boost-v1";
+const CACHE_VERSION = "olvra-boost-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
