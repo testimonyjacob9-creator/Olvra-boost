@@ -882,10 +882,6 @@
             <span>Boost Account</span>
           </div>
           <div class="service-tile" id="tile-numbers">
-            <div class="si" style="background:#E7F9F1; color:#12B76A;">📱</div>
-            <span>Rent Number</span>
-          </div>
-          <div class="service-tile" id="tile-website">
             <div class="si" style="background:#FFF3E0; color:#E88A1A;">🌐</div>
             <span>Website OTP</span>
           </div>
@@ -913,6 +909,7 @@
       <button class="nav-item active" data-nav="home"><span class="nav-ic">🏠</span>Home<span class="nav-dot"></span></button>
       <button class="nav-item" data-nav="notif"><span class="nav-ic">🔔</span>Alerts<span class="nav-badge" id="nav-notif-badge"></span><span class="nav-dot"></span></button>
       <button class="nav-item" data-nav="orders"><span class="nav-ic">🧾</span>Orders<span class="nav-dot"></span></button>
+      <button class="nav-item" data-nav="numbers"><span class="nav-ic">📱</span>Numbers<span class="nav-dot"></span></button>
       <button class="nav-item" data-nav="profile"><span class="nav-ic">⚙️</span>Settings<span class="nav-dot"></span></button>
     </div>
   </div>
@@ -940,7 +937,7 @@
   <div id="numbers-screen" class="hidden">
     <div class="page-header">
       <button class="icon-btn" id="numbers-back">←</button>
-      <div class="page-title" id="numbers-title">Rent Number</div>
+      <div class="page-title" id="numbers-title">Website OTP</div>
       <div style="width:40px"></div>
     </div>
 
@@ -1197,6 +1194,7 @@
       <button class="nav-item" data-nav="home"><span class="nav-ic">🏠</span>Home<span class="nav-dot"></span></button>
       <button class="nav-item" data-nav="notif"><span class="nav-ic">🔔</span>Alerts<span class="nav-dot"></span></button>
       <button class="nav-item" data-nav="orders"><span class="nav-ic">🧾</span>Orders<span class="nav-dot"></span></button>
+      <button class="nav-item" data-nav="numbers"><span class="nav-ic">📱</span>Numbers<span class="nav-dot"></span></button>
       <button class="nav-item active" data-nav="profile"><span class="nav-ic">⚙️</span>Settings<span class="nav-dot"></span></button>
     </div>
   </div>
@@ -1666,8 +1664,10 @@
 
     function enterApp(user) {
       suppressHistoryPush = true;
-      showScreen("app");
-      history.replaceState({ screen: "app" }, "", "#app");
+      const deepLinkScreen = location.hash.replace("#", "");
+      const initialScreen = screens[deepLinkScreen] ? deepLinkScreen : "app";
+      showScreen(initialScreen);
+      history.replaceState({ screen: initialScreen }, "", "#" + initialScreen);
       suppressHistoryPush = false;
       const label = user.displayName || (user.email || "").split("@")[0];
       document.getElementById("user-name").textContent = label;
@@ -1918,6 +1918,7 @@
         else if (dest === "profile") showScreen("profile");
         else if (dest === "services") window.location.href = "/all-services.html";
         else if (dest === "orders") window.location.href = "/orders.html";
+        else if (dest === "numbers") window.location.href = "/numbers-hub.html";
         else if (dest === "notif") window.location.href = "/notifications.html";
       };
     });
@@ -1927,7 +1928,6 @@
     // ---- Home service grid ----
     document.getElementById("tile-boost").onclick = () => showScreen("boost");
     document.getElementById("tile-numbers").onclick = () => openNumbersScreen();
-    document.getElementById("tile-website").onclick = () => openNumbersScreenForWebsite();
     document.getElementById("tile-email").onclick = () => openEmailScreen();
     document.getElementById("tile-hosting").onclick = () => openHostingScreen();
     document.getElementById("boost-back").onclick = () => showScreen("app");
@@ -2391,7 +2391,7 @@
       document.getElementById("numbers-history-title").classList.toggle("hidden", !onProduct);
       document.getElementById("numbers-history-list").classList.toggle("hidden", !onProduct);
       document.getElementById("numbers-title").textContent =
-        step === "product" ? "Rent Number" :
+        step === "product" ? "Website OTP" :
         step === "country" ? numbersProduct?.label || "Choose a Country" :
         step === "operators" ? "Choose a Price" : "Your Number";
       if (step !== "active") stopNumbersPolling();
@@ -2417,26 +2417,6 @@
         document.getElementById("numbers-product-grid").innerHTML = "";
         showToast(err.message || "Couldn't load Rent Number options.");
       }
-    }
-
-    // Dashboard's "Website OTP" tile — same flow as Rent Number, but
-    // skips straight past the service picker into country selection with
-    // the generic "other" (any website) product already chosen.
-    async function openNumbersScreenForWebsite() {
-      showScreen("numbers");
-      loadNumbersHistory();
-      if (!numbersOptions) {
-        try {
-          numbersOptions = await callFunctionGet("numbers-prices");
-        } catch (err) {
-          showNumbersStep("product");
-          showToast(err.message || "Couldn't load Rent Number options.");
-          return;
-        }
-      }
-      const websiteProduct = numbersOptions.products.find((p) => p.product === "other");
-      if (!websiteProduct) { showNumbersStep("product"); return; }
-      selectNumbersProduct(websiteProduct.product, websiteProduct.label);
     }
 
     function selectNumbersProduct(product, label) {
