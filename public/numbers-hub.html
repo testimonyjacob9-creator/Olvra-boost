@@ -88,8 +88,22 @@
   </div>
 
   <script type="module">
-    import { collection, query, where, orderBy, limit, getDocs } from "./js/firebase-sdk.bundle.js";
+    import { collection, query, where, limit, getDocs } from "./js/firebase-sdk.bundle.js";
     import { db, requireSignedInUser } from "./js/firebase-client.js";
+
+    // No orderBy on purpose — a where()+orderBy() on different fields needs
+    // a Firestore composite index, and number_orders/hosting_orders never
+    // had one created, which is why this page showed "Couldn't load" for
+    // everyone. Fetching by uid alone needs no composite index at all;
+    // sorting the (small, per-user) result client-side gets the same
+    // newest-first order without depending on any Firebase console setup.
+    function sortByCreatedAtDesc(docs) {
+      return [...docs].sort((a, b) => {
+        const at = a.data().created_at?.toMillis ? a.data().created_at.toMillis() : 0;
+        const bt = b.data().created_at?.toMillis ? b.data().created_at.toMillis() : 0;
+        return bt - at;
+      });
+    }
 
     const CLOSED = new Set(["FINISHED", "CANCELED", "TIMEOUT", "BANNED"]);
 
@@ -132,22 +146,24 @@
       const hostingContainer = document.getElementById("hosting-list");
 
       try {
-        const otpQuery = query(collection(db, "number_orders"), where("uid", "==", uid), orderBy("created_at", "desc"), limit(15));
+        const otpQuery = query(collection(db, "number_orders"), where("uid", "==", uid), limit(50));
         const otpSnap = await getDocs(otpQuery);
-        otpContainer.innerHTML = otpSnap.empty
+        const otpDocs = sortByCreatedAtDesc(otpSnap.docs).slice(0, 15);
+        otpContainer.innerHTML = otpDocs.length === 0
           ? `<div class="empty-state">No Website OTP numbers yet.</div>`
-          : otpSnap.docs.map((d) => renderCard(d.data(), "otp")).join("");
+          : otpDocs.map((d) => renderCard(d.data(), "otp")).join("");
       } catch (err) {
         console.error(err);
         otpContainer.innerHTML = `<div class="empty-state">Couldn't load — check your connection.</div>`;
       }
 
       try {
-        const hostingQuery = query(collection(db, "hosting_orders"), where("uid", "==", uid), orderBy("created_at", "desc"), limit(15));
+        const hostingQuery = query(collection(db, "hosting_orders"), where("uid", "==", uid), limit(50));
         const hostingSnap = await getDocs(hostingQuery);
-        hostingContainer.innerHTML = hostingSnap.empty
+        const hostingDocs = sortByCreatedAtDesc(hostingSnap.docs).slice(0, 15);
+        hostingContainer.innerHTML = hostingDocs.length === 0
           ? `<div class="empty-state">No Long-Term numbers yet.</div>`
-          : hostingSnap.docs.map((d) => renderCard(d.data(), "hosting")).join("");
+          : hostingDocs.map((d) => renderCard(d.data(), "hosting")).join("");
       } catch (err) {
         console.error(err);
         hostingContainer.innerHTML = `<div class="empty-state">Couldn't load — check your connection.</div>`;
