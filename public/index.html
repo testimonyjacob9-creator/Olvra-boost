@@ -1119,6 +1119,27 @@
       <div class="msg" id="pin-prompt-msg"></div>
       <button class="btn btn-primary" style="width:100%; margin-top:14px;" id="pin-prompt-submit">Confirm</button>
       <button class="btn btn-ghost" style="width:100%; margin-top:8px;" id="pin-prompt-cancel">Cancel</button>
+      <div style="text-align:center; margin-top:10px;">
+        <span id="pin-prompt-forgot" style="color:var(--blue); font-size:12.5px; font-weight:600; cursor:pointer;">Forgot PIN?</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIN reset via emailed code -->
+  <div class="sheet-overlay" id="pin-reset-overlay">
+    <div class="sheet">
+      <h2>Reset Transaction PIN</h2>
+      <div class="price-row" id="pin-reset-subtitle">We'll email a code to your registered address.</div>
+      <div id="pin-reset-code-wrap" class="hidden">
+        <div style="font-size:12px; font-weight:600; color:var(--muted); margin-top:10px;">Code from your email</div>
+        <input type="text" inputmode="numeric" maxlength="6" class="input" id="pin-reset-code" placeholder="6-digit code" style="text-align:center; font-size:20px; letter-spacing:0.2em; margin-top:6px;">
+        <div style="font-size:12px; font-weight:600; color:var(--muted); margin-top:12px;">New PIN</div>
+        <input type="password" inputmode="numeric" maxlength="6" class="input" id="pin-reset-newpin" placeholder="••••" style="text-align:center; font-size:20px; letter-spacing:0.3em; margin-top:6px;">
+      </div>
+      <div class="msg" id="pin-reset-msg"></div>
+      <button class="btn btn-primary" style="width:100%; margin-top:14px;" id="pin-reset-send-btn">Send Code to My Email</button>
+      <button class="btn btn-primary hidden" style="width:100%; margin-top:14px;" id="pin-reset-confirm-btn">Set New PIN</button>
+      <button class="btn btn-ghost" style="width:100%; margin-top:8px;" id="pin-reset-cancel">Cancel</button>
     </div>
   </div>
 
@@ -3105,7 +3126,7 @@
         timerEl.textContent = days > 0 ? `Expires in ${days}d ${hrs}h` : `Expires in ${hrs}h ${mins}m`;
       };
       tick();
-      hostingCountdownTimer = setInterval(tick, 30000);
+      hostingCountdownTimer = setInterval(tick, 1000);
     }
 
     function startHostingPolling(orderId) {
@@ -3186,7 +3207,8 @@
     }
 
     // =========================================================
-    // Transaction PIN
+    // Transaction PIN — now mandatory for everyone; forgot-PIN resets
+    // via a code emailed to the account's registered address.
     // =========================================================
     const pinPromptOverlay = document.getElementById("pin-prompt-overlay");
     function promptForPin(msg) {
@@ -3202,13 +3224,107 @@
         document.getElementById("pin-prompt-submit").onclick = () => cleanup(input.value.trim() || null);
         document.getElementById("pin-prompt-cancel").onclick = () => cleanup(null);
         input.onkeydown = (e) => { if (e.key === "Enter") cleanup(input.value.trim() || null); };
+        document.getElementById("pin-prompt-forgot").onclick = () => {
+          pinPromptOverlay.classList.remove("show");
+          openPinResetFlow().then((newPin) => {
+            if (newPin) resolve(newPin);
+            else { pinPromptOverlay.classList.add("show"); }
+          });
+        };
+      });
+    }
+
+    // Forces a new PIN to be set (no "current PIN" field) — used both for
+    // brand-new users who've never set one (PIN_NOT_SET) and for the
+    // Profile menu's first-time setup.
+    function promptToSetPin() {
+      return new Promise((resolve) => {
+        document.getElementById("pin-manage-title").textContent = "Set Transaction PIN";
+        document.getElementById("pin-manage-current-wrap").classList.add("hidden");
+        document.getElementById("pin-manage-current").value = "";
+        document.getElementById("pin-manage-new").value = "";
+        document.getElementById("pin-manage-msg").textContent = "A Transaction PIN is required for every purchase — set one to continue.";
+        document.getElementById("pin-manage-msg").className = "msg";
+        pinManageOverlay.dataset.hasPin = "";
+        pinManageOverlay.dataset.resolveTarget = "1";
+        pinManagePendingResolve = resolve;
+        pinManageOverlay.classList.add("show");
+      });
+    }
+
+    function openPinResetFlow() {
+      return new Promise((resolve) => {
+        const overlay = document.getElementById("pin-reset-overlay");
+        const sendBtn = document.getElementById("pin-reset-send-btn");
+        const confirmBtn = document.getElementById("pin-reset-confirm-btn");
+        const codeWrap = document.getElementById("pin-reset-code-wrap");
+        const msgEl = document.getElementById("pin-reset-msg");
+        const subtitle = document.getElementById("pin-reset-subtitle");
+        sendBtn.classList.remove("hidden");
+        confirmBtn.classList.add("hidden");
+        codeWrap.classList.add("hidden");
+        msgEl.textContent = "";
+        subtitle.textContent = "We'll email a code to your registered address.";
+        document.getElementById("pin-reset-code").value = "";
+        document.getElementById("pin-reset-newpin").value = "";
+        overlay.classList.add("show");
+
+        const cleanup = (val) => { overlay.classList.remove("show"); resolve(val); };
+        document.getElementById("pin-reset-cancel").onclick = () => cleanup(null);
+        overlay.onclick = (e) => { if (e.target === overlay) cleanup(null); };
+
+        sendBtn.onclick = async () => {
+          sendBtn.disabled = true;
+          sendBtn.textContent = "Sending…";
+          try {
+            const res = await callFunction("pin-reset", { action: "send" });
+            if (!res.emailSent) {
+              msgEl.textContent = "Couldn't send the email right now — try again shortly.";
+              msgEl.className = "msg error";
+            } else {
+              subtitle.textContent = `Code sent to ${res.maskedEmail}.`;
+              sendBtn.classList.add("hidden");
+              confirmBtn.classList.remove("hidden");
+              codeWrap.classList.remove("hidden");
+            }
+          } catch (err) {
+            msgEl.textContent = err.message || "Couldn't send the reset code.";
+            msgEl.className = "msg error";
+          } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = "Send Code to My Email";
+          }
+        };
+
+        confirmBtn.onclick = async () => {
+          const code = document.getElementById("pin-reset-code").value.trim();
+          const newPin = document.getElementById("pin-reset-newpin").value.trim();
+          if (!/^\d{4,6}$/.test(newPin)) {
+            msgEl.textContent = "New PIN must be 4-6 digits.";
+            msgEl.className = "msg error";
+            return;
+          }
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = "Saving…";
+          try {
+            await callFunction("pin-reset", { action: "confirm", code, newPin });
+            showToast("PIN reset — you can use it now");
+            cleanup(newPin);
+          } catch (err) {
+            msgEl.textContent = err.message || "Couldn't reset PIN.";
+            msgEl.className = "msg error";
+          } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = "Set New PIN";
+          }
+        };
       });
     }
 
     // Wraps callFunction for any wallet-spending endpoint: attempts the
-    // call, and if the backend says a PIN is required/wrong, prompts for
-    // it and retries — instead of every buy-handler needing to know about
-    // PINs individually.
+    // call, and if the backend says a PIN is needed/wrong, prompts for it
+    // (or forces setup if none exists yet) and retries — instead of every
+    // buy-handler needing to know about PINs individually.
     async function callFunctionWithPin(name, body) {
       let pin;
       let promptMsg;
@@ -3216,6 +3332,11 @@
         try {
           return await callFunction(name, { ...body, ...(pin ? { pin } : {}) });
         } catch (err) {
+          if (err.code === "PIN_NOT_SET") {
+            pin = await promptToSetPin();
+            if (!pin) throw new Error("A Transaction PIN is required to continue.");
+            continue;
+          }
           if (err.code === "PIN_REQUIRED" || err.code === "PIN_INCORRECT") {
             promptMsg = err.code === "PIN_INCORRECT" ? "Incorrect PIN — try again." : "";
             pin = await promptForPin(promptMsg);
@@ -3228,6 +3349,7 @@
       throw new Error("Too many attempts.");
     }
 
+    let pinManagePendingResolve = null;
     const pinManageOverlay = document.getElementById("pin-manage-overlay");
     document.getElementById("menu-transaction-pin").onclick = async () => {
       let hasPin = false;
@@ -3241,10 +3363,18 @@
       document.getElementById("pin-manage-new").value = "";
       document.getElementById("pin-manage-msg").textContent = "";
       pinManageOverlay.dataset.hasPin = hasPin ? "1" : "";
+      pinManagePendingResolve = null;
       pinManageOverlay.classList.add("show");
     };
-    document.getElementById("pin-manage-cancel").onclick = () => pinManageOverlay.classList.remove("show");
-    pinManageOverlay.onclick = (e) => { if (e.target === pinManageOverlay) pinManageOverlay.classList.remove("show"); };
+    document.getElementById("pin-manage-cancel").onclick = () => {
+      pinManageOverlay.classList.remove("show");
+      if (pinManagePendingResolve) { pinManagePendingResolve(null); pinManagePendingResolve = null; }
+    };
+    pinManageOverlay.onclick = (e) => {
+      if (e.target !== pinManageOverlay) return;
+      pinManageOverlay.classList.remove("show");
+      if (pinManagePendingResolve) { pinManagePendingResolve(null); pinManagePendingResolve = null; }
+    };
     document.getElementById("pin-manage-submit").onclick = async () => {
       const btn = document.getElementById("pin-manage-submit");
       const msgEl = document.getElementById("pin-manage-msg");
@@ -3263,6 +3393,7 @@
         showToast("Transaction PIN saved");
         pinManageOverlay.classList.remove("show");
         document.getElementById("pin-menu-label").textContent = "Change Transaction PIN";
+        if (pinManagePendingResolve) { pinManagePendingResolve(newPin); pinManagePendingResolve = null; }
       } catch (err) {
         msgEl.textContent = err.message || "Couldn't save PIN.";
         msgEl.className = "msg error";

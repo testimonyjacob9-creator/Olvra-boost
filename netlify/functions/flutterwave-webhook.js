@@ -1,6 +1,6 @@
 // netlify/functions/flutterwave-webhook.js
 //
-// Receives Flutterwave v3 "charge.completed" webhooks for the Sterling Bank
+// Receives Flutterwave v3 "charge.completed" webhooks for the Zenith Bank
 // static virtual accounts created in create-permanent-account.js, and credits the
 // matching user's wallet once a transfer is confirmed.
 //
@@ -96,8 +96,12 @@ exports.handler = async (event) => {
       .get();
 
     if (userQuery.empty) {
-      console.warn("flutterwave-webhook: no user found for reference", reference);
-      return { statusCode: 200, body: "No matching user" };
+      // Not a static-account transfer — check if it's a one-time dynamic
+      // account instead (create-dynamic-account.js). Unlike the static
+      // account's reused tx_ref, a dynamic account's reference is unique
+      // per request and IS the dynamic_fundings doc ID, so this is a
+      // direct lookup, not a query.
+      return await handleDynamicFunding({ reference, chargeId, amount, currency: data.currency });
     }
 
     const userDoc = userQuery.docs[0];
@@ -251,6 +255,135 @@ exports.handler = async (event) => {
     return { statusCode: 200, body: "Error logged" };
   }
 };
+
+async function handleDynamicFunding({ reference, chargeId, amount, currency }) {
+  const fundingRef = db.collection("dynamic_fundings").doc(reference);
+  const fundingSnap = await fundingRef.get();
+  if (!fundingSnap.exists) {
+    console.warn("flutterwave-webhook: no static or dynamic match for reference", reference);
+    return { statusCode: 200, body: "No matching user" };
+  }
+  const funding = fundingSnap.data();
+  if (funding.status !== "pending") {
+    return { statusCode: 200, body: `Dynamic funding already ${funding.status}` };
+  }
+
+  const uid = funding.uid;
+  const userRef = db.collection("users").doc(uid);
+
+  const result = await db.runTransaction(async (tx) => {
+    const freshFundingSnap = await tx.get(fundingRef);
+    if (freshFundingSnap.data().status !== "pending") {
+      return { alreadyProcessed: true, netCredit: 0 };
+    }
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) {
+      throw Object.assign(new Error("User not found for dynamic wallet credit."), { statusCode: 404 });
+    }
+    const userData = userSnap.data();
+
+    const fee = FEE_FLAT;
+    const netCredit = round2(amount - fee);
+
+    const isFirstFunding = !userData.has_funded;
+    let referrerRef = null;
+    let referrerSnap = null;
+    let referrerId = null;
+    if (isFirstFunding && userData.referred_by && !userData.referral_paid) {
+      referrerId = userData.referred_by;
+      if (referrerId && referrerId !== uid) {
+        referrerRef = db.collection("users").doc(referrerId);
+        referrerSnap = await tx.get(referrerRef);
+      }
+    }
+    const referralEligible = !!(referrerRef && referrerSnap && referrerSnap.exists);
+
+    if (netCredit <= 0) {
+      tx.update(fundingRef, { status: "amount_too_small", credited_at: FieldValue.serverTimestamp() });
+      return { alreadyProcessed: false, netCredit: 0, tooSmall: true };
+    }
+
+    const userUpdate = {
+      wallet_balance: FieldValue.increment(netCredit),
+      last_activity_at: FieldValue.serverTimestamp(),
+    };
+    if (isFirstFunding) {
+      userUpdate.has_funded = true;
+      if (referralEligible) userUpdate.referral_paid = true;
+    }
+    tx.update(userRef, userUpdate);
+    logWalletTxn(tx, {
+      uid,
+      type: "topup",
+      amount: netCredit,
+      balance_after: round2((userData.wallet_balance || 0) + netCredit),
+      note: `Wallet top-up via one-time bank transfer (ref ${reference})`,
+      ref_id: reference,
+    });
+
+    if (referralEligible) {
+      tx.update(referrerRef, { olive_balance: FieldValue.increment(1) });
+      tx.set(db.collection("referrals").doc(), {
+        referrer_uid: referrerId,
+        referred_uid: uid,
+        referred_email: userData.email || null,
+        olives_awarded: 1,
+        olive_value_ngn: 2,
+        created_at: FieldValue.serverTimestamp(),
+      });
+    }
+
+    tx.update(fundingRef, {
+      status: "credited",
+      charge_id: chargeId || null,
+      net_credit: netCredit,
+      fee,
+      credited_at: FieldValue.serverTimestamp(),
+    });
+
+    return { alreadyProcessed: false, netCredit, referralAwardedTo: referralEligible ? referrerId : null };
+  });
+
+  if (!result.alreadyProcessed && !result.tooSmall) {
+    try {
+      const userSnap = await userRef.get();
+      const email = userSnap.data().email;
+      const newBalance = userSnap.data().wallet_balance || 0;
+
+      await userRef.collection("notifications").add({
+        type: "wallet_funded",
+        title: "Wallet funded",
+        body: `₦${result.netCredit.toLocaleString()} credited to your wallet.`,
+        amount: result.netCredit,
+        read: false,
+        created_at: FieldValue.serverTimestamp(),
+      });
+
+      if (email) {
+        const { subject, html } = walletFundedEmail({ amount: result.netCredit, newBalance });
+        await sendEmail({ to: email, subject, html });
+      }
+    } catch (emailErr) {
+      console.error("Dynamic funding email/notification failed:", emailErr.message);
+    }
+
+    if (result.referralAwardedTo) {
+      try {
+        await db.collection("users").doc(result.referralAwardedTo).collection("notifications").add({
+          type: "referral_earned",
+          title: "🫒 You earned an Olive!",
+          body: "Someone you referred just funded their wallet for the first time — 1 Olive (₦2) added to your balance.",
+          read: false,
+          created_at: FieldValue.serverTimestamp(),
+        });
+      } catch (notifErr) {
+        console.error("Referral notification failed:", notifErr.message);
+      }
+    }
+  }
+
+  return ok({ received: true, credited: !result.alreadyProcessed, amount });
+}
 
 function isValidSignature(signatureHeader) {
   const secret = process.env.FLW_WEBHOOK_SECRET_HASH || "";

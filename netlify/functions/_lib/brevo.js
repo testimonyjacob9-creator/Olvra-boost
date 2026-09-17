@@ -160,6 +160,23 @@ function supportEscalationEmail({ userEmail, message, hasAttachment }) {
   };
 }
 
+function pinResetCodeEmail({ name, code }) {
+  const body = `
+    <p style="margin:0 0 4px;">Hi ${name || "there"},</p>
+    <p style="margin:0 0 20px;">Someone requested a reset of your Transaction PIN. Enter this code in the app to set a new one:</p>
+    <div style="text-align:center;">
+      <span style="display:inline-block;font-size:32px;font-weight:800;letter-spacing:10px;color:#2C5CF6;padding:14px 10px;background:#EEF3FF;border-radius:14px;">
+        ${code}
+      </span>
+    </div>
+    <p style="margin:20px 0 0;color:${MUTED};">This code expires in 10 minutes. If you didn't request this, you can ignore this email — your PIN stays unchanged.</p>
+  `;
+  return {
+    subject: "Reset your Olvra Boost Transaction PIN",
+    html: renderEmail({ title: "Reset your Transaction PIN", bodyHtml: body }),
+  };
+}
+
 function escapeHtml(str) {
   return String(str || "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -170,6 +187,7 @@ module.exports = {
   orderConfirmationEmail,
   passwordResetEmail,
   verificationCodeEmail,
+  pinResetCodeEmail,
   walletFundedEmail,
   supportEscalationEmail,
 };

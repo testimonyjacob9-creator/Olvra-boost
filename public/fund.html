@@ -67,7 +67,8 @@
     <p class="sub">Choose how you'd like to add money.</p>
 
     <div class="tab-row">
-      <button class="tab-btn" id="tab-onetime">One-time payment</button>
+      <button class="tab-btn" id="tab-onetime">Card</button>
+      <button class="tab-btn" id="tab-dynamic">Bank Transfer</button>
       <button class="tab-btn active" id="tab-permanent">Permanent account</button>
     </div>
 
@@ -83,6 +84,30 @@
       <input class="input" id="onetime-amount" type="number" inputmode="numeric" placeholder="Or enter a custom amount (₦)" min="100">
       <button class="btn btn-primary" id="onetime-pay-btn">Pay now</button>
       <div class="msg" id="onetime-msg"></div>
+    </div>
+
+    <!-- ===== BANK TRANSFER (one-time dynamic account, no NIN/BVN required) ===== -->
+    <div id="dynamic-section" style="display:none">
+      <div id="dynamic-form-section">
+        <p class="fee-note">Get a one-time account number for this exact amount. A flat ₦50 charge applies per funding.</p>
+        <div class="amount-quick">
+          <button data-amt="500">₦500</button>
+          <button data-amt="1000">₦1,000</button>
+          <button data-amt="2000">₦2,000</button>
+          <button data-amt="5000">₦5,000</button>
+        </div>
+        <input class="input" id="dynamic-amount" type="number" inputmode="numeric" placeholder="Or enter a custom amount (₦)" min="100">
+        <button class="btn btn-primary" id="dynamic-generate-btn">Generate Account Number</button>
+        <div class="msg" id="dynamic-msg"></div>
+      </div>
+
+      <div class="account-box" id="dynamic-account-box">
+        <div class="bank" id="dynamic-bank-name"></div>
+        <div class="num" id="dynamic-account-number"></div>
+        <div class="bank" id="dynamic-amount-display"></div>
+        <div style="font-size:13px; font-weight:700; color:#1339B0; margin-top:10px;" id="dynamic-timer"></div>
+        <div class="msg" id="dynamic-status" style="margin-top:8px;">Waiting for your transfer…</div>
+      </div>
     </div>
 
     <!-- ===== PERMANENT ACCOUNT (requires NIN/BVN) ===== -->
@@ -109,38 +134,43 @@
 
   <script type="module">
     import { auth, db, callFunction, requireSignedInUser } from "./js/firebase-client.js";
-    import { doc as fsDoc, getDoc as fsGetDoc } from "./js/firebase-sdk.bundle.js";
+    import { doc as fsDoc, getDoc as fsGetDoc, onSnapshot as fsOnSnapshot } from "./js/firebase-sdk.bundle.js";
 
     const cfg = window.APP_CONFIG || {};
 
     // ---- Tabs ----
     const tabOnetime = document.getElementById("tab-onetime");
+    const tabDynamic = document.getElementById("tab-dynamic");
     const tabPermanent = document.getElementById("tab-permanent");
     const onetimeSection = document.getElementById("onetime-section");
+    const dynamicSection = document.getElementById("dynamic-section");
     const permanentSection = document.getElementById("permanent-section");
 
-    tabOnetime.onclick = () => {
-      tabOnetime.classList.add("active");
-      tabPermanent.classList.remove("active");
-      onetimeSection.style.display = "block";
-      permanentSection.style.display = "none";
-    };
-    tabPermanent.onclick = () => {
-      tabPermanent.classList.add("active");
-      tabOnetime.classList.remove("active");
-      permanentSection.style.display = "block";
-      onetimeSection.style.display = "none";
-    };
+    function showTab(which) {
+      [tabOnetime, tabDynamic, tabPermanent].forEach((t) => t.classList.remove("active"));
+      [onetimeSection, dynamicSection, permanentSection].forEach((s) => s.style.display = "none");
+      if (which === "onetime") { tabOnetime.classList.add("active"); onetimeSection.style.display = "block"; }
+      else if (which === "dynamic") { tabDynamic.classList.add("active"); dynamicSection.style.display = "block"; }
+      else { tabPermanent.classList.add("active"); permanentSection.style.display = "block"; }
+    }
+    tabOnetime.onclick = () => showTab("onetime");
+    tabDynamic.onclick = () => showTab("dynamic");
+    tabPermanent.onclick = () => showTab("permanent");
 
-    // ---- Quick amount buttons ----
+    // ---- Quick amount buttons (scoped per section — onetime and dynamic
+    // both have their own, must not cross-populate each other's input) ----
+    function wireQuickAmounts(sectionEl, inputEl) {
+      sectionEl.querySelectorAll(".amount-quick button").forEach((btn) => {
+        btn.onclick = () => {
+          sectionEl.querySelectorAll(".amount-quick button").forEach((b) => b.classList.remove("selected"));
+          btn.classList.add("selected");
+          inputEl.value = btn.dataset.amt;
+        };
+      });
+    }
     const amountInput = document.getElementById("onetime-amount");
-    document.querySelectorAll(".amount-quick button").forEach((btn) => {
-      btn.onclick = () => {
-        document.querySelectorAll(".amount-quick button").forEach((b) => b.classList.remove("selected"));
-        btn.classList.add("selected");
-        amountInput.value = btn.dataset.amt;
-      };
-    });
+    wireQuickAmounts(onetimeSection, amountInput);
+    wireQuickAmounts(dynamicSection, document.getElementById("dynamic-amount"));
 
     let currentUser = null;
 
@@ -197,6 +227,78 @@
           },
           onclose: () => {},
         });
+      };
+
+      // ---- Bank Transfer: one-time dynamic account ----
+      let dynamicTimerInterval = null;
+      let dynamicUnsub = null;
+      document.getElementById("dynamic-generate-btn").onclick = async () => {
+        const btn = document.getElementById("dynamic-generate-btn");
+        const msg = document.getElementById("dynamic-msg");
+        const amount = Number(document.getElementById("dynamic-amount").value);
+        if (!amount || amount < 100) {
+          msg.textContent = "Enter an amount of at least ₦100.";
+          msg.className = "msg error";
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Generating…";
+        msg.textContent = "";
+        try {
+          const result = await callFunction("create-dynamic-account", { amount });
+          document.getElementById("dynamic-form-section").style.display = "none";
+          const box = document.getElementById("dynamic-account-box");
+          document.getElementById("dynamic-bank-name").textContent = result.bankName || "Zenith Bank";
+          document.getElementById("dynamic-account-number").textContent = result.accountNumber;
+          document.getElementById("dynamic-amount-display").textContent = `Transfer exactly ₦${result.amount.toLocaleString()}`;
+          box.style.display = "block";
+
+          // Soft UX countdown — 30 minutes. This is our own on-screen
+          // guidance, not a value Flutterwave returns or enforces; if the
+          // transfer lands after it visually expires, the webhook still
+          // credits it (the pending dynamic_fundings doc has no hard
+          // expiry of its own), this is just to nudge timely payment.
+          const timerEl = document.getElementById("dynamic-timer");
+          const deadline = Date.now() + 30 * 60 * 1000;
+          clearInterval(dynamicTimerInterval);
+          const tick = () => {
+            const remain = deadline - Date.now();
+            if (remain <= 0) { timerEl.textContent = "Take your time — this account still works, just double-check the amount."; clearInterval(dynamicTimerInterval); return; }
+            const m = Math.floor(remain / 60000);
+            const s = Math.floor((remain % 60000) / 1000);
+            timerEl.textContent = `Best to transfer within ${m}:${String(s).padStart(2, "0")}`;
+          };
+          tick();
+          dynamicTimerInterval = setInterval(tick, 1000);
+
+          // Live confirmation — no manual "I've paid" button needed,
+          // Firestore pushes the update once flutterwave-webhook.js credits it.
+          if (dynamicUnsub) { dynamicUnsub(); dynamicUnsub = null; }
+          const fundingDocRef = fsDoc(db, "dynamic_fundings", result.reference);
+          const statusEl = document.getElementById("dynamic-status");
+          dynamicUnsub = fsOnSnapshot(fundingDocRef, (snap) => {
+            if (!snap.exists()) return;
+            const data = snap.data();
+            if (data.status === "credited") {
+              clearInterval(dynamicTimerInterval);
+              timerEl.textContent = "";
+              statusEl.textContent = `Payment received! ₦${(data.net_credit || 0).toLocaleString()} credited to your wallet.`;
+              statusEl.className = "msg ok";
+              setTimeout(() => { window.location.href = "/"; }, 1800);
+            } else if (data.status === "amount_too_small") {
+              statusEl.textContent = "Transfer received but too small after fees — contact support.";
+              statusEl.className = "msg error";
+            }
+          }, (err) => {
+            console.error("Dynamic funding listener error:", err);
+          });
+        } catch (err) {
+          msg.textContent = err.message || "Couldn't generate an account — try again.";
+          msg.className = "msg error";
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Generate Account Number";
+        }
       };
 
       // ---- Permanent account ----

@@ -24,11 +24,16 @@ function verifyPinHash(pin, stored) {
 
 /**
  * Call at the top of any wallet-spending function, right after loading
- * the user doc. Throws a 401 if a PIN is set and the one supplied is
- * missing/wrong. No-ops (returns true) if the user has never set a PIN.
+ * the user doc. Transaction PIN is now MANDATORY for everyone:
+ * - No PIN set at all -> blocks with PIN_NOT_SET so the frontend can
+ *   send the user to set one before retrying.
+ * - PIN set but none/wrong supplied -> blocks with PIN_REQUIRED /
+ *   PIN_INCORRECT as before.
  */
 function requirePinIfSet(userData, suppliedPin) {
-  if (!userData?.pin_hash) return true; // no PIN set — nothing to check
+  if (!userData?.pin_hash) {
+    throw Object.assign(new Error("Set a Transaction PIN to continue — required for all purchases."), { statusCode: 401, code: "PIN_NOT_SET" });
+  }
   if (!suppliedPin) {
     throw Object.assign(new Error("Enter your transaction PIN to continue."), { statusCode: 401, code: "PIN_REQUIRED" });
   }

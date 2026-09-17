@@ -100,6 +100,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // One-time dynamic funding accounts (create-dynamic-account.js) — a
+    // user watches their own pending-funding doc for a live status update
+    // once flutterwave-webhook.js confirms the transfer. Same pattern as
+    // wallet_topups: read own or admin, Admin SDK writes only.
+    match /dynamic_fundings/{reference} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin());
+      allow write: if false;
+    }
+
     // Support messages: written server-side only (contact-support.js, via
     // the Olives chat widget's escalate-to-a-human action). Only admins can
     // read the inbox from the app.

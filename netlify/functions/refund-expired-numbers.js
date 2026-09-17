@@ -56,15 +56,15 @@ exports.handler = async () => {
       // Still open on 5sim's side (or a code showed up right at the
       // boundary) — sync what we have and leave the refund decision to
       // its next real close, not to our expiry guess.
-      if (fresh.status !== order.status || (fresh.sms || []).length !== (order.sms || []).length) {
-        await doc.ref.update({ status: fresh.status, sms: fresh.sms || [] });
+      if (fresh.status !== order.status || (fivesim.extractSms(fresh)).length !== (order.sms || []).length) {
+        await doc.ref.update({ status: fresh.status, sms: fivesim.extractSms(fresh) });
         synced++;
       }
       continue;
     }
 
     if (fresh.status === "FINISHED") {
-      await doc.ref.update({ status: "FINISHED", sms: fresh.sms || [] });
+      await doc.ref.update({ status: "FINISHED", sms: fivesim.extractSms(fresh) });
       synced++;
       continue;
     }
@@ -94,7 +94,7 @@ exports.handler = async () => {
           note: `Rent Number ${fresh.status.toLowerCase()} — ${order.product} (${order.country}/${order.operator}), no code received${olivesUsed > 0 ? ` (+${olivesUsed} olives)` : ""}`,
           created_at: FieldValue.serverTimestamp(),
         });
-        tx.update(doc.ref, { status: fresh.status, sms: fresh.sms || [] });
+        tx.update(doc.ref, { status: fresh.status, sms: fivesim.extractSms(fresh) });
       });
 
       await db.collection("users").doc(order.uid).collection("notifications").add({

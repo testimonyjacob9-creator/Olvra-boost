@@ -127,4 +127,18 @@ async function getInbox(apiKey, orderId) {
   return res.data;
 }
 
-module.exports = { getPrices, getProducts, buyActivation, buyHosting, checkOrder, getInbox, finishOrder, cancelOrder, sellPriceNgn };
+/**
+ * 5sim's field casing isn't fully consistent across endpoints (confirmed
+ * on the hosting inbox endpoint returning "Data" instead of "sms") — this
+ * tries every casing seen so far rather than assuming one, since assuming
+ * wrong silently drops every code that ever arrives.
+ */
+function extractSms(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  const val = raw.sms ?? raw.Sms ?? raw.SMS ?? raw.Data ?? raw.data;
+  if (Array.isArray(val)) return val;
+  return [];
+}
+
+module.exports = { getPrices, getProducts, buyActivation, buyHosting, checkOrder, getInbox, finishOrder, cancelOrder, sellPriceNgn, extractSms };

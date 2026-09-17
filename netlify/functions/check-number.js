@@ -49,7 +49,7 @@ exports.handler = async (event) => {
 
     const fresh = await fivesim.checkOrder(apiKey, order.fivesim_order_id);
     const prevSmsCount = (order.sms || []).length;
-    const newSms = fresh.sms || [];
+    const newSms = fivesim.extractSms(fresh);
     const CLOSED_NO_SMS = new Set(["CANCELED", "TIMEOUT", "BANNED"]);
 
     if (CLOSED_NO_SMS.has(fresh.status) && newSms.length === 0) {

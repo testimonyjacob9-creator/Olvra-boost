@@ -171,7 +171,7 @@ exports.handler = async (event) => {
       phone: purchase.phone,
       fivesim_order_id: purchase.id,
       status: purchase.status || "PENDING",
-      sms: purchase.sms || [],
+      sms: fivesim.extractSms(purchase),
       cost_usd: costUsd,
       price_ngn: sellPriceNgn,
       ...(olivesUsed > 0 ? { olives_used: olivesUsed } : {}),

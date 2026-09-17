@@ -53,7 +53,7 @@ exports.handler = async (event) => {
       return ok({ status: order.status, phone: order.phone, sms: order.sms || [] });
     }
 
-    const freshSms = inbox?.Data || inbox?.sms || (Array.isArray(inbox) ? inbox : order.sms || []);
+    const freshSms = fivesim.extractSms(inbox);
     const prevCount = (order.sms || []).length;
 
     // Also check expiry — a hosting number naturally lapses to expired
