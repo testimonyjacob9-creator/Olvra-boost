@@ -15,6 +15,7 @@
 const { db, FieldValue } = require("./_lib/firebase-admin");
 const fivesim = require("./_lib/fivesim");
 const { FIVESIM_API_KEY } = require("./_lib/config");
+const { sendAdminFailureAlert } = require("./_lib/admin-alert");
 
 const CLOSED_NO_SMS = new Set(["CANCELED", "TIMEOUT", "BANNED"]);
 // Safety net for the rare order with no expires_at on file — 5sim's own
@@ -108,7 +109,21 @@ exports.handler = async () => {
 
       refunded++;
     } catch (err) {
+      // The order's Firestore status is still PENDING (the tx that would
+      // have updated it rolled back with the refund), so this order stays
+      // eligible for the NEXT run to retry — but if it keeps failing the
+      // same way every run, it never gets refunded and nothing else ever
+      // surfaces that beyond this log line. Alert every time so a
+      // persistent failure isn't just re-logged into the void.
       console.error(`refund-expired-numbers: refund failed for order ${doc.id}:`, err.message);
+      await sendAdminFailureAlert({
+        source: "refund-expired-numbers.js — refund transaction failed",
+        txType: "number_rental_refund_auto",
+        amount: order.price_ngn || null,
+        ref: doc.id,
+        reason: err.message,
+        uid: order.uid,
+      });
     }
   }
 

@@ -38,6 +38,7 @@ const { db, FieldValue } = require("./_lib/firebase-admin");
 const { ok, fail } = require("./_lib/respond");
 const { sendEmail, walletFundedEmail } = require("./_lib/brevo");
 const { logWalletTxn } = require("./_lib/wallet-ledger");
+const { sendAdminFailureAlert } = require("./_lib/admin-alert");
 
 // Flutterwave charges a fee on incoming bank transfers into a virtual
 // account. This is passed on to the user as a flat charge per funding,
@@ -252,6 +253,20 @@ exports.handler = async (event) => {
     return ok({ received: true, credited: !result.alreadyProcessed, amount });
   } catch (err) {
     console.error("flutterwave-webhook error:", err.message);
+    // Real money hit this webhook (signature already verified, event was
+    // charge.completed/bank_transfer) and something in the credit path
+    // threw — e.g. "User not found for wallet credit", a Firestore write
+    // failure, etc. Flutterwave still gets a 200 below (so it doesn't
+    // retry into the same broken code path), so this alert is the ONLY
+    // way anyone finds out — without it, a transfer could sit uncredited
+    // indefinitely with nothing but a Netlify log to show for it.
+    await sendAdminFailureAlert({
+      source: "flutterwave-webhook.js — unhandled error in credit path",
+      txType: "wallet_funding",
+      amount: amount || null,
+      ref: reference,
+      reason: err.message,
+    });
     return { statusCode: 200, body: "Error logged" };
   }
 };

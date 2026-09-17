@@ -16,6 +16,7 @@ const { requireAuth } = require("./_lib/require-auth");
 const { logWalletTxn } = require("./_lib/wallet-ledger");
 const { ok, fail } = require("./_lib/respond");
 const { sendEmail, walletFundedEmail } = require("./_lib/brevo");
+const { sendAdminFailureAlert } = require("./_lib/admin-alert");
 
 const FLW_V3_BASE = "https://api.flutterwave.com/v3";
 
@@ -51,21 +52,56 @@ exports.handler = async (event) => {
     const verifyData = await verifyRes.json();
 
     if (!verifyRes.ok || verifyData.status !== "success" || !verifyData.data) {
+      await sendAdminFailureAlert({
+        source: "verify-onetime-payment.js — Flutterwave verify call failed",
+        txType: "onetime_checkout",
+        ref: transactionId,
+        reason: `Flutterwave verify responded ${verifyRes.status}: ${verifyData?.message || "no data"}`,
+        userEmail: decoded.email,
+        uid,
+      });
       throw Object.assign(new Error("Could not verify transaction with Flutterwave."), { statusCode: 502 });
     }
 
     const tx = verifyData.data;
 
     if (tx.status !== "successful") {
+      await sendAdminFailureAlert({
+        source: "verify-onetime-payment.js — status not successful",
+        txType: "onetime_checkout",
+        amount: tx.amount,
+        ref: transactionId,
+        reason: `Flutterwave status: ${tx.status}`,
+        userEmail: decoded.email,
+        uid,
+      });
       throw Object.assign(new Error(`Payment status is "${tx.status}", not successful.`), { statusCode: 402 });
     }
     if (tx.currency !== "NGN") {
+      await sendAdminFailureAlert({
+        source: "verify-onetime-payment.js — unexpected currency",
+        txType: "onetime_checkout",
+        amount: tx.amount,
+        ref: transactionId,
+        reason: `Expected NGN, got ${tx.currency}`,
+        userEmail: decoded.email,
+        uid,
+      });
       throw Object.assign(new Error("Unexpected currency on transaction."), { statusCode: 400 });
     }
     // tx_ref is set by the client when opening checkout — cross-check it
     // matches what this user's session actually initiated, as a second
     // guard against replaying someone else's transactionId.
     if (expectedTxRef && tx.tx_ref !== expectedTxRef) {
+      await sendAdminFailureAlert({
+        source: "verify-onetime-payment.js — reference mismatch",
+        txType: "onetime_checkout",
+        amount: tx.amount,
+        ref: transactionId,
+        reason: `Expected tx_ref "${expectedTxRef}", got "${tx.tx_ref}" — possible replay of another transactionId`,
+        userEmail: decoded.email,
+        uid,
+      });
       throw Object.assign(new Error("Transaction reference mismatch."), { statusCode: 400 });
     }
 
@@ -81,42 +117,59 @@ exports.handler = async (event) => {
     // double-tap or a retried verify call can never credit twice.
     const topupRef = db.collection("wallet_topups").doc(String(transactionId));
 
-    const result = await db.runTransaction(async (t) => {
-      const already = await t.get(topupRef);
-      if (already.exists) {
-        return { alreadyProcessed: true };
-      }
+    let result;
+    try {
+      result = await db.runTransaction(async (t) => {
+        const already = await t.get(topupRef);
+        if (already.exists) {
+          return { alreadyProcessed: true };
+        }
 
-      const userSnap = await t.get(userRef);
-      if (!userSnap.exists) {
-        throw Object.assign(new Error("User not found."), { statusCode: 404 });
-      }
+        const userSnap = await t.get(userRef);
+        if (!userSnap.exists) {
+          throw Object.assign(new Error("User not found."), { statusCode: 404 });
+        }
 
-      t.update(userRef, { wallet_balance: FieldValue.increment(netCredit) });
-      t.set(topupRef, {
-        uid,
-        method: "onetime_checkout",
-        gross_amount: grossAmount,
-        fee: FEE_FLAT,
-        net_credit: netCredit,
-        currency: "NGN",
-        tx_ref: tx.tx_ref,
-        transaction_id: transactionId,
-        status: "credited",
-        credited_at: FieldValue.serverTimestamp(),
+        t.update(userRef, { wallet_balance: FieldValue.increment(netCredit) });
+        t.set(topupRef, {
+          uid,
+          method: "onetime_checkout",
+          gross_amount: grossAmount,
+          fee: FEE_FLAT,
+          net_credit: netCredit,
+          currency: "NGN",
+          tx_ref: tx.tx_ref,
+          transaction_id: transactionId,
+          status: "credited",
+          credited_at: FieldValue.serverTimestamp(),
+        });
+
+        const newBalance = (userSnap.data().wallet_balance || 0) + netCredit;
+        logWalletTxn(t, {
+          uid,
+          type: "topup",
+          amount: netCredit,
+          balance_after: round2(newBalance),
+          note: `Wallet top-up via checkout (tx ${transactionId})`,
+          ref_id: topupRef.id,
+        });
+        return { alreadyProcessed: false, newBalance };
       });
-
-      const newBalance = (userSnap.data().wallet_balance || 0) + netCredit;
-      logWalletTxn(t, {
+    } catch (txErr) {
+      // Flutterwave already confirmed this money as successfully collected
+      // (we passed every check above) — a failure past this point means
+      // real money came in with nothing to show for it in Firestore.
+      await sendAdminFailureAlert({
+        source: "verify-onetime-payment.js — wallet credit transaction failed",
+        txType: "onetime_checkout",
+        amount: grossAmount,
+        ref: transactionId,
+        reason: txErr.message,
+        userEmail: decoded.email,
         uid,
-        type: "topup",
-        amount: netCredit,
-        balance_after: round2(newBalance),
-        note: `Wallet top-up via checkout (tx ${transactionId})`,
-        ref_id: topupRef.id,
       });
-      return { alreadyProcessed: false, newBalance };
-    });
+      throw txErr;
+    }
 
     if (!result.alreadyProcessed && decoded.email) {
       try {

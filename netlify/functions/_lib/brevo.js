@@ -20,7 +20,7 @@ async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function sendEmail({ to, toName, subject, html, replyTo, attachment }) {
+async function sendEmail({ to, toName, subject, html, replyTo, attachment, senderName }) {
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL;
   if (!apiKey || !senderEmail) {
@@ -28,7 +28,7 @@ async function sendEmail({ to, toName, subject, html, replyTo, attachment }) {
   }
 
   const payload = {
-    sender: { email: senderEmail, name: "Olvra Boost" },
+    sender: { email: senderEmail, name: senderName || "Olvra Boost" },
     to: [{ email: to, name: toName || to }],
     subject,
     htmlContent: html,

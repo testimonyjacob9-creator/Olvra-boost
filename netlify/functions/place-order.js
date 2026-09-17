@@ -20,6 +20,7 @@ const bigisub = require("./_lib/bigisub");
 const { sendEmail, orderConfirmationEmail } = require("./_lib/brevo");
 const { logWalletTxn, logWalletTxAsync } = require("./_lib/wallet-ledger");
 const { requirePinIfSet } = require("./_lib/pin");
+const { sendAdminFailureAlert } = require("./_lib/admin-alert");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -166,10 +167,32 @@ exports.handler = async (event) => {
     } catch (err) {
       // BigiSub call failed AFTER wallet/Olives were deducted — refund both immediately.
       const refundAmount = totalCost - (olivesUsed > 0 ? olivesUsed * 2 : 0);
-      await userRef.update({
-        wallet_balance: FieldValue.increment(refundAmount),
-        ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
-      });
+      try {
+        await userRef.update({
+          wallet_balance: FieldValue.increment(refundAmount),
+          ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
+        });
+      } catch (refundErr) {
+        // Worst case in this whole function: the provider failed AND the
+        // refund itself failed. Without this alert the user is simply
+        // charged ₦${totalCost} for nothing, with a generic 500 as their
+        // only signal — same class of bug as the missing round2() that
+        // used to sit in flutterwave-webhook.js.
+        console.error("Order refund FAILED after provider failure — wallet not credited back:", refundErr.message);
+        await sendAdminFailureAlert({
+          source: "place-order.js — refund itself failed after provider failure",
+          txType: "order_refund_auto",
+          amount: refundAmount,
+          ref: service?.service_id ? `service ${service.service_id}` : undefined,
+          reason: `Provider error: ${err.message} | Refund error: ${refundErr.message}`,
+          userEmail: decoded.email,
+          uid,
+        });
+        throw Object.assign(
+          new Error("Order failed with provider and the automatic refund also failed. Contact support — you will be refunded."),
+          { statusCode: 502 }
+        );
+      }
       // err.message alone (e.g. "Request failed with status code 400")
       // never shows WHY the provider rejected it — that's in the response
       // BODY, which axios doesn't include in .message. Logging it
@@ -227,6 +250,14 @@ exports.handler = async (event) => {
         });
       } catch (writeErr) {
         console.error("Failed-order record write failed:", writeErr.message);
+        await sendAdminFailureAlert({
+          source: "place-order.js — failed-order record write failed",
+          txType: "order_refund_auto",
+          amount: refundAmount,
+          reason: `Refund succeeded but the order doc write failed: ${writeErr.message}`,
+          userEmail: decoded.email,
+          uid,
+        });
       }
 
       // Ledger entries for the refund — same wallet_topups convention the
@@ -255,6 +286,15 @@ exports.handler = async (event) => {
         });
       } catch (ledgerErr) {
         console.error("Refund ledger write failed:", ledgerErr.message);
+        await sendAdminFailureAlert({
+          source: "place-order.js — refund ledger write failed",
+          txType: "order_refund_auto",
+          amount: refundAmount,
+          ref: failedOrderRef?.id,
+          reason: `Refund succeeded but the ledger/wallet_topups write failed: ${ledgerErr.message}`,
+          userEmail: decoded.email,
+          uid,
+        });
       }
 
       // Best-effort in-app notification, same as a successful order.

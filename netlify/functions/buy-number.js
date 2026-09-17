@@ -20,6 +20,7 @@ const fivesim = require("./_lib/fivesim");
 const { FIVESIM_COUNTRIES, FIVESIM_PRODUCTS, FIVESIM_API_KEY } = require("./_lib/config");
 const { getRentNumberPricing } = require("./_lib/rent-number-pricing");
 const { requirePinIfSet } = require("./_lib/pin");
+const { sendAdminFailureAlert } = require("./_lib/admin-alert");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -132,10 +133,30 @@ exports.handler = async (event) => {
       // Buy failed after deduction — refund immediately, same shape as
       // place-order.js's provider-failure refund path.
       const refundAmount = sellPriceNgn - (olivesUsed > 0 ? olivesUsed * 2 : 0);
-      await userRef.update({
-        wallet_balance: FieldValue.increment(refundAmount),
-        ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
-      });
+      try {
+        await userRef.update({
+          wallet_balance: FieldValue.increment(refundAmount),
+          ...(olivesUsed > 0 ? { olive_balance: FieldValue.increment(olivesUsed) } : {}),
+        });
+      } catch (refundErr) {
+        // Provider failed AND the refund itself failed — the user is
+        // simply out ₦${sellPriceNgn} with a generic 500 as their only
+        // signal unless this alert goes out.
+        console.error("Number-rental refund FAILED after provider failure — wallet not credited back:", refundErr.message);
+        await sendAdminFailureAlert({
+          source: "buy-number.js — refund itself failed after provider failure",
+          txType: "order_refund_auto",
+          amount: refundAmount,
+          ref: `${country}/${product}/${operator}`,
+          reason: `Provider error: ${err.message} | Refund error: ${refundErr.message}`,
+          userEmail: decoded.email,
+          uid,
+        });
+        throw Object.assign(
+          new Error("Couldn't get a number and the automatic refund also failed. Contact support — you will be refunded."),
+          { statusCode: 502 }
+        );
+      }
       const providerReason = err.response?.data?.message || err.message || "unknown error";
       console.error("5sim buy failed, wallet refunded:", providerReason, "| country/product/operator:", country, product, operator);
 
@@ -148,7 +169,18 @@ exports.handler = async (event) => {
         status: "credited",
         note: `Auto-refund: number rental failed with provider (${providerReason})`,
         credited_at: FieldValue.serverTimestamp(),
-      }).catch(() => {});
+      }).catch((ledgerErr) => {
+        console.error("Number-rental refund ledger write failed:", ledgerErr.message);
+        return sendAdminFailureAlert({
+          source: "buy-number.js — refund ledger write failed",
+          txType: "order_refund_auto",
+          amount: refundAmount,
+          ref: `${country}/${product}/${operator}`,
+          reason: `Refund succeeded but the wallet_topups write failed: ${ledgerErr.message}`,
+          userEmail: decoded.email,
+          uid,
+        });
+      });
 
       try {
         await db.collection("users").doc(uid).collection("notifications").add({

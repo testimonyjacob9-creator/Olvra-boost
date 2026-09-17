@@ -12,6 +12,7 @@
 
 const { db, FieldValue } = require("./firebase-admin");
 const bigisub = require("./bigisub");
+const { sendAdminFailureAlert } = require("./admin-alert");
 
 // Once an order reaches one of these, we stop checking it — no more
 // BigiSub calls or Firestore reads spent on it. "partial" counts as done
@@ -137,10 +138,40 @@ async function runOrderStatusSync({ limit = 25 } = {}) {
       updated += 1;
 
       if (REFUNDABLE_STATUSES.includes(mapped) && !order.refunded_at_sync) {
-        const didRefund = await refundOrder(order, orderId, `Auto-refund — BigiSub reported "${live.status}" for order ${orderId}`);
-        if (didRefund) {
-          await docSnap.ref.update({ refunded_at_sync: FieldValue.serverTimestamp() });
-          refunded += 1;
+        try {
+          const didRefund = await refundOrder(order, orderId, `Auto-refund — BigiSub reported "${live.status}" for order ${orderId}`);
+          if (didRefund) {
+            await docSnap.ref.update({ refunded_at_sync: FieldValue.serverTimestamp() });
+            refunded += 1;
+          } else {
+            // refundOrder() only returns false when it can't even attempt
+            // the refund (no uid / no total_amount on the order, or no
+            // matching user doc) — the order is now marked failed/cancelled
+            // with nothing credited back, and nothing will retry it since
+            // mapped === order.status won't change again. Silent otherwise.
+            await sendAdminFailureAlert({
+              source: "order-status-sync-core.js — auto-refund skipped (no uid/user/amount)",
+              txType: "order_refund_auto_sync",
+              amount: order.total_amount || null,
+              ref: orderId,
+              reason: `Order status is now "${mapped}" but refundOrder() could not run (uid: ${order.uid || "missing"})`,
+              uid: order.uid,
+            });
+          }
+        } catch (refundErr) {
+          // The status write above already succeeded, so this order will
+          // never be picked up by this loop again (mapped === order.status
+          // next time) — meaning a refund failure here is permanent unless
+          // someone acts on it manually.
+          console.error(`Auto-refund failed for order ${orderId}:`, refundErr.message);
+          await sendAdminFailureAlert({
+            source: "order-status-sync-core.js — auto-refund threw",
+            txType: "order_refund_auto_sync",
+            amount: order.total_amount || null,
+            ref: orderId,
+            reason: refundErr.message,
+            uid: order.uid,
+          });
         }
       }
 
