@@ -185,6 +185,9 @@
 
   /* ===== Motion system ===== */
   @keyframes screenIn{ from{ opacity:0; transform:translateY(18px) scale(0.99); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  .screen-enter{ animation:screenIn 0.32s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes cardPop{ from{ opacity:0; transform:translateY(10px) scale(0.96); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  .cat-card, .operator-row, .order-row, .service-tile{ animation:cardPop 0.32s cubic-bezier(.2,.8,.2,1) both; }
   @keyframes fieldIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
   @keyframes brandPulse{ 0%{ box-shadow:0 8px 20px rgba(44,92,246,0.28), 0 0 0 0 rgba(44,92,246,0.35); } 70%{ box-shadow:0 8px 20px rgba(44,92,246,0.28), 0 0 0 10px rgba(44,92,246,0); } 100%{ box-shadow:0 8px 20px rgba(44,92,246,0.28), 0 0 0 0 rgba(44,92,246,0); } }
   @keyframes toastIn{ from{ opacity:0; transform:translate(-50%,10px); } to{ opacity:1; transform:translate(-50%,0); } }
@@ -950,7 +953,7 @@
       <div class="operator-list hidden" id="numbers-search-results"></div>
       <div class="section-title" id="numbers-curated-title" style="padding-top:14px;">Popular services</div>
       <div class="category-grid" id="numbers-product-grid">
-        <div class="empty-state">Loading services…</div>
+        <div class="empty-state"><div class="loading-dots" style="margin:16px auto;"><span></span><span></span><span></span></div></div>
       </div>
     </div>
 
@@ -1362,6 +1365,12 @@
         target.classList.remove("animate-in");
         void target.offsetWidth; // force reflow so the animation replays
         target.classList.add("animate-in");
+      } else {
+        // Every non-auth screen gets the same slide-up+fade entrance a
+        // native app uses between views, instead of an instant hard cut.
+        target.classList.remove("screen-enter");
+        void target.offsetWidth;
+        target.classList.add("screen-enter");
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -2387,6 +2396,10 @@
       ["product", "country", "operators", "active"].forEach((s) => {
         document.getElementById(`numbers-step-${s}`).classList.toggle("hidden", s !== step);
       });
+      const activeStepEl = document.getElementById(`numbers-step-${step}`);
+      activeStepEl.classList.remove("screen-enter");
+      void activeStepEl.offsetWidth;
+      activeStepEl.classList.add("screen-enter");
       const onProduct = step === "product";
       document.getElementById("numbers-history-title").classList.toggle("hidden", !onProduct);
       document.getElementById("numbers-history-list").classList.toggle("hidden", !onProduct);
@@ -2427,8 +2440,8 @@
 
     function renderNumbersProductGrid() {
       const grid = document.getElementById("numbers-product-grid");
-      grid.innerHTML = numbersOptions.products.map((p) => `
-        <div class="cat-card" data-product="${p.product}">
+      grid.innerHTML = numbersOptions.products.map((p, i) => `
+        <div class="cat-card" style="animation-delay:${Math.min(i*0.02,0.3)}s" data-product="${p.product}">
           <div class="cat-icon">${PRODUCT_ICONS[p.product] || "🔢"}</div>
           <div class="cat-name">${p.label}</div>
         </div>`).join("");
@@ -2482,8 +2495,8 @@
 
     function renderNumbersCountryGrid() {
       const grid = document.getElementById("numbers-country-grid");
-      grid.innerHTML = numbersOptions.countries.map((c) => `
-        <div class="cat-card" data-country="${c.country}">
+      grid.innerHTML = numbersOptions.countries.map((c, i) => `
+        <div class="cat-card" style="animation-delay:${Math.min(i*0.02,0.3)}s" data-country="${c.country}">
           <div class="cat-icon">🌍</div>
           <div class="cat-name">${c.label}</div>
         </div>`).join("");
@@ -2499,7 +2512,7 @@
     async function loadNumbersOperators() {
       const list = document.getElementById("numbers-operator-list");
       const empty = document.getElementById("numbers-operator-empty");
-      list.innerHTML = `<div class="empty-state">Checking live prices…</div>`;
+      list.innerHTML = `<div class="empty-state"><div class="loading-dots" style="margin:16px auto;"><span></span><span></span><span></span></div></div>`;
       empty.classList.add("hidden");
       try {
         const data = await callFunctionGet("numbers-prices", { country: numbersCountry.country, product: numbersProduct.product });
@@ -2508,8 +2521,8 @@
           empty.classList.remove("hidden");
           return;
         }
-        list.innerHTML = data.operators.map((o) => `
-          <div class="operator-row" data-operator="${o.operator}" data-price="${o.priceNgn}">
+        list.innerHTML = data.operators.map((o, i) => `
+          <div class="operator-row" style="animation-delay:${Math.min(i*0.03,0.3)}s" data-operator="${o.operator}" data-price="${o.priceNgn}">
             <div>
               <div class="op-name">${o.operator}</div>
               <div class="op-count">${o.count} available</div>
@@ -2942,6 +2955,10 @@
       ["country", "duration", "operators", "active"].forEach((s) => {
         document.getElementById(`hosting-step-${s}`).classList.toggle("hidden", s !== step);
       });
+      const activeStepEl = document.getElementById(`hosting-step-${step}`);
+      activeStepEl.classList.remove("screen-enter");
+      void activeStepEl.offsetWidth;
+      activeStepEl.classList.add("screen-enter");
       const onCountry = step === "country";
       document.getElementById("hosting-history-title").classList.toggle("hidden", !onCountry);
       document.getElementById("hosting-history-list").classList.toggle("hidden", !onCountry);
@@ -2954,8 +2971,8 @@
 
     function renderHostingCountryGrid() {
       const grid = document.getElementById("hosting-country-grid");
-      grid.innerHTML = hostingOptions.countries.map((c) => `
-        <div class="cat-card" data-country="${c.country}">
+      grid.innerHTML = hostingOptions.countries.map((c, i) => `
+        <div class="cat-card" style="animation-delay:${Math.min(i*0.02,0.3)}s" data-country="${c.country}">
           <div class="cat-icon">🌍</div>
           <div class="cat-name">${c.label}</div>
         </div>`).join("");
@@ -2970,8 +2987,8 @@
 
     function renderHostingDurationGrid() {
       const grid = document.getElementById("hosting-duration-grid");
-      grid.innerHTML = hostingOptions.durations.map((d) => `
-        <div class="cat-card" data-product="${d.product}">
+      grid.innerHTML = hostingOptions.durations.map((d, i) => `
+        <div class="cat-card" style="animation-delay:${Math.min(i*0.02,0.3)}s" data-product="${d.product}">
           <div class="cat-icon">⏳</div>
           <div class="cat-name">${d.label}</div>
         </div>`).join("");
@@ -2987,7 +3004,7 @@
     async function loadHostingOperators() {
       const list = document.getElementById("hosting-operator-list");
       const empty = document.getElementById("hosting-operator-empty");
-      list.innerHTML = `<div class="empty-state">Checking live prices…</div>`;
+      list.innerHTML = `<div class="empty-state"><div class="loading-dots" style="margin:16px auto;"><span></span><span></span><span></span></div></div>`;
       empty.classList.add("hidden");
       try {
         const data = await callFunctionGet("hosting-prices", { country: hostingCountry.country, product: hostingDuration.product });
@@ -2996,8 +3013,8 @@
           empty.classList.remove("hidden");
           return;
         }
-        list.innerHTML = data.operators.map((o) => `
-          <div class="operator-row" data-operator="${o.operator}" data-price="${o.priceNgn}">
+        list.innerHTML = data.operators.map((o, i) => `
+          <div class="operator-row" style="animation-delay:${Math.min(i*0.03,0.3)}s" data-operator="${o.operator}" data-price="${o.priceNgn}">
             <div>
               <div class="op-name">${o.operator}</div>
               <div class="op-count">${o.count} available</div>
