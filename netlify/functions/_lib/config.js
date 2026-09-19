@@ -146,10 +146,15 @@ module.exports = {
 
   // Hosting (long-term) numbers — the "product" 5sim expects here is a
   // DURATION slug, not a service name (see fivesim.js's buyHosting doc
-  // comment). These slug guesses follow 5sim's documented examples
-  // (3hours, 1day, 10days, 1month) — not all individually confirmed
-  // against the live catalog; a wrong one just returns no prices for
-  // that option, same fallback behavior as the activation product list.
+  // comment). This is now ONLY a label lookup — hosting-prices.js
+  // discovers which duration slugs are actually valid/available for a
+  // given country live via fivesim.getProducts() (5sim's own
+  // /v1/guest/products/$country/any, Category==="hosting") rather than
+  // assuming this fixed list, since guessing a slug 5sim doesn't
+  // recognize for that country was the cause of the "400 product is
+  // incorrect" error on Long-Term Number pricing (2026-09-18). Any
+  // duration key 5sim returns that isn't in this map just falls back to
+  // showing the raw key as its label.
   HOSTING_DURATIONS: [
     { product: "3hours", label: "3 Hours" },
     { product: "1day", label: "1 Day" },

@@ -4,42 +4,87 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Orders — Olvra Boost</title>
+<script>
+  (function(){
+    try {
+      var saved = localStorage.getItem("olvra_theme");
+      if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+    } catch {}
+  })();
+</script>
 <style>
   * { box-sizing: border-box; }
+  :root{
+    --bg:#F4F7FE; --card:#fff; --text:#10162B; --muted:#6B7590; --muted-2:#9AA3C0;
+    --line: rgba(16,22,54,0.08); --blue:#2C5CF6; --shadow: 0 4px 14px rgba(23,43,133,0.06);
+    --pending-bg:#FFF4E5; --pending-text:#FF9F43; --ok-bg:#E7F9F1; --ok-text:#12B76A;
+    --fail-bg:#FDECEC; --fail-text:#E5484D; --partial-bg:#F0EAFE; --partial-text:#7A4FE0;
+    --dash-bg:#F4F7FE; --dash-line: rgba(16,22,54,0.12);
+  }
+  html[data-theme="dark"]{
+    --bg:#0B0E1A; --card:#151A2E; --text:#F2F4FC; --muted:#9AA3C0; --muted-2:#6B7590;
+    --line: rgba(242,244,252,0.09); --blue:#5B82FF; --shadow: 0 4px 14px rgba(0,0,0,0.35);
+    --pending-bg:#3A2E12; --pending-text:#FFB25E; --ok-bg:#123326; --ok-text:#3DD68C;
+    --fail-bg:#3A1418; --fail-text:#FF6B70; --partial-bg:#241C40; --partial-text:#B79CFF;
+    --dash-bg:#1C2340; --dash-line: rgba(242,244,252,0.14);
+  }
+  @media (prefers-color-scheme: dark){
+    html:not([data-theme="light"]):not([data-theme="dark"]){
+      --bg:#0B0E1A; --card:#151A2E; --text:#F2F4FC; --muted:#9AA3C0; --muted-2:#6B7590;
+      --line: rgba(242,244,252,0.09); --blue:#5B82FF; --shadow: 0 4px 14px rgba(0,0,0,0.35);
+      --pending-bg:#3A2E12; --pending-text:#FFB25E; --ok-bg:#123326; --ok-text:#3DD68C;
+      --fail-bg:#3A1418; --fail-text:#FF6B70; --partial-bg:#241C40; --partial-text:#B79CFF;
+      --dash-bg:#1C2340; --dash-line: rgba(242,244,252,0.14);
+    }
+  }
   body {
     font-family: 'Inter', -apple-system, sans-serif;
-    background: #F4F7FE; margin: 0; padding: 0 0 40px; color: #10162B;
+    background: var(--bg); margin: 0; padding: 0 0 40px; color: var(--text);
     max-width: 460px; margin-left: auto; margin-right: auto;
   }
   .header {
     display:flex; align-items:center; gap:12px; padding:18px 16px 14px;
-    position:sticky; top:0; background:#F4F7FE; z-index:5;
+    position:sticky; top:0; background:var(--bg); z-index:5;
   }
   .back-btn {
-    width:38px; height:38px; border-radius:12px; background:#fff; border:1px solid rgba(16,22,54,0.08);
-    display:flex; align-items:center; justify-content:center; text-decoration:none; color:#10162B; font-size:18px;
+    width:38px; height:38px; border-radius:12px; background:var(--card); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; text-decoration:none; color:var(--text); font-size:18px;
   }
-  .header h1 { font-size:17px; margin:0; font-weight:700; }
+  .header h1 { font-size:17px; margin:0; font-weight:700; flex:1; }
+  .filter-row { display:flex; gap:6px; padding:0 16px 12px; overflow-x:auto; }
+  .filter-chip {
+    flex-shrink:0; font-size:12px; font-weight:600; padding:6px 12px; border-radius:20px;
+    background:var(--card); border:1px solid var(--line); color:var(--muted); cursor:pointer; white-space:nowrap;
+  }
+  .filter-chip.active { background:var(--blue); color:#fff; border-color:var(--blue); }
   .order-list { padding: 0 16px; display:flex; flex-direction:column; gap:10px; }
   .order-card {
-    background:#fff; border:1px solid rgba(16,22,54,0.08); border-radius:16px; padding:14px;
-    box-shadow:0 4px 14px rgba(23,43,133,0.06);
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px;
+    box-shadow:var(--shadow);
   }
   .order-card .top-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px; }
   .order-card .name { font-size:13.5px; font-weight:600; line-height:1.4; }
-  .order-card .meta { font-size:12px; color:#6B7590; margin-top:4px; }
+  .order-card .meta { font-size:12px; color:var(--muted); margin-top:4px; }
   .status { font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:8px; white-space:nowrap; text-transform:capitalize; }
-  .status-processing, .status-pending, .status-in_progress { background:#FFF4E5; color:#FF9F43; }
-  .status-completed, .status-successful { background:#E7F9F1; color:#12B76A; }
-  .status-failed, .status-cancelled, .status-refunded { background:#FDECEC; color:#E5484D; }
-  .status-partial { background:#F0EAFE; color:#7A4FE0; }
-  .empty-state { text-align:center; padding:50px 20px; color:#9AA3C0; font-size:13px; }
-  .track-id { font-size:11px; color:#9AA3C0; margin-top:6px; font-family:monospace; }
+  .status-processing, .status-pending, .status-in_progress { background:var(--pending-bg); color:var(--pending-text); }
+  .status-completed, .status-successful { background:var(--ok-bg); color:var(--ok-text); }
+  .status-failed, .status-cancelled, .status-refunded { background:var(--fail-bg); color:var(--fail-text); }
+  .status-partial { background:var(--partial-bg); color:var(--partial-text); }
+  .empty-state { text-align:center; padding:50px 20px; color:var(--muted-2); font-size:13px; }
+  .track-id { font-size:11px; color:var(--muted-2); margin-top:6px; font-family:monospace; }
+
+  .code-box {
+    margin-top:10px; padding:10px 12px; border-radius:12px; background:var(--dash-bg);
+    border:1px dashed var(--dash-line); display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .code-box.empty { color:var(--muted-2); font-size:12px; font-style:italic; border-style:dashed; }
+  .code-box.failed { background:var(--fail-bg); border-color:var(--fail-text); color:var(--fail-text); font-size:12px; }
+  .code-box .code-text { font-family:monospace; font-size:15px; font-weight:700; letter-spacing:0.03em; color:var(--text); }
+  .code-box .copy-code { font-size:11px; font-weight:600; color:var(--blue); background:none; border:none; cursor:pointer; }
 
   @keyframes cardIn{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:translateY(0); } }
   @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; } }
   .order-card{ animation:cardIn 0.4s cubic-bezier(.2,.8,.2,1) both; transition:transform 0.12s ease; }
-  .order-card:active{ transform:scale(0.98); }
   .back-btn{ transition:transform 0.12s ease; }
   .back-btn:active{ transform:scale(0.92); }
 </style>
@@ -51,6 +96,14 @@
     <h1>Your Orders</h1>
   </div>
 
+  <div class="filter-row" id="filter-row">
+    <button class="filter-chip active" data-filter="all">All</button>
+    <button class="filter-chip" data-filter="boost">Boost</button>
+    <button class="filter-chip" data-filter="number">Rent Numbers</button>
+    <button class="filter-chip" data-filter="email">Email OTP</button>
+    <button class="filter-chip" data-filter="hosting">Long-Term</button>
+  </div>
+
   <div class="order-list" id="order-list">
     <div class="empty-state">Loading orders…</div>
   </div>
@@ -59,14 +112,23 @@
     import { collection, query, where, orderBy, limit, getDocs } from "./js/firebase-sdk.bundle.js";
     import { db, requireSignedInUser } from "./js/firebase-client.js";
 
-    function statusClass(status) {
-      return `status-${(status || "processing").toLowerCase()}`;
+    // Every order type a person can place lives in its own Firestore
+    // collection (boost orders vs number/email/hosting rentals behave too
+    // differently to share one schema), but this page is the single place
+    // that shows ALL of them together — so it fetches all four (capped,
+    // one query each) and merges/sorts client-side rather than living in
+    // just the "orders" collection like before.
+    const PER_TYPE_LIMIT = 20;
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
     }
 
     function timeAgo(ts) {
       if (!ts || !ts.toDate) return "";
-      const diffMs = Date.now() - ts.toDate().getTime();
-      const mins = Math.floor(diffMs / 60000);
+      const mins = Math.floor((Date.now() - ts.toDate().getTime()) / 60000);
       if (mins < 1) return "just now";
       if (mins < 60) return `${mins}m ago`;
       const hrs = Math.floor(mins / 60);
@@ -74,48 +136,190 @@
       return `${Math.floor(hrs / 24)}d ago`;
     }
 
-    async function loadOrders(uid) {
-      const container = document.getElementById("order-list");
+    const NUMBER_STATUS = {
+      PENDING: { label: "Waiting for code", cls: "status-pending" },
+      RECEIVED: { label: "Code received", cls: "status-completed" },
+      FINISHED: { label: "Completed", cls: "status-completed" },
+      CANCELED: { label: "Cancelled", cls: "status-cancelled" },
+      TIMEOUT: { label: "Timed out", cls: "status-failed" },
+      BANNED: { label: "Number unavailable", cls: "status-failed" },
+    };
+
+    // 5sim's SMS objects already come with a parsed `.code` field — no
+    // guessing needed for numbers/hosting. Email's raw text doesn't, so
+    // a light digit-run scan (4–8 digits, the shape virtually every OTP
+    // uses) picks the code out of the message body for display.
+    function guessCodeFromText(text) {
+      const m = String(text || "").match(/\b\d{4,8}\b/);
+      return m ? m[0] : null;
+    }
+
+    function smsCodeBox(smsArr) {
+      const list = smsArr || [];
+      if (list.length === 0) {
+        return `<div class="code-box empty">No code received yet — this updates automatically.</div>`;
+      }
+      const last = list[list.length - 1];
+      const code = last.code || guessCodeFromText(last.text) || last.text || "—";
+      return `
+        <div class="code-box">
+          <span class="code-text">${escapeHtml(code)}</span>
+          <button class="copy-code" data-copy="${escapeHtml(code)}">Copy</button>
+        </div>`;
+    }
+
+    function failedCodeBox(reason) {
+      return `<div class="code-box failed">${escapeHtml(reason)}</div>`;
+    }
+
+    function renderBoostCard(o, delay) {
+      const status = (o.status || "processing").toLowerCase();
+      return `
+        <div class="order-card" style="animation-delay:${delay}s" data-type="boost">
+          <div class="top-row">
+            <div class="name">${escapeHtml(o.service_name || "Boost Order")}</div>
+            <span class="status status-${status}">${escapeHtml(status)}</span>
+          </div>
+          <div class="meta">${o.quantity ?? ""} units · ₦${Number(o.total_amount || 0).toLocaleString()} · ${timeAgo(o.created_at)}</div>
+          ${o.fail_reason ? `<div class="meta" style="color:#E5484D;">${escapeHtml(o.refunded ? "Refunded to your wallet — the provider couldn't process this order." : "This order failed.")}</div>` : ""}
+          ${o.bigisub_tran_id ? `<div class="track-id">ID: ${escapeHtml(o.bigisub_tran_id)}</div>` : ""}
+        </div>`;
+    }
+
+    function renderNumberCard(o, delay, kind) {
+      const s = NUMBER_STATUS[o.status] || { label: o.status || "Processing", cls: "status-processing" };
+      const label = kind === "hosting" ? "Long-Term Number" : "Rent Number";
+      const isFailedNoCode = (o.status === "TIMEOUT" || o.status === "CANCELED" || o.status === "BANNED") && (!o.sms || o.sms.length === 0);
+      return `
+        <div class="order-card" style="animation-delay:${delay}s" data-type="${kind}">
+          <div class="top-row">
+            <div class="name">${label} — ${escapeHtml(o.product || "")}</div>
+            <span class="status ${s.cls}">${s.label}</span>
+          </div>
+          <div class="meta">${escapeHtml(o.country || "")} · ${escapeHtml(o.phone || "")} · ${timeAgo(o.created_at)}</div>
+          ${isFailedNoCode ? failedCodeBox("No code received — order failed.") : smsCodeBox(o.sms)}
+        </div>`;
+    }
+
+    function renderEmailCard(o, delay) {
+      const msgs = o.messages || [];
+      const expiredNoCode = o.status === "EXPIRED" && msgs.length === 0;
+      const label = o.status === "ACTIVE" ? { label: "Waiting for code", cls: "status-pending" }
+        : o.status === "EXPIRED" ? { label: "Expired", cls: msgs.length ? "status-completed" : "status-failed" }
+        : { label: "Closed", cls: msgs.length ? "status-completed" : "status-cancelled" };
+      let box;
+      if (expiredNoCode) {
+        box = failedCodeBox("No code received — order failed.");
+      } else if (msgs.length === 0) {
+        box = smsCodeBox([]);
+      } else {
+        const last = msgs[msgs.length - 1];
+        const code = guessCodeFromText(last.text) || guessCodeFromText(last.subject);
+        box = code
+          ? `<div class="code-box"><span class="code-text">${escapeHtml(code)}</span><button class="copy-code" data-copy="${escapeHtml(code)}">Copy</button></div>`
+          : `<div class="code-box"><span style="font-size:12px;">${escapeHtml((last.subject || last.text || "").slice(0, 80))}</span></div>`;
+      }
+      return `
+        <div class="order-card" style="animation-delay:${delay}s" data-type="email">
+          <div class="top-row">
+            <div class="name">Email OTP</div>
+            <span class="status ${label.cls}">${label.label}</span>
+          </div>
+          <div class="meta">${escapeHtml(o.address || "")} · ${timeAgo(o.created_at)}</div>
+          ${box}
+        </div>`;
+    }
+
+    async function fetchCollection(name, uid) {
       try {
-        const q = query(
-          collection(db, "orders"),
-          where("uid", "==", uid),
-          orderBy("created_at", "desc"),
-          limit(50)
-        );
+        const q = query(collection(db, name), where("uid", "==", uid), orderBy("created_at", "desc"), limit(PER_TYPE_LIMIT));
         const snap = await getDocs(q);
-
-        if (snap.empty) {
-          container.innerHTML = `<div class="empty-state">No orders yet — head to a platform on your dashboard to place your first one.</div>`;
-          return;
-        }
-
-        container.innerHTML = snap.docs.map((d, i) => {
-          const o = d.data();
-          const delay = Math.min(i * 0.03, 0.3).toFixed(2);
-          return `
-            <div class="order-card" style="animation-delay:${delay}s">
-              <div class="top-row">
-                <div class="name">${escapeHtml(o.service_name || "Order")}</div>
-                <span class="status ${statusClass(o.status)}">${o.status || "processing"}</span>
-              </div>
-              <div class="meta">${o.quantity} units · ₦${Number(o.total_amount).toLocaleString()} · ${timeAgo(o.created_at)}</div>
-              ${o.fail_reason ? `<div class="meta" style="color:#E5484D;">${escapeHtml(o.refunded ? "Refunded to your wallet — the provider couldn't process this order." : "This order failed.")}</div>` : ""}
-              ${o.bigisub_tran_id ? `<div class="track-id">ID: ${o.bigisub_tran_id}</div>` : ""}
-            </div>`;
-        }).join("");
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       } catch (err) {
-        console.error(err);
-        container.innerHTML = `<div class="empty-state">Couldn't load orders — check your connection and try again.</div>`;
+        console.error(`orders.html: failed to load ${name}:`, err);
+        return [];
       }
     }
 
-    // Orders are pending until a scheduled background job confirms their
-    // real status with BigiSub (runs every 10 min server-side) — so this
-    // page re-checks Firestore itself every 25s while the tab is actually
-    // visible, and stops the instant it isn't, rather than holding a
-    // permanent live connection open (cheaper on data for anyone on a
-    // metered/slow connection, at the cost of not being instant).
+    let allItems = []; // merged + tagged, sorted desc
+    let currentFilter = "all";
+
+    async function loadOrders(uid) {
+      const [boost, numbers, emails, hosting] = await Promise.all([
+        fetchCollection("orders", uid),
+        fetchCollection("number_orders", uid),
+        fetchCollection("email_orders", uid),
+        fetchCollection("hosting_orders", uid),
+      ]);
+
+      allItems = [
+        ...boost.map((o) => ({ ...o, _type: "boost" })),
+        ...numbers.map((o) => ({ ...o, _type: "number" })),
+        ...emails.map((o) => ({ ...o, _type: "email" })),
+        ...hosting.map((o) => ({ ...o, _type: "hosting" })),
+      ].sort((a, b) => (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
+
+      renderList();
+    }
+
+    function renderList() {
+      const container = document.getElementById("order-list");
+      const items = currentFilter === "all" ? allItems : allItems.filter((o) => o._type === currentFilter);
+
+      if (items.length === 0) {
+        container.innerHTML = `<div class="empty-state">No orders yet — head to a service on your dashboard to place your first one.</div>`;
+        return;
+      }
+
+      container.innerHTML = items.map((o, i) => {
+        const delay = Math.min(i * 0.03, 0.3).toFixed(2);
+        if (o._type === "boost") return renderBoostCard(o, delay);
+        if (o._type === "number") return renderNumberCard(o, delay, "number");
+        if (o._type === "hosting") return renderNumberCard(o, delay, "hosting");
+        return renderEmailCard(o, delay);
+      }).join("");
+
+      container.querySelectorAll(".copy-code").forEach((btn) => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          navigator.clipboard?.writeText(btn.dataset.copy);
+          btn.textContent = "Copied!";
+          setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+        };
+      });
+    }
+
+    document.querySelectorAll(".filter-chip").forEach((chip) => {
+      chip.onclick = () => {
+        document.querySelectorAll(".filter-chip").forEach((c) => c.classList.remove("active"));
+        chip.classList.add("active");
+        currentFilter = chip.dataset.filter;
+        renderList();
+      };
+    });
+
+    // Deep-linkable filter — "History" links from each service screen
+    // land here already filtered (e.g. /orders.html?type=email) instead
+    // of dumping everything and making the person filter it themselves.
+    (function applyFilterFromUrl() {
+      const type = new URLSearchParams(window.location.search).get("type");
+      const chip = type && document.querySelector(`.filter-chip[data-filter="${type}"]`);
+      if (chip) {
+        document.querySelectorAll(".filter-chip").forEach((c) => c.classList.remove("active"));
+        chip.classList.add("active");
+        currentFilter = type;
+      }
+    })();
+
+    // Snapshot-based, not live: this page shows exactly what's already
+    // stored on each order (the same data the background sync jobs and
+    // check-* polls already keep current while someone's actively
+    // watching a specific order) rather than re-calling 5sim/BigiSub
+    // itself for every order on this list — that would be 1 provider
+    // call per order per refresh, multiplied across everyone's orders,
+    // which is neither necessary nor quota-friendly here. A light
+    // Firestore re-read every 45s (tab visible only) keeps it fresh
+    // enough for a list view.
     let pollTimer = null;
     function startPolling(uid) {
       stopPolling();
@@ -132,12 +336,6 @@
     });
 
     let currentUid = null;
-
-    function escapeHtml(str) {
-      const div = document.createElement("div");
-      div.textContent = str;
-      return div.innerHTML;
-    }
 
     requireSignedInUser().then((user) => {
       currentUid = user.uid;

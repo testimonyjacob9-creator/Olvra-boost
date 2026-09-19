@@ -86,14 +86,19 @@ function sellPriceNgn(usdCost, overrides) {
 
 /**
  * Every product 5sim has for activation, across all countries/operators
- * (guest endpoint — country/operator "any" gives the broadest catalog).
- * Used only by numbers-search-products.js so users can find a service
- * outside the curated FIVESIM_PRODUCTS list in config.js.
+ * by default (guest endpoint — country/operator "any" gives the broadest
+ * catalog). Used by numbers-search-products.js so users can find a
+ * service outside the curated FIVESIM_PRODUCTS list in config.js, and by
+ * hosting-prices.js (with a real country) to discover which duration
+ * slugs are ACTUALLY valid/available for that country before ever
+ * querying guest/prices with one — querying guest/prices with a duration
+ * string 5sim doesn't recognize for that country is what was producing
+ * "400 product is incorrect" for Long-Term Numbers.
  */
-async function getProducts(apiKey) {
+async function getProducts(apiKey, { country = "any", operator = "any" } = {}) {
   const api = client(apiKey);
-  const res = await api.get("/v1/guest/products/any/any");
-  return res.data; // { [productSlug]: { Category, Qty, Price } }
+  const res = await api.get(`/v1/guest/products/${country}/${operator}`);
+  return res.data; // { [productSlug]: { Category: "activation"|"hosting", Qty, Price } }
 }
 
 /**
