@@ -230,6 +230,8 @@
         </div>`;
     }
 
+    let loadErrors = [];
+
     async function fetchCollection(name, uid) {
       try {
         const q = query(collection(db, name), where("uid", "==", uid), orderBy("created_at", "desc"), limit(PER_TYPE_LIMIT));
@@ -237,6 +239,11 @@
         return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       } catch (err) {
         console.error(`orders.html: failed to load ${name}:`, err);
+        // A composite-index error here fails silently otherwise — the
+        // section just looks empty with no clue why (reported 2026-09-19:
+        // Email OTP orders weren't showing up at all). Surface it instead
+        // of swallowing it, without blocking the other order types.
+        loadErrors.push({ name, message: err.message || String(err) });
         return [];
       }
     }
@@ -245,6 +252,7 @@
     let currentFilter = "all";
 
     async function loadOrders(uid) {
+      loadErrors = [];
       const [boost, numbers, emails, hosting] = await Promise.all([
         fetchCollection("orders", uid),
         fetchCollection("number_orders", uid),
@@ -266,12 +274,16 @@
       const container = document.getElementById("order-list");
       const items = currentFilter === "all" ? allItems : allItems.filter((o) => o._type === currentFilter);
 
+      const errorBanner = loadErrors.length
+        ? `<div class="code-box failed" style="margin:0 0 4px;">Couldn't load: ${loadErrors.map((e) => escapeHtml(e.name)).join(", ")}. This is usually a missing Firestore index — check the Netlify function logs for the exact "create index" link.</div>`
+        : "";
+
       if (items.length === 0) {
-        container.innerHTML = `<div class="empty-state">No orders yet — head to a service on your dashboard to place your first one.</div>`;
+        container.innerHTML = errorBanner + `<div class="empty-state">No orders yet — head to a service on your dashboard to place your first one.</div>`;
         return;
       }
 
-      container.innerHTML = items.map((o, i) => {
+      container.innerHTML = errorBanner + items.map((o, i) => {
         const delay = Math.min(i * 0.03, 0.3).toFixed(2);
         if (o._type === "boost") return renderBoostCard(o, delay);
         if (o._type === "number") return renderNumberCard(o, delay, "number");

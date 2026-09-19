@@ -28,8 +28,22 @@ exports.handler = async () => {
     return { statusCode: 200, body: "skipped — no API key" };
   }
 
-  const snap = await db.collection("number_orders").where("status", "==", "PENDING").get();
-  if (snap.empty) {
+  const pendingSnap = await db.collection("number_orders").where("status", "==", "PENDING").get();
+
+  // 5sim can flip status to RECEIVED a moment before the SMS payload
+  // itself is attached — check-number.js writes both fields from the
+  // SAME 5sim response, so if that race hits, we persist status:
+  // "RECEIVED" with sms: [] and nothing ever re-checks it again once the
+  // person leaves the active-number screen (reported 2026-09-19: the
+  // Orders page showing "Code Received" with an empty code box). This
+  // second, separate query (single-field equality — no extra composite
+  // index needed) catches exactly that stuck case; it's normally empty
+  // or near-empty since it only exists for a few seconds per order in
+  // the ordinary case, so the extra read is cheap.
+  const receivedSnap = await db.collection("number_orders").where("status", "==", "RECEIVED").get();
+  const stuckReceived = receivedSnap.docs.filter((d) => !(d.data().sms || []).length);
+
+  if (pendingSnap.empty && stuckReceived.length === 0) {
     return { statusCode: 200, body: "0 pending orders" };
   }
 
@@ -38,6 +52,24 @@ exports.handler = async () => {
   let synced = 0;
   let skipped = 0;
 
+  // Stuck RECEIVED-with-no-sms first — always re-check regardless of
+  // expiry, since these need fixing as soon as possible, not just when
+  // they'd time out anyway.
+  for (const doc of stuckReceived) {
+    const order = doc.data();
+    try {
+      const fresh = await fivesim.checkOrder(FIVESIM_API_KEY, order.fivesim_order_id);
+      const freshSms = fivesim.extractSms(fresh);
+      if (fresh.status !== order.status || freshSms.length > 0) {
+        await doc.ref.update({ status: fresh.status, sms: freshSms, updated_at: FieldValue.serverTimestamp() });
+        synced++;
+      }
+    } catch (err) {
+      console.error(`refund-expired-numbers: stuck-RECEIVED check failed for order ${doc.id}:`, err.message);
+    }
+  }
+
+  const snap = pendingSnap;
   for (const doc of snap.docs) {
     const order = doc.data();
     const expiresMs = order.expires_at ? new Date(order.expires_at).getTime() : null;
@@ -127,7 +159,7 @@ exports.handler = async () => {
     }
   }
 
-  const summary = `Checked ${snap.size} pending order(s): ${refunded} refunded, ${synced} synced, ${skipped} not yet expired.`;
+  const summary = `Checked ${snap.size} pending + ${stuckReceived.length} stuck-received order(s): ${refunded} refunded, ${synced} synced, ${skipped} not yet expired.`;
   console.log("refund-expired-numbers:", summary);
   return { statusCode: 200, body: summary };
 };

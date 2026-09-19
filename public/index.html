@@ -1047,6 +1047,7 @@
         <div>
           <span class="order-status status-processing" id="active-number-status-badge" style="margin-top:12px; display:inline-block;">Waiting for code…</span>
         </div>
+        <div style="font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5;">💡 Tip: for the best delivery success, use a VPN set to the number's country while requesting your code.</div>
         <div class="active-number-timer" id="active-number-timer"></div>
         <div class="sms-list" id="active-number-sms"></div>
         <div class="s hidden" id="active-number-cancel-wait" style="text-align:center; margin-top:8px; color:var(--muted-2); font-size:11.5px;"></div>
@@ -1110,7 +1111,7 @@
       <button class="copy-btn" id="email-copy">Copy Address</button>
       <div class="active-number-timer" id="email-timer"></div>
       <div class="sms-list" id="email-messages"></div>
-      <div class="empty-state" id="email-empty" style="padding:16px 0 0;">Waiting for an email to arrive…</div>
+      <div class="empty-state" id="email-empty" style="padding:16px 0 0;">Waiting for an email to arrive… <div class="loading-dots" style="margin:8px auto 0;"><span></span><span></span><span></span></div></div>
       <div class="active-number-actions">
         <button class="btn btn-ghost" id="email-new">New Inbox</button>
         <button class="btn btn-primary" id="email-done">Done</button>
@@ -1163,6 +1164,7 @@
         <div>
           <span class="order-status status-completed" id="hosting-active-badge" style="margin-top:12px; display:inline-block;">Active — receiving SMS</span>
         </div>
+        <div style="font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5;">💡 Tip: for the best delivery success, use a VPN set to the number's country while requesting your code.</div>
         <div class="active-number-timer" id="hosting-active-timer"></div>
         <div class="sms-list" id="hosting-active-sms"></div>
         <div class="empty-state" id="hosting-active-empty" style="padding:16px 0 0;">No messages yet — this number stays active and can receive SMS from anywhere until it expires.</div>
@@ -2995,7 +2997,9 @@
     function renderActiveNumberStatus(status, sms) {
       const badge = document.getElementById("active-number-status-badge");
       const label = { PENDING: "Waiting for code…", RECEIVED: "Code received", FINISHED: "Completed", CANCELED: "Cancelled", TIMEOUT: "Timed out", BANNED: "Number unavailable" }[status] || status;
-      badge.textContent = label;
+      badge.innerHTML = status === "PENDING"
+        ? `${label} <span class="loading-dots" style="margin-left:4px; vertical-align:middle;"><span></span><span></span><span></span></span>`
+        : label;
       badge.className = "order-status " + (
         status === "PENDING" ? "status-processing" :
         NUMBERS_CLOSED_STATUSES.has(status) && status !== "FINISHED" ? "status-failed" : "status-completed"
@@ -3466,7 +3470,10 @@
     function renderHostingSms(status, sms) {
       const badge = document.getElementById("hosting-active-badge");
       const closed = ["FINISHED", "CANCELED", "TIMEOUT", "BANNED"].includes(status);
-      badge.textContent = closed ? "Expired / closed" : "Active — receiving SMS";
+      const waiting = !closed && sms.length === 0;
+      badge.innerHTML = closed ? "Expired / closed" : waiting
+        ? `Active — receiving SMS <span class="loading-dots" style="margin-left:4px; vertical-align:middle;"><span></span><span></span><span></span></span>`
+        : "Active — receiving SMS";
       badge.className = "order-status " + (closed ? "status-failed" : "status-completed");
       const list = document.getElementById("hosting-active-sms");
       const empty = document.getElementById("hosting-active-empty");
