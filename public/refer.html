@@ -5,54 +5,79 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Refer &amp; Earn — Olvra Boost</title>
 <script src="config.js"></script>
+<script>
+  (function(){
+    try {
+      var saved = localStorage.getItem("olvra_theme");
+      if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+    } catch {}
+  })();
+</script>
 <style>
   * { box-sizing: border-box; }
+  :root{
+    --bg:#F4F7FE; --card:#fff; --text:#10162B; --muted:#6B7590; --text-2:#3A4266;
+    --line: rgba(16,22,54,0.08); --blue:#2C5CF6; --blue-deep:#1339B0; --surface-2:#EEF3FF;
+    --shadow: 0 6px 22px rgba(23,43,133,0.08); --stat-bg:#F4F7FE;
+  }
+  html[data-theme="dark"]{
+    --bg:#0B0E1A; --card:#151A2E; --text:#F2F4FC; --muted:#9AA3C0; --text-2:#C8CEE8;
+    --line: rgba(242,244,252,0.09); --blue:#5B82FF; --blue-deep:#7FA0FF; --surface-2:#1C2340;
+    --shadow: 0 6px 22px rgba(0,0,0,0.35); --stat-bg:#1C2340;
+  }
+  @media (prefers-color-scheme: dark){
+    html:not([data-theme="light"]):not([data-theme="dark"]){
+      --bg:#0B0E1A; --card:#151A2E; --text:#F2F4FC; --muted:#9AA3C0; --text-2:#C8CEE8;
+      --line: rgba(242,244,252,0.09); --blue:#5B82FF; --blue-deep:#7FA0FF; --surface-2:#1C2340;
+      --shadow: 0 6px 22px rgba(0,0,0,0.35); --stat-bg:#1C2340;
+    }
+  }
   body {
     font-family: 'Inter', -apple-system, sans-serif;
-    background: #F4F7FE; margin: 0; padding: 20px; color: #10162B;
+    background: var(--bg); margin: 0; padding: 20px; color: var(--text);
     max-width: 460px; margin-left: auto; margin-right: auto;
   }
   .card {
-    background: #fff; border: 1px solid rgba(16,22,54,0.08); border-radius: 20px;
-    padding: 22px; margin-bottom: 16px; box-shadow: 0 6px 22px rgba(23,43,133,0.08);
+    background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+    padding: 22px; margin-bottom: 16px; box-shadow: var(--shadow);
   }
   h1 { font-size: 18px; margin: 0 0 4px; }
-  p.sub { color: #6B7590; font-size: 13px; margin: 0 0 18px; line-height:1.5; }
+  p.sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; line-height:1.5; }
   .btn {
     width: 100%; padding: 14px; border-radius: 12px; border: none;
     font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
   }
-  .btn-primary { background: linear-gradient(135deg,#2C5CF6,#1339B0); color: #fff; }
-  .btn-ghost { background: #EEF3FF; color: #1339B0; }
-  a.back { display:block; text-align:center; margin-top:6px; color:#6B7590; font-size:13px; text-decoration:none; }
+  .btn-primary { background: linear-gradient(135deg,var(--blue),var(--blue-deep)); color: #fff; }
+  .btn-ghost { background: var(--surface-2); color: var(--blue-deep); }
+  a.back { display:block; text-align:center; margin-top:6px; color:var(--muted); font-size:13px; text-decoration:none; }
 
   .olive-hero {
     text-align:center; padding: 10px 0 6px;
   }
   .olive-hero .emoji { font-size: 44px; line-height:1; }
   .olive-hero .count { font-size: 36px; font-weight: 800; font-family:'JetBrains Mono',monospace; margin-top:6px; }
-  .olive-hero .value { color:#6B7590; font-size: 13px; margin-top:2px; }
+  .olive-hero .value { color:var(--muted); font-size: 13px; margin-top:2px; }
 
   .link-box {
-    display:flex; align-items:center; gap:8px; background:#EEF3FF; border-radius:12px;
+    display:flex; align-items:center; gap:8px; background:var(--surface-2); border-radius:12px;
     padding: 12px 14px; margin: 14px 0;
   }
   .link-box .link-text {
-    flex:1; font-size:13px; color:#1339B0; font-weight:600; overflow:hidden;
+    flex:1; font-size:13px; color:var(--blue-deep); font-weight:600; overflow:hidden;
     text-overflow:ellipsis; white-space:nowrap;
   }
   .link-box button {
-    background:#2C5CF6; color:#fff; border:none; border-radius:8px; padding:8px 14px;
+    background:var(--blue); color:#fff; border:none; border-radius:8px; padding:8px 14px;
     font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0;
   }
 
-  .how-it-works { font-size: 13px; color:#3A4266; line-height: 1.8; }
-  .how-it-works b { color:#10162B; }
+  .how-it-works { font-size: 13px; color:var(--text-2); line-height: 1.8; }
+  .how-it-works b { color:var(--text); }
 
   .stat-row { display:flex; gap:10px; margin-top:14px; }
-  .stat { flex:1; background:#F4F7FE; border-radius:12px; padding:12px; text-align:center; }
+  .stat { flex:1; background:var(--stat-bg); border-radius:12px; padding:12px; text-align:center; }
   .stat .n { font-size:20px; font-weight:800; }
-  .stat .l { font-size:11px; color:#6B7590; margin-top:2px; }
+  .stat .l { font-size:11px; color:var(--muted); margin-top:2px; }
 
   .msg { font-size: 13px; margin-top: 10px; min-height: 16px; text-align:center; }
 

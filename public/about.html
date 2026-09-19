@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>About — Olvra Boost</title>
+<script>
+  (function(){
+    try {
+      var saved = localStorage.getItem("olvra_theme");
+      if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+    } catch {}
+  })();
+</script>
 <meta name="description" content="Olvra Boost is a social media growth platform for followers, likes, views and comments across Instagram, TikTok, Facebook, Twitter, YouTube and more. Built by Testimony Inaweoghena Jacob under Olvra Systems.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://olvraboost.netlify.app/about.html">
@@ -31,6 +39,20 @@
     --blue:#2C5CF6; --blue-deep:#1339B0; --sky:#16B8E0;
     --text:#10162B; --muted:#6B7590; --muted-2:#9AA3C0; --line:rgba(16,22,54,0.08);
     --radius:20px; --shadow:0 6px 22px rgba(23,43,133,0.08);
+  }
+  html[data-theme="dark"]{
+    --bg:#0B0E1A; --surface:#151A2E; --surface-2:#1C2340; --surface-3:#262E52;
+    --blue:#5B82FF; --blue-deep:#7FA0FF; --sky:#4FD2F0;
+    --text:#F2F4FC; --muted:#9AA3C0; --muted-2:#6B7590; --line:rgba(242,244,252,0.09);
+    --shadow:0 6px 22px rgba(0,0,0,0.35);
+  }
+  @media (prefers-color-scheme: dark){
+    html:not([data-theme="light"]):not([data-theme="dark"]){
+      --bg:#0B0E1A; --surface:#151A2E; --surface-2:#1C2340; --surface-3:#262E52;
+      --blue:#5B82FF; --blue-deep:#7FA0FF; --sky:#4FD2F0;
+      --text:#F2F4FC; --muted:#9AA3C0; --muted-2:#6B7590; --line:rgba(242,244,252,0.09);
+      --shadow:0 6px 22px rgba(0,0,0,0.35);
+    }
   }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html,body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }

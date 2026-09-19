@@ -275,7 +275,7 @@
       const items = currentFilter === "all" ? allItems : allItems.filter((o) => o._type === currentFilter);
 
       const errorBanner = loadErrors.length
-        ? `<div class="code-box failed" style="margin:0 0 4px;">Couldn't load: ${loadErrors.map((e) => escapeHtml(e.name)).join(", ")}. This is usually a missing Firestore index — check the Netlify function logs for the exact "create index" link.</div>`
+        ? `<div class="code-box failed" style="margin:0 0 4px;">Couldn't load: ${loadErrors.map((e) => `${escapeHtml(e.name)} (${escapeHtml(e.message)})`).join("; ")}</div>`
         : "";
 
       if (items.length === 0) {
